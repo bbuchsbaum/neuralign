@@ -202,6 +202,39 @@ register_aligner(
 naturally produce embeddings should still expose an `(target × source)` operator
 (often a projection) and store any extra embedding artifacts in `method_state`.
 
+### dkge integration contract (operator-based)
+
+`dkge` operates in *effect space* with a design-kernel metric `K` (a `q×q` PSD kernel over effects).
+Its K-Procrustes alignment solves for an orthogonal `R` that maximizes `tr((U_ref^T K U) R)`, where
+`U` is a `q×r` K-orthonormal basis (`U^T K U = I`).
+
+To integrate with neuralign’s operator convention (`Y = A %*% X`), the dkge adapter should:
+
+- **AlignmentData$data**: per-subject matrices `X_s` with shape `r×q` (components × effects), typically `X_s = t(U_s)`.
+  Column order must match the effect ordering of `K`.
+- **AlignmentData@design**: a list containing at least:
+  - `K`: `q×q` design kernel in effect space.
+  - `effects`: character vector length `q` matching row/col names of `K` and the columns of `X_s`.
+- **Reference semantics**:
+  - `reference="consensus"`: compute a consensus basis via `dkge_consensus_basis_K(U_list, K)` on training subjects.
+  - `reference=<subject_id>`: use that subject’s basis as `U_ref`.
+  - `reference=<matrix>`: accept a template basis (either `r×q` like `X_s`, or `q×r` like `U`).
+  - Caveat: `reference="medoid"` in neuralign is Euclidean; if dkge needs a kernel-weighted medoid, pass an explicit subject id (computed in dkge) or use `consensus`.
+- **Transforms returned to neuralign**:
+  - For each subject, compute `R_s` using `dkge_procrustes_K(U_ref, U_s, K)`.
+  - Return operator `A_s = t(R_s)` (an `r×r` orthogonal matrix) so that:
+    - dkge’s right-multiply alignment: `U_s_aligned = U_s %*% R_s`
+    - neuralign’s left-multiply convention on `X_s = t(U_s)`: `t(U_s_aligned) = t(R_s) %*% t(U_s) = A_s %*% X_s`
+- **spaces**:
+  - Recommend `space_from = space_to = "dkge_effect_basis"` (or a more specific string incorporating a kernel/effect hash).
+- **Partial overlap (different subjects, different effect sets)**:
+  - v1 recommendation: preprocess to a shared effect index/order in dkge before calling neuralign (e.g., via `dkge_align_effects()`), so `X_s` all share the same `q` and `effects`.
+  - If the adapter supports partial overlap, it should own the `dkge_align_effects()` call and define how effect unions are built fold-safely (train-only union, optional priors), then fit bases on the completed kernels.
+
+Recommended dkge `register_aligner()` capabilities:
+`needs_design=TRUE`, `supports_cv=TRUE`, `transform_type="orthogonal"`, `returns_invertible=TRUE`,
+`supports_new_subject=TRUE`, `reference_types=c("subject","consensus","template")`, `returns="operator"`.
+
 ---
 
 ## MVP Implementation Order
