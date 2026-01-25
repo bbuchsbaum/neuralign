@@ -1,4 +1,5 @@
 ^\.beads$
+^\.beads/
 ^\.claude$
 ^\.git$
 ^neuralign\.Rcheck$

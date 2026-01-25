@@ -198,6 +198,10 @@ register_aligner(
 )
 ```
 
+**Note on embeddings:** neuralign is currently operator-based. Methods that
+naturally produce embeddings should still expose an `(target × source)` operator
+(often a projection) and store any extra embedding artifacts in `method_state`.
+
 ---
 
 ## MVP Implementation Order

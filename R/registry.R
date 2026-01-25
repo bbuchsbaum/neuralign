@@ -55,7 +55,7 @@ NULL
 #'   \item{returns_invertible}{Transform has exact inverse}
 #'   \item{transform_type}{Type: "orthogonal", "linear", "ot", "permutation"}
 #'   \item{mass_preserving}{For OT: does transport preserve mass?}
-#'   \item{returns}{What the method returns: "operator" or "embedding"}
+#'   \item{returns}{What the method returns. Currently "operator" only; "embedding" is reserved}
 #'   \item{supports_new_subject}{Can compute operator for new subject}
 #'   \item{supports_new_data}{Can apply existing operator to new data}
 #'   \item{reference_types}{Character vector of supported reference types}
@@ -115,7 +115,7 @@ register_aligner <- function(name,
     returns_invertible = FALSE,
     transform_type = "linear",  # "orthogonal", "linear", "ot", "permutation"
     mass_preserving = FALSE,
-    returns = "operator",  # "operator" or "embedding"
+    returns = "operator",  # "operator" (embedding reserved; see below)
 
     # Apply semantics
     supports_new_subject = TRUE,   # Can compute operator for new subject
@@ -125,6 +125,28 @@ register_aligner <- function(name,
     reference_types = c("subject", "consensus")
   )
   capabilities <- modifyList(default_caps, capabilities)
+
+  # Validate capabilities
+  if (!is.character(capabilities$returns) || length(capabilities$returns) != 1L) {
+    stop("capabilities$returns must be a single string", call. = FALSE)
+  }
+  if (!capabilities$returns %in% c("operator", "embedding")) {
+    stop(
+      sprintf(
+        "capabilities$returns must be one of: operator, embedding (got: %s)",
+        capabilities$returns
+      ),
+      call. = FALSE
+    )
+  }
+  if (identical(capabilities$returns, "embedding")) {
+    stop(
+      "neuralign currently supports operator-returning aligners only. ",
+      "If your method produces embeddings, expose them as (target x source) operators (e.g., projections) ",
+      "and store any extra embedding artifacts in method_state. Set capabilities$returns = 'operator'.",
+      call. = FALSE
+    )
+  }
 
   # Create registration entry
   entry <- list(

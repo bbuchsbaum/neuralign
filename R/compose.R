@@ -48,6 +48,27 @@ compose_alignment <- function(model1, model2) {
     stop("'model2' must be an AlignmentModel")
   }
 
+  caps1 <- aligner_capabilities(model1@method)
+  if (!is.null(caps1) && !identical(caps1$returns %||% "operator", "operator")) {
+    stop(
+      sprintf(
+        "Method '%s' does not return operator transforms; compose_alignment() currently supports operators only",
+        model1@method
+      ),
+      call. = FALSE
+    )
+  }
+  caps2 <- aligner_capabilities(model2@method)
+  if (!is.null(caps2) && !identical(caps2$returns %||% "operator", "operator")) {
+    stop(
+      sprintf(
+        "Method '%s' does not return operator transforms; compose_alignment() currently supports operators only",
+        model2@method
+      ),
+      call. = FALSE
+    )
+  }
+
   # Get common subjects
   subjects1 <- names(model1@transforms)
   subjects2 <- names(model2@transforms)
@@ -71,6 +92,13 @@ compose_alignment <- function(model1, model2) {
   composed_transforms <- lapply(common_subjects, function(subj) {
     t1 <- model1@transforms[[subj]]
     t2 <- model2@transforms[[subj]]
+
+    if (!.is_matrixish(t1) || !.is_matrixish(t2)) {
+      stop(
+        sprintf("Non-matrix transforms cannot be composed (subject '%s')", subj),
+        call. = FALSE
+      )
+    }
 
     # Check dimension compatibility
     if (ncol(t2) != nrow(t1)) {
@@ -155,15 +183,7 @@ setMethod("%*%", c("AlignmentModel", "matrix"),
 
     # Use first transform
     transform <- x@transforms[[1]]
-
-    if (ncol(transform) != nrow(y)) {
-      stop(sprintf(
-        "Dimension mismatch: transform is %d x %d, data is %d x %d",
-        nrow(transform), ncol(transform), nrow(y), ncol(y)
-      ))
-    }
-
-    transform %*% y
+    apply_transform(transform, y)
   }
 )
 
@@ -200,6 +220,13 @@ check_composition <- function(model1, model2) {
   subj <- common[1]
   t1 <- model1@transforms[[subj]]
   t2 <- model2@transforms[[subj]]
+
+  if (!.is_matrixish(t1) || !.is_matrixish(t2)) {
+    return(list(
+      compatible = FALSE,
+      message = "Non-matrix transforms cannot be composed"
+    ))
+  }
 
   if (ncol(t2) != nrow(t1)) {
     return(list(

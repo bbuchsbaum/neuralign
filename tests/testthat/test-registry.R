@@ -132,3 +132,20 @@ test_that("default capabilities are set correctly", {
   expect_false(caps$needs_geometry)
   expect_equal(caps$transform_type, "linear")  # Default type
 })
+
+test_that("embedding-returning aligners are rejected with guidance", {
+  neuralign:::.clear_registry()
+
+  dummy_fit <- function(data, reference, train_idx = NULL, ...) {
+    list(transforms = list(), reference_data = NULL, space_from = NULL, space_to = NULL)
+  }
+
+  expect_error(
+    register_aligner(
+      "emb",
+      dummy_fit,
+      capabilities = list(returns = "embedding")
+    ),
+    "operator-returning"
+  )
+})

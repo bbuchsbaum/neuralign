@@ -129,6 +129,12 @@ fit_alignment <- function(data,
     ...
   )
 
+  .validate_operator_transforms(
+    transforms = fit_result$transforms,
+    data_list = get_data_list(data),
+    context = sprintf("fit_alignment(%s)", aligner$name)
+  )
+
   # Build AlignmentModel
   model <- AlignmentModel(
     transforms = fit_result$transforms,
@@ -196,6 +202,12 @@ fit_alignment <- function(data,
       ...
     )
 
+    .validate_operator_transforms(
+      transforms = fit_result$transforms,
+      data_list = get_data_list(data)[subjects[train_idx]],
+      context = sprintf("fit_alignment(%s) [loso train]", aligner$name)
+    )
+
     # Apply to held-out subject
     test_transform <- .fit_new_subject(
       aligner, fit_result, data, test_idx, ref_resolved$reference
@@ -216,6 +228,12 @@ fit_alignment <- function(data,
     reference = ref_resolved$reference,
     train_idx = seq_len(n_subjects),
     ...
+  )
+
+  .validate_operator_transforms(
+    transforms = fit_result$transforms,
+    data_list = get_data_list(data),
+    context = sprintf("fit_alignment(%s) [loso all]", aligner$name)
   )
 
   model <- AlignmentModel(
@@ -292,6 +310,12 @@ fit_alignment <- function(data,
       ...
     )
 
+    .validate_operator_transforms(
+      transforms = fit_result$transforms,
+      data_list = get_data_list(data)[subjects[train_idx]],
+      context = sprintf("fit_alignment(%s) [kfold train]", aligner$name)
+    )
+
     # Apply to held-out subjects
     for (test_subj in test_subjects) {
       test_i <- match(test_subj, subjects)
@@ -312,6 +336,12 @@ fit_alignment <- function(data,
     reference = ref_resolved$reference,
     train_idx = seq_len(n_subjects),
     ...
+  )
+
+  .validate_operator_transforms(
+    transforms = fit_result$transforms,
+    data_list = get_data_list(data),
+    context = sprintf("fit_alignment(%s) [kfold all]", aligner$name)
   )
 
   model <- AlignmentModel(

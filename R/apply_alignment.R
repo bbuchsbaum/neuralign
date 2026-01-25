@@ -50,6 +50,17 @@ apply_alignment <- function(model,
     stop("'model' must be an AlignmentModel or AlignmentResult")
   }
 
+  caps <- aligner_capabilities(model@method)
+  if (!is.null(caps) && !identical(caps$returns %||% "operator", "operator")) {
+    stop(
+      sprintf(
+        "Method '%s' does not return operator transforms; apply_alignment() currently supports operators only",
+        model@method
+      ),
+      call. = FALSE
+    )
+  }
+
   # Coerce data to AlignmentData if needed
   if (!inherits(new_data, "AlignmentData")) {
     new_data <- as_alignment_data(new_data)
@@ -75,7 +86,7 @@ apply_alignment <- function(model,
   for (subj in existing_subjects) {
     transform <- model@transforms[[subj]]
     subj_data <- get_subject_data(new_data, subj)
-    aligned[[subj]] <- transform %*% subj_data
+    aligned[[subj]] <- apply_transform(transform, subj_data)
   }
 
   # Fit and apply for new subjects
@@ -114,7 +125,7 @@ apply_alignment <- function(model,
         new_transforms[[subj]] <- new_transform
 
         subj_data <- get_subject_data(new_data, subj)
-        aligned[[subj]] <- new_transform %*% subj_data
+        aligned[[subj]] <- apply_transform(new_transform, subj_data)
       }
     }
   }
@@ -189,6 +200,13 @@ apply_alignment <- function(model,
 #'
 #' @export
 apply_transform <- function(transform, data) {
+  if (!.is_matrixish(transform)) {
+    stop("Transform must be a matrix/Matrix operator", call. = FALSE)
+  }
+  if (!.is_matrixish(data)) {
+    data <- as.matrix(data)
+  }
+
   # Validate dimensions
   if (ncol(transform) != nrow(data)) {
     stop(sprintf(
