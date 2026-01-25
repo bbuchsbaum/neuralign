@@ -1,9 +1,43 @@
+# Beads issue tracker
 ^\.beads$
 ^\.beads/
+
+# Claude/AI config
 ^\.claude$
+^CLAUDE\.md$
+^AGENTS\.md$
+
+# Development documentation (not for CRAN)
+^PRD\.md$
+^ARCHITECTURE\.md$
+^SYNTHESIS_REPORT\.md$
+^VETTED_INTEGRATION_REPORT\.md$
+
+# Git
 ^\.git$
-^neuralign\.Rcheck$
-^\.\.Rcheck$
+^\.gitignore$
+^\.github$
+
+# R CMD check artifacts
 ^.*\.Rcheck$
+
+# Build artifacts
 ^.*\.tar\.gz$
+
+# pkgdown
+^_pkgdown\.yml$
+^pkgdown$
+^docs$
+
+# macOS
 ^\.DS_Store$
+
+# RStudio
+^\.Rproj\.user$
+^.*\.Rproj$
+
+# Coverage
+^codecov\.yml$
+
+# Misc dev files
+^cran-comments\.md$

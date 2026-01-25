@@ -1,0 +1,297 @@
+---
+title: "Getting Started with neuralign"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with neuralign}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Introduction
+
+neuralign provides a unified interface for neural alignment methods. It standardizes how alignment models are fit, applied, composed, and persisted---regardless of which algorithm or package implements the actual computation.
+
+This vignette covers:
+
+1. Creating input data with `AlignmentData`
+2. Fitting alignments with `fit_alignment()`
+3. Cross-validation modes
+4. Reference selection strategies
+5. Applying models to new data
+6. Quality assessment
+
+## Setup
+
+```{r setup}
+library(neuralign)
+```
+
+## Creating Alignment Data
+
+neuralign expects multi-subject data as a named list of matrices, where each matrix is `(features x observations)`:
+
+```{r create-data}
+# Simulate 5 subjects with 100 features and 50 timepoints each
+set.seed(42)
+n_subjects <- 5
+n_features <- 100
+n_obs <- 50
+
+# Create a shared signal that all subjects see (with noise)
+shared_signal <- matrix(rnorm(n_features * n_obs), n_features, n_obs)
+
+data_list <- lapply(1:n_subjects, function(i) {
+  # Each subject has the shared signal plus individual noise
+  # Also apply a random rotation to simulate misalignment
+  Q <- qr.Q(qr(matrix(rnorm(n_features^2), n_features)))
+  Q %*% shared_signal + 0.5 * matrix(rnorm(n_features * n_obs), n_features, n_obs)
+})
+names(data_list) <- paste0("sub-", sprintf("%02d", 1:n_subjects))
+
+# Wrap in AlignmentData
+adat <- AlignmentData(data_list)
+adat
+```
+
+### Optional Metadata
+
+`AlignmentData` can include additional metadata for methods that need it:
+
+```{r metadata, eval=FALSE}
+# For methods requiring task structure (e.g., dkge)
+adat_with_design <- AlignmentData(
+  data_list,
+  design = my_design_matrix,
+  space = "MNI152"
+)
+
+# For graph-based methods
+adat_with_geometry <- AlignmentData(
+  data_list,
+  geometry = adjacency_matrix
+)
+```
+
+## Basic Alignment
+
+The main function is `fit_alignment()`. By default, it uses Procrustes alignment with a consensus reference:
+
+```{r basic-fit}
+result <- fit_alignment(adat, method = "procrustes")
+result
+```
+
+### Accessing Results
+
+```{r access-results}
+# Get the fitted model (transforms + reference)
+model <- get_model(result)
+
+# Get aligned data
+aligned <- get_aligned(result)
+names(aligned)
+
+# Get a specific subject's transform
+Q <- get_transform(model, "sub-01")
+dim(Q)  # 100x100 orthogonal matrix
+
+# Get quality metrics computed during fitting
+get_quality(result)
+```
+
+## Reference Selection
+
+The reference determines what subjects are aligned *to*. neuralign supports several strategies:
+
+### Consensus Reference (default)
+
+Iteratively computes a mean template:
+
+```{r ref-consensus}
+result <- fit_alignment(adat, method = "procrustes", reference = "consensus")
+```
+
+### Medoid Reference
+
+Selects the subject most similar to all others:
+
+```{r ref-medoid}
+# Using correlation distance (default)
+result <- fit_alignment(adat, method = "procrustes", reference = "medoid")
+
+# Can also select medoid directly
+medoid_subj <- select_reference(adat, method = "medoid", distance = "correlation")
+medoid_subj
+```
+
+### Specific Subject
+
+Use a named subject as the reference:
+
+```{r ref-subject}
+result <- fit_alignment(adat, method = "procrustes", reference = "sub-03")
+```
+
+## Cross-Validation
+
+Cross-validation is critical for unbiased evaluation. neuralign ensures **reference selection happens within the training fold only**, preventing leakage.
+
+### Leave-One-Subject-Out (LOSO)
+
+```{r cv-loso}
+result_cv <- fit_alignment(adat, method = "procrustes", cv = "loso")
+
+# Check CV info
+get_cv_info(result_cv)
+
+# Each subject's transform was fit using the OTHER subjects as training
+# Reference was selected from training subjects only
+```
+
+### K-Fold Cross-Validation
+
+```{r cv-kfold}
+result_kfold <- fit_alignment(
+  adat,
+  method = "procrustes",
+  cv = "kfold",
+  cv_folds = 3
+)
+
+get_cv_info(result_kfold)
+```
+
+## Applying to New Data
+
+Once you have a fitted model, you can apply it to new subjects:
+
+```{r apply-new}
+# Create a new subject
+new_subject <- list(
+  "sub-06" = matrix(rnorm(n_features * n_obs), n_features, n_obs)
+)
+new_adat <- AlignmentData(new_subject)
+
+# Apply the existing model
+new_result <- apply_alignment(result, new_adat)
+
+# The new subject now has an aligned version
+names(get_aligned(new_result))
+```
+
+neuralign will warn if you apply a model to subjects that were in the training set (potential leakage).
+
+## Quality Assessment
+
+Assess alignment quality with multiple metrics:
+
+```{r quality}
+# Compute quality metrics
+quality <- alignment_quality(result, metrics = c("correlation", "isc"))
+
+# Mean pairwise correlation after alignment
+quality$mean_pairwise_correlation
+
+# Inter-subject correlation
+quality$mean_isc
+
+# Formatted summary
+print_quality_summary(quality)
+```
+
+### Comparing Before/After
+
+```{r quality-improvement}
+# Compare aligned vs original
+quality_compare <- alignment_quality(
+  result,
+  original = adat,
+  metrics = "correlation"
+)
+
+quality_compare$correlation_improvement
+```
+
+## Persistence
+
+Save and load alignment models:
+
+```{r persistence, eval=FALSE}
+# Save with provenance
+save_alignment(result, "my_alignment.rds")
+
+# Load later
+loaded_model <- load_alignment("my_alignment.rds")
+
+# Apply to new data
+apply_alignment(loaded_model, new_data)
+
+# Export for other tools
+export_alignment(result, "alignment_export", format = "json")
+```
+
+## Available Methods
+
+Check what methods are registered:
+
+```{r methods}
+available_aligners(details = TRUE)
+```
+
+Methods from external packages (manifoldalign, fmrireg.gnef, dkge) are auto-loaded when requested.
+
+## Operator Composition
+
+Chain multiple alignments:
+
+```{r compose, eval=FALSE}
+# Example: geometric alignment followed by functional
+geo_result <- fit_alignment(geo_data, method = "procrustes")
+func_result <- fit_alignment(geo_aligned_data, method = "procrustes")
+
+# Compose: apply geo first, then func
+composed <- func_result %*% geo_result
+
+# Check compatibility
+check_composition(geo_result, func_result)
+```
+
+## Registering Custom Aligners
+
+External packages can register their methods. See `?register_aligner` for details.
+
+```{r register, eval=FALSE}
+# Minimal example
+register_aligner(
+  name = "my_method",
+  fit_fn = function(data, reference, train_idx = NULL, ...) {
+    # ... compute transforms ...
+    list(
+      transforms = named_list_of_matrices,
+      reference_data = reference_matrix,
+      space_from = data@space,
+      space_to = data@space
+    )
+  },
+  capabilities = list(
+    supports_cv = TRUE,
+    transform_type = "orthogonal",
+    returns = "operator"
+  ),
+  package = "mypackage"
+)
+```
+
+## Next Steps
+
+- See `?fit_alignment` for all parameters
+- See `?AlignmentModel` for model structure details
+- See `?alignment_quality` for all quality metrics
+- For fmrigds integration, see `?as_map_family`

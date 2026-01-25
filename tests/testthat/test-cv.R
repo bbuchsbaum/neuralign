@@ -160,3 +160,111 @@ test_that("get_fold_assignments returns fold info", {
   expect_equal(length(assignments), 3)
   expect_true(all(names(assignments) %in% adat@subjects))
 })
+
+test_that("create_cv_folds accepts numeric input", {
+  folds <- create_cv_folds(5, method = "loso")
+
+  expect_equal(folds$n_folds, 5)
+  expect_equal(length(folds$assignments), 5)
+  expect_true(all(grepl("^sub-", names(folds$assignments))))
+})
+
+test_that("create_cv_folds accepts character vector", {
+  subjects <- c("alice", "bob", "charlie")
+  folds <- create_cv_folds(subjects, method = "loso")
+
+  expect_equal(folds$n_folds, 3)
+  expect_equal(names(folds$assignments), subjects)
+})
+
+test_that("create_cv_folds rejects invalid input", {
+  expect_error(
+    create_cv_folds(list(a = 1)),
+    "must be AlignmentData"
+  )
+})
+
+test_that("stratified CV requires groups", {
+  expect_error(
+    create_cv_folds(5, method = "stratified"),
+    "groups.*required"
+  )
+})
+
+test_that("stratified CV validates groups length", {
+  expect_error(
+    create_cv_folds(5, method = "stratified", groups = c("A", "B")),
+    "same length"
+  )
+})
+
+test_that("run_cv_alignment works with loso string", {
+  neuralign:::.register_procrustes()
+
+  set.seed(42)
+  data_list <- list(
+    "sub-01" = matrix(rnorm(50), 10, 5),
+    "sub-02" = matrix(rnorm(50), 10, 5),
+    "sub-03" = matrix(rnorm(50), 10, 5)
+  )
+  adat <- AlignmentData(data_list)
+
+  cv_result <- run_cv_alignment(adat, method = "procrustes", cv_folds = "loso")
+
+  expect_true(is.list(cv_result))
+  expect_s4_class(cv_result$result, "AlignmentResult")
+  expect_equal(length(cv_result$fold_results), 3)
+  expect_equal(cv_result$cv_info$method, "loso")
+})
+
+test_that("run_cv_alignment works with precomputed folds", {
+  neuralign:::.register_procrustes()
+
+  set.seed(42)
+  data_list <- list(
+    "sub-01" = matrix(rnorm(50), 10, 5),
+    "sub-02" = matrix(rnorm(50), 10, 5),
+    "sub-03" = matrix(rnorm(50), 10, 5),
+    "sub-04" = matrix(rnorm(50), 10, 5)
+  )
+  adat <- AlignmentData(data_list)
+
+  # Precompute folds
+  folds <- create_cv_folds(adat, method = "kfold", k = 2, seed = 123)
+
+  cv_result <- run_cv_alignment(adat, method = "procrustes", cv_folds = folds)
+
+  expect_equal(cv_result$cv_info$method, "kfold")
+  expect_equal(cv_result$cv_info$n_folds, 2)
+})
+
+test_that("run_cv_alignment accepts list input", {
+  neuralign:::.register_procrustes()
+
+  set.seed(42)
+  data_list <- list(
+    "sub-01" = matrix(rnorm(50), 10, 5),
+    "sub-02" = matrix(rnorm(50), 10, 5)
+  )
+
+  # Pass list directly, not AlignmentData
+  cv_result <- run_cv_alignment(data_list, method = "procrustes", cv_folds = "loso")
+
+  expect_s4_class(cv_result$result, "AlignmentResult")
+})
+
+test_that("get_fold_assignments returns NULL for non-CV result", {
+  neuralign:::.register_procrustes()
+
+  set.seed(42)
+  data_list <- list(
+    "sub-01" = matrix(rnorm(25), 5, 5),
+    "sub-02" = matrix(rnorm(25), 5, 5)
+  )
+  adat <- AlignmentData(data_list)
+
+  result <- fit_alignment(adat, method = "procrustes", cv = "none")
+
+  assignments <- get_fold_assignments(result)
+  expect_null(assignments)
+})

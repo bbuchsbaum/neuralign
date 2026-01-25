@@ -31,8 +31,11 @@ Suggests:
     neuroim2,
     jsonlite,
     abind,
-    R.matlab
+    R.matlab,
+    knitr,
+    rmarkdown
 Config/testthat/edition: 3
+VignetteBuilder: knitr
 Collate:
     'alignment_data.R'
     'alignment_model.R'

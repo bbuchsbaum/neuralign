@@ -105,10 +105,9 @@ validate_cv_setup <- function(cv_folds, reference = "medoid") {
 
       if (!reference %in% fold_subjects) {
         stop(sprintf(
-          "Fixed reference subject '%s' is in test set for fold '%s'. ",
-          "This causes leakage. Use reference='medoid' instead.",
+          "Fixed reference subject '%s' is in test set for fold '%s'. This causes leakage. Use reference='medoid' instead.",
           reference, fold_name
-        ))
+        ), call. = FALSE)
       }
     }
   }

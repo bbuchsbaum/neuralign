@@ -129,3 +129,162 @@ test_that("inverse_transform works for orthogonal transforms", {
   identity_approx <- forward %*% inverse
   expect_equal(identity_approx, diag(nrow(forward)), tolerance = 1e-10)
 })
+
+test_that("apply_alignment validates model input", {
+  expect_error(
+    apply_alignment("not a model", list("sub-01" = diag(5))),
+    "must be an AlignmentModel"
+  )
+})
+
+test_that("apply_alignment coerces list input to AlignmentData", {
+  neuralign:::.register_procrustes()
+
+  set.seed(888)
+  train_data <- list(
+    "sub-01" = matrix(rnorm(50), 10, 5),
+    "sub-02" = matrix(rnorm(50), 10, 5)
+  )
+  train_adat <- AlignmentData(train_data)
+
+  result <- fit_alignment(train_adat, method = "procrustes")
+
+  # Apply with raw list (should be coerced)
+  new_list <- list("sub-03" = matrix(rnorm(50), 10, 5))
+  new_result <- apply_alignment(result, new_list, warn_leakage = FALSE)
+
+  expect_s4_class(new_result, "AlignmentResult")
+  expect_true("sub-03" %in% names(get_aligned(new_result)))
+})
+
+test_that("apply_alignment errors for unregistered method", {
+  # Create a model with unregistered method
+  transforms <- list("sub-01" = diag(5))
+  model <- AlignmentModel(
+    transforms = transforms,
+    reference = "consensus",
+    method = "nonexistent_method_xyz",
+    train_subjects = "sub-01"
+  )
+
+  new_data <- list("sub-02" = matrix(1, 5, 3))
+
+  expect_error(
+    apply_alignment(model, new_data, warn_leakage = FALSE),
+    "not registered"
+  )
+})
+
+test_that("apply_alignment handles method that doesn't support new subjects", {
+  # Register a method that doesn't support new subjects
+  register_aligner(
+    name = "no_new_subj",
+    fit_fn = function(data, reference, ...) {
+      list(
+        transforms = list("x" = diag(5)),
+        reference_data = NULL
+      )
+    },
+    capabilities = list(
+      supports_new_subject = FALSE,
+      returns = "operator"
+    ),
+    package = "neuralign"
+  )
+
+  transforms <- list("sub-01" = diag(5))
+  model <- AlignmentModel(
+    transforms = transforms,
+    reference = "consensus",
+    method = "no_new_subj",
+    train_subjects = "sub-01"
+  )
+
+  new_data <- list("sub-02" = matrix(1, 5, 3))
+
+  expect_error(
+    apply_alignment(model, new_data, warn_leakage = FALSE),
+    "does not support fitting transforms"
+  )
+
+  unregister_aligner("no_new_subj")
+})
+
+test_that("apply_transform handles non-matrix input", {
+  transform <- diag(5)
+  data_vec <- 1:5  # Vector, not matrix
+
+  # Should be coerced to matrix and work
+  result <- apply_transform(transform, data_vec)
+  expect_true(is.matrix(result))
+  expect_equal(dim(result), c(5, 1))
+})
+
+test_that("apply_transform rejects invalid transform", {
+  expect_error(
+    apply_transform("not a matrix", diag(5)),
+    "must be a matrix"
+  )
+})
+
+test_that("inverse_transform with explicit method = transpose", {
+  neuralign:::.register_procrustes()
+
+  set.seed(999)
+  data_list <- list(
+    "sub-01" = matrix(rnorm(50), 10, 5),
+    "sub-02" = matrix(rnorm(50), 10, 5)
+  )
+  adat <- AlignmentData(data_list)
+
+  result <- fit_alignment(adat, method = "procrustes")
+  model <- get_model(result)
+
+  inverse <- inverse_transform(model, "sub-01", method = "transpose")
+  forward <- get_transform(model, "sub-01")
+
+  expect_equal(inverse, t(forward))
+})
+
+test_that("inverse_transform with method = solve", {
+  transforms <- list("sub-01" = matrix(c(1,2,0,1), 2, 2))  # Invertible but not orthogonal
+  model <- AlignmentModel(
+    transforms = transforms,
+    reference = "consensus",
+    method = "test"
+  )
+
+  inverse <- inverse_transform(model, "sub-01", method = "solve")
+  forward <- get_transform(model, "sub-01")
+
+  # forward %*% inverse should be identity
+  expect_equal(forward %*% inverse, diag(2), tolerance = 1e-10)
+})
+
+test_that("inverse_transform fails for singular matrix", {
+  transforms <- list("sub-01" = matrix(0, 2, 2))  # Singular
+  model <- AlignmentModel(
+    transforms = transforms,
+    reference = "consensus",
+    method = "test"
+  )
+
+  expect_error(
+    inverse_transform(model, "sub-01", method = "solve"),
+    "not invertible"
+  )
+})
+
+test_that("inverse_transform rejects unknown method", {
+  transforms <- list("sub-01" = diag(5))
+  model <- AlignmentModel(
+    transforms = transforms,
+    reference = "consensus",
+    method = "test"
+  )
+
+  expect_error(
+    inverse_transform(model, "sub-01", method = "unknown"),
+    "Unknown inverse method"
+  )
+})
