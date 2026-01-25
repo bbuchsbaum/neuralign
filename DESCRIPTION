@@ -1,0 +1,52 @@
+Package: neuralign
+Title: Unified Neural Alignment Framework
+Version: 0.1.0
+Author: Bradley Buchsbaum [aut, cre] (<https://orcid.org/0000-0002-8268-1465>)
+Maintainer: Bradley Buchsbaum <brad.buchsbaum@gmail.com>
+Authors@R:
+    person("Bradley", "Buchsbaum", , "brad.buchsbaum@gmail.com", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-8268-1465"))
+Description: A unified interface for neural alignment methods that provides
+    standardized objects (AlignmentData, AlignmentModel, AlignmentResult),
+    a plugin/registry system for ecosystem extension, reference selection
+    utilities, operator composition, and cross-validation plumbing with
+    leakage detection. Delegates algorithm implementation to specialized
+    packages like manifoldalign while providing orchestration and contracts.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Depends:
+    R (>= 4.1.0)
+Imports:
+    Matrix,
+    digest,
+    methods
+Suggests:
+    manifoldalign,
+    fmrigds,
+    topofmri,
+    dkge,
+    testthat (>= 3.0.0),
+    neuroim2,
+    jsonlite,
+    abind,
+    R.matlab
+Config/testthat/edition: 3
+Collate:
+    'alignment_data.R'
+    'alignment_model.R'
+    'alignment_result.R'
+    'registry.R'
+    'fit_alignment.R'
+    'apply_alignment.R'
+    'compose.R'
+    'reference.R'
+    'quality.R'
+    'cv.R'
+    'leakage.R'
+    'serialize.R'
+    'compat_fmrigds.R'
+    'aligner_procrustes.R'
+    'aligner_ot.R'
+    'zzz.R'

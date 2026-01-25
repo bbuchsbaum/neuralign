@@ -1,0 +1,9 @@
+.DS_Store
+.Rhistory
+.RData
+.Rproj.user/
+
+*.tar.gz
+*.Rcheck/
+..Rcheck/
+neuralign.Rcheck/
