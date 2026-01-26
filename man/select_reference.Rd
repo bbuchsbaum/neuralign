@@ -7,7 +7,7 @@
 select_reference(
   data,
   method = c("medoid", "centroid", "first", "random"),
-  distance = c("correlation", "euclidean", "frobenius"),
+  distance = c("correlation", "euclidean", "frobenius", "procrustes"),
   seed = NULL
 )
 }

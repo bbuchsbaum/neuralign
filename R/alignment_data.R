@@ -306,6 +306,10 @@ get_obs_labels <- function(object) {
 #'   the same number of features (rows).
 #' @param check_observations Logical; if TRUE, check that all subjects have
 #'   the same number of observations (columns).
+#' @param check_obs_labels Logical; if TRUE, validate `obs_labels`. For atomic
+#'   `obs_labels`, enforces length == n_obs (and requires a shared observation
+#'   axis). For list-valued `obs_labels`, validates per-subject label vectors
+#'   match each subject's observation count.
 #'
 #' @return TRUE invisibly if valid, otherwise throws an error.
 #'
@@ -318,9 +322,13 @@ validate_alignment_data <- function(object, check_features = TRUE,
   }
 
   # If obs_labels are present, enforce basic consistency automatically.
-  if (!is.null(object@obs_labels)) {
+  # Atomic obs_labels imply a shared observation axis; list obs_labels are
+  # per-subject and should not force matching observation counts.
+  if (!is.null(object@obs_labels) && (is.atomic(object@obs_labels) || is.factor(object@obs_labels))) {
     check_obs_labels <- TRUE
     check_observations <- TRUE
+  } else if (!is.null(object@obs_labels) && is.list(object@obs_labels)) {
+    check_obs_labels <- TRUE
   }
 
   # Get dimensions for each subject
@@ -356,58 +364,98 @@ validate_alignment_data <- function(object, check_features = TRUE,
   }
 
   if (check_obs_labels) {
-    n_obs <- unique(dims_mat[, 2])
-    if (length(n_obs) != 1 || is.na(n_obs)) {
-      stop(
-        "Cannot validate obs_labels: subjects have differing or unknown observation counts",
-        call. = FALSE
-      )
-    }
-
     labs <- object@obs_labels
     if (is.null(labs)) {
       stop("check_obs_labels=TRUE but object@obs_labels is NULL", call. = FALSE)
     }
 
-    if (!is.atomic(labs) && !is.factor(labs)) {
-      stop("obs_labels must be an atomic vector (character/factor/numeric/etc.)", call. = FALSE)
-    }
-
-    if (length(labs) != n_obs) {
-      stop(
-        sprintf("obs_labels length mismatch: expected %d, got %d", n_obs, length(labs)),
-        call. = FALSE
-      )
-    }
-
-    if (any(is.na(labs))) {
-      stop("obs_labels contains NA values", call. = FALSE)
-    }
-
-    # If column names are present, require they agree with obs_labels.
     data_list <- get_data_list(object)
-    colnames_list <- lapply(data_list, function(x) {
-      if (is.matrix(x) || inherits(x, "Matrix")) {
-        colnames(x)
-      } else {
-        NULL
+
+    if (is.atomic(labs) || is.factor(labs)) {
+      n_obs <- unique(dims_mat[, 2])
+      if (length(n_obs) != 1 || is.na(n_obs)) {
+        stop(
+          "Cannot validate obs_labels: subjects have differing or unknown observation counts",
+          call. = FALSE
+        )
       }
-    })
-    has_any_names <- any(vapply(colnames_list, function(nm) !is.null(nm), logical(1)))
-    has_all_names <- all(vapply(colnames_list, function(nm) !is.null(nm), logical(1)))
-    if (has_any_names && !has_all_names) {
-      stop("Some subjects have colnames but others do not; cannot validate against obs_labels", call. = FALSE)
-    }
-    if (has_all_names) {
-      for (subj in names(data_list)) {
-        nm <- colnames_list[[subj]]
-        if (length(nm) != length(labs) || any(nm != as.character(labs))) {
+      if (length(labs) != n_obs) {
+        stop(
+          sprintf("obs_labels length mismatch: expected %d, got %d", n_obs, length(labs)),
+          call. = FALSE
+        )
+      }
+      if (any(is.na(labs))) {
+        stop("obs_labels contains NA values", call. = FALSE)
+      }
+
+      # If column names are present, require they agree with obs_labels and are
+      # consistently present across subjects.
+      colnames_list <- lapply(data_list, function(x) {
+        if (is.matrix(x) || inherits(x, "Matrix")) colnames(x) else NULL
+      })
+      has_any_names <- any(vapply(colnames_list, function(nm) !is.null(nm), logical(1)))
+      has_all_names <- all(vapply(colnames_list, function(nm) !is.null(nm), logical(1)))
+      if (has_any_names && !has_all_names) {
+        stop("Some subjects have colnames but others do not; cannot validate against obs_labels", call. = FALSE)
+      }
+      if (has_all_names) {
+        for (subj in names(data_list)) {
+          nm <- colnames_list[[subj]]
+          if (length(nm) != length(labs) || any(nm != as.character(labs))) {
+            stop(
+              sprintf("Subject '%s' colnames do not match obs_labels", subj),
+              call. = FALSE
+            )
+          }
+        }
+      }
+    } else if (is.list(labs)) {
+      if (is.null(names(labs)) || any(!nzchar(names(labs)))) {
+        stop("obs_labels list must be a named list keyed by subject", call. = FALSE)
+      }
+      missing <- setdiff(object@subjects, names(labs))
+      if (length(missing) > 0) {
+        stop(
+          sprintf("obs_labels list is missing subjects: %s", paste(missing, collapse = ", ")),
+          call. = FALSE
+        )
+      }
+      for (subj in object@subjects) {
+        v <- labs[[subj]]
+        if (!is.atomic(v) && !is.factor(v)) {
           stop(
-            sprintf("Subject '%s' colnames do not match obs_labels", subj),
+            sprintf("obs_labels for subject '%s' must be an atomic vector", subj),
             call. = FALSE
           )
         }
+        v <- as.character(v)
+        n_obs_subj <- dims_mat[match(subj, object@subjects), 2]
+        if (is.na(n_obs_subj) || length(v) != n_obs_subj) {
+          stop(
+            sprintf(
+              "obs_labels length mismatch for subject '%s': expected %d, got %d",
+              subj, n_obs_subj, length(v)
+            ),
+            call. = FALSE
+          )
+        }
+        if (any(is.na(v))) {
+          stop(sprintf("obs_labels for subject '%s' contains NA values", subj), call. = FALSE)
+        }
+        x <- data_list[[subj]]
+        if (is.matrix(x) || inherits(x, "Matrix")) {
+          nm <- colnames(x)
+          if (!is.null(nm) && (length(nm) != length(v) || any(nm != v))) {
+            stop(
+              sprintf("Subject '%s' colnames do not match its obs_labels", subj),
+              call. = FALSE
+            )
+          }
+        }
       }
+    } else {
+      stop("obs_labels must be NULL, an atomic vector, or a named list", call. = FALSE)
     }
   }
 

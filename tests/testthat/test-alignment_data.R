@@ -272,8 +272,20 @@ test_that("validate_alignment_data errors for non-atomic obs_labels", {
   adat <- AlignmentData(data_list, obs_labels = list("a", "b", "c"))
   expect_error(
     validate_alignment_data(adat),
-    "atomic vector"
+    "named list keyed by subject"
   )
+})
+
+test_that("validate_alignment_data supports per-subject obs_labels lists", {
+  data_list <- list("sub-01" = matrix(1, 5, 3), "sub-02" = matrix(1, 5, 4))
+  adat <- AlignmentData(
+    data_list,
+    obs_labels = list(
+      "sub-01" = c("a", "b", "c"),
+      "sub-02" = c("a", "b", "c", "d")
+    )
+  )
+  expect_true(validate_alignment_data(adat, check_features = TRUE, check_observations = FALSE))
 })
 
 test_that("validate_alignment_data errors for obs_labels length mismatch", {

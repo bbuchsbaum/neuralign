@@ -48,6 +48,7 @@ Collate:
     'reference.R'
     'quality.R'
     'cv.R'
+    'feature_blocks.R'
     'leakage.R'
     'serialize.R'
     'compat_fmrigds.R'

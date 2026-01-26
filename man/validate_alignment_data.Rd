@@ -19,6 +19,11 @@ the same number of features (rows).}
 
 \item{check_observations}{Logical; if TRUE, check that all subjects have
 the same number of observations (columns).}
+
+\item{check_obs_labels}{Logical; if TRUE, validate \code{obs_labels}. For atomic
+\code{obs_labels}, enforces length == n_obs (and requires a shared observation
+axis). For list-valued \code{obs_labels}, validates per-subject label vectors
+match each subject's observation count.}
 }
 \value{
 TRUE invisibly if valid, otherwise throws an error.

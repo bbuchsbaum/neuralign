@@ -4,7 +4,14 @@
 \alias{.compute_pairwise_distance}
 \title{Compute Distance Between Two Matrices}
 \usage{
-.compute_pairwise_distance(x, y, distance)
+.compute_pairwise_distance(
+  x,
+  y,
+  distance,
+  obs_labels_x = NULL,
+  obs_labels_y = NULL,
+  min_overlap = 2L
+)
 }
 \arguments{
 \item{x}{First matrix.}
@@ -12,6 +19,12 @@
 \item{y}{Second matrix.}
 
 \item{distance}{Distance metric.}
+
+\item{obs_labels_x}{Optional observation labels for x.}
+
+\item{obs_labels_y}{Optional observation labels for y.}
+
+\item{min_overlap}{Minimum overlap required when labels are supplied.}
 }
 \value{
 Scalar distance.

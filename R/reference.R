@@ -41,7 +41,7 @@
 #' @export
 select_reference <- function(data,
                              method = c("medoid", "centroid", "first", "random"),
-                             distance = c("correlation", "euclidean", "frobenius"),
+                             distance = c("correlation", "euclidean", "frobenius", "procrustes"),
                              seed = NULL) {
   method <- match.arg(method)
   distance <- match.arg(distance)
@@ -78,13 +78,38 @@ select_reference <- function(data,
   dist_mat <- .compute_distance_matrix(data, distance)
 
   if (method == "medoid") {
-    # Medoid: subject with minimum sum of distances to all others
-    total_dist <- rowSums(dist_mat)
+    # Medoid: subject with minimum average distance to all others.
+    # When some pairs have no overlap (e.g., disjoint label sets), distances
+    # are NA; we ignore those pairs rather than failing outright.
+    total_dist <- rowMeans(dist_mat, na.rm = TRUE)
+    total_dist[!is.finite(total_dist)] <- Inf
+    if (all(is.infinite(total_dist))) {
+      stop(
+        "Cannot select medoid: no finite pairwise distances (check obs_labels overlap across subjects)",
+        call. = FALSE
+      )
+    }
     idx <- which.min(total_dist)
     return(subjects[idx])
   }
 
   if (method == "centroid") {
+    # Centroid requires a well-defined mean across subjects; if observation
+    # labels differ across subjects, this is not meaningful.
+    labels_by_subject <- .resolve_obs_labels_by_subject(data)
+    if (!is.null(labels_by_subject)) {
+      labs <- unique(lapply(labels_by_subject, paste, collapse = "\r"))
+      if (length(labs) > 1) {
+        stop(
+          paste0(
+            "Cannot use method='centroid' when obs_labels differ across subjects. ",
+            "Use method='medoid' (distance='procrustes' recommended) or harmonize observations first."
+          ),
+          call. = FALSE
+        )
+      }
+    }
+
     # Centroid: subject closest to the mean
     # First compute mean data
     data_list <- get_data_list(data)
@@ -116,12 +141,20 @@ select_reference <- function(data,
   n <- length(subjects)
   data_list <- get_data_list(data)
 
-  dist_mat <- matrix(0, n, n)
+  dist_mat <- matrix(NA_real_, n, n)
   rownames(dist_mat) <- colnames(dist_mat) <- subjects
+  diag(dist_mat) <- 0
+
+  labels_by_subject <- .resolve_obs_labels_by_subject(data)
 
   for (i in seq_len(n - 1)) {
     for (j in (i + 1):n) {
-      d <- .compute_pairwise_distance(data_list[[i]], data_list[[j]], distance)
+      labs_i <- if (!is.null(labels_by_subject)) labels_by_subject[[i]] else NULL
+      labs_j <- if (!is.null(labels_by_subject)) labels_by_subject[[j]] else NULL
+      d <- .compute_pairwise_distance(data_list[[i]], data_list[[j]], distance,
+        obs_labels_x = labs_i,
+        obs_labels_y = labs_j
+      )
       dist_mat[i, j] <- dist_mat[j, i] <- d
     }
   }
@@ -129,20 +162,127 @@ select_reference <- function(data,
   dist_mat
 }
 
+.match_obs_indices <- function(labels_source, labels_target, min_overlap = 2L) {
+  if (is.null(labels_source) || is.null(labels_target)) {
+    return(list(source = NULL, target = NULL, labels = NULL))
+  }
+  labels_source <- as.character(labels_source)
+  labels_target <- as.character(labels_target)
+  common <- intersect(labels_source, labels_target)
+  if (length(common) < min_overlap) {
+    stop(
+      sprintf(
+        "Not enough shared observation labels: %d (need >= %d)",
+        length(common), as.integer(min_overlap)
+      ),
+      call. = FALSE
+    )
+  }
+  list(
+    source = match(common, labels_source),
+    target = match(common, labels_target),
+    labels = common
+  )
+}
+
+.resolve_obs_labels_by_subject <- function(data) {
+  labels <- data@obs_labels
+  if (is.null(labels)) return(NULL)
+
+  subjects <- data@subjects
+  n <- length(subjects)
+
+  if (is.atomic(labels)) {
+    labs <- as.character(labels)
+    out <- rep(list(labs), n)
+    names(out) <- subjects
+    return(out)
+  }
+
+  if (is.list(labels)) {
+    if (is.null(names(labels))) {
+      if (length(labels) != n) {
+        stop(
+          "AlignmentData@obs_labels is a list without names; its length must match number of subjects",
+          call. = FALSE
+        )
+      }
+      names(labels) <- subjects
+    }
+    missing <- setdiff(subjects, names(labels))
+    if (length(missing) > 0) {
+      stop(
+        sprintf(
+          "AlignmentData@obs_labels list is missing subjects: %s",
+          paste(missing, collapse = ", ")
+        ),
+        call. = FALSE
+      )
+    }
+    out <- lapply(subjects, function(s) as.character(labels[[s]]))
+    names(out) <- subjects
+    return(out)
+  }
+
+  stop("AlignmentData@obs_labels must be NULL, an atomic vector, or a (named) list", call. = FALSE)
+}
+
+.subset_to_overlap <- function(x, y, obs_labels_x = NULL, obs_labels_y = NULL, min_overlap = 2L) {
+  x <- as.matrix(x)
+  y <- as.matrix(y)
+
+  if (is.null(obs_labels_x) && is.null(obs_labels_y)) {
+    if (!identical(dim(x), dim(y))) {
+      stop(
+        sprintf(
+          "Matrices have incompatible dimensions: x is %d x %d, y is %d x %d",
+          nrow(x), ncol(x), nrow(y), ncol(y)
+        ),
+        call. = FALSE
+      )
+    }
+    return(list(x = x, y = y, labels = NULL))
+  }
+
+  idx <- .match_obs_indices(obs_labels_x, obs_labels_y, min_overlap = min_overlap)
+  x <- x[, idx$source, drop = FALSE]
+  y <- y[, idx$target, drop = FALSE]
+  list(x = x, y = y, labels = idx$labels)
+}
 
 #' Compute Distance Between Two Matrices
 #'
 #' @param x First matrix.
 #' @param y Second matrix.
 #' @param distance Distance metric.
+#' @param obs_labels_x Optional observation labels for x.
+#' @param obs_labels_y Optional observation labels for y.
+#' @param min_overlap Minimum overlap required when labels are supplied.
 #'
 #' @return Scalar distance.
 #'
 #' @keywords internal
-.compute_pairwise_distance <- function(x, y, distance) {
-  # Ensure matrices
-  x <- as.matrix(x)
-  y <- as.matrix(y)
+.compute_pairwise_distance <- function(x,
+                                       y,
+                                       distance,
+                                       obs_labels_x = NULL,
+                                       obs_labels_y = NULL,
+                                       min_overlap = 2L) {
+  min_overlap <- as.integer(min_overlap)
+  if (!is.finite(min_overlap) || min_overlap < 1L) {
+    stop("'min_overlap' must be a positive integer", call. = FALSE)
+  }
+
+  # Subset to matched observations when labels are supplied
+  out <- tryCatch(
+    .subset_to_overlap(x, y, obs_labels_x = obs_labels_x, obs_labels_y = obs_labels_y, min_overlap = min_overlap),
+    error = function(e) NULL
+  )
+  if (is.null(out)) {
+    return(NA_real_)
+  }
+  x <- out$x
+  y <- out$y
 
   if (distance == "correlation") {
     # Mean correlation across features/rows
@@ -162,6 +302,10 @@ select_reference <- function(data,
   if (distance == "frobenius") {
     # Frobenius norm
     return(norm(x - y, "F"))
+  }
+
+  if (distance == "procrustes") {
+    return(procrustes_distance(x, y, convention = "left"))
   }
 
   stop(sprintf("Unknown distance: %s", distance))

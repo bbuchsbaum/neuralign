@@ -74,6 +74,7 @@ NULL
       } else {
         # .procrustes_single now returns left-multiply directly
         Q <- .procrustes_single(subj_data, ref_data, scale, reflection)
+        attr(Q, "scale_factor") <- NULL
         transforms[[subj]] <- Q
       }
     }
@@ -168,7 +169,9 @@ NULL
     if (is.character(reference) && subj == reference) {
       diag(nrow(data_list[[subj]]))
     } else {
-      .procrustes_single(data_list[[subj]], reference_data, scale, reflection)
+      Q <- .procrustes_single(data_list[[subj]], reference_data, scale, reflection)
+      attr(Q, "scale_factor") <- NULL
+      Q
     }
   })
   names(transforms) <- names(data_list)
@@ -204,7 +207,195 @@ NULL
     Q <- svd_result$v %*% t(svd_result$u)
   }
 
+  if (isTRUE(scale)) {
+    # Optimal scale factor s minimizing || s Q X - Y ||_F^2
+    # s = <Y, QX> / ||X||_F^2
+    QX <- Q %*% X
+    denom <- sum(X * X)
+    if (is.finite(denom) && denom > 0) {
+      s <- sum(Y * QX) / denom
+    } else {
+      s <- 1
+    }
+    Q <- s * Q
+    attr(Q, "scale_factor") <- s
+  }
+
   Q
+}
+
+#' Procrustes Rotation (Convention-Safe)
+#'
+#' Compute the (optionally scaled) Procrustes operator aligning a source matrix
+#' to a target matrix, with explicit left/right multiplication conventions.
+#'
+#' - `convention="left"` solves for `Q` such that `Q %*% source ≈ target`
+#'   where matrices are `(features x observations)`.
+#' - `convention="right"` solves for `Q` such that `source %*% Q ≈ target`
+#'   where matrices are `(observations x features)`.
+#'
+#' When per-matrix observation labels are supplied, alignment is computed on
+#' the intersection of labels (in the order they appear in `obs_labels_source`).
+#'
+#' @param source Source matrix.
+#' @param target Target/reference matrix.
+#' @param convention Multiplication convention (`"left"` or `"right"`).
+#' @param scale Logical; if `TRUE`, include optimal scale factor.
+#' @param reflection Logical; if `TRUE`, allow reflections (det(Q) may be -1).
+#' @param obs_labels_source Optional observation labels for `source`.
+#' @param obs_labels_target Optional observation labels for `target`.
+#' @param min_overlap Minimum number of shared labels when labels are supplied.
+#'
+#' @return A list with elements `Q`, `scale_factor`, `residual`,
+#'   `convention`, and `matched_labels`.
+#'
+#' @export
+procrustes_rotation <- function(source,
+                                target,
+                                convention = c("left", "right"),
+                                scale = FALSE,
+                                reflection = FALSE,
+                                obs_labels_source = NULL,
+                                obs_labels_target = NULL,
+                                min_overlap = 2L) {
+  convention <- match.arg(convention)
+  min_overlap <- as.integer(min_overlap)
+  if (!is.finite(min_overlap) || min_overlap < 1L) {
+    stop("'min_overlap' must be a positive integer", call. = FALSE)
+  }
+
+  if (!.is_matrixish(source) || !.is_matrixish(target)) {
+    stop("'source' and 'target' must be matrix-like", call. = FALSE)
+  }
+
+  if (convention == "left") {
+    X <- as.matrix(source)
+    Y <- as.matrix(target)
+    if (!is.null(obs_labels_source) || !is.null(obs_labels_target)) {
+      idx <- .match_obs_indices(obs_labels_source, obs_labels_target, min_overlap = min_overlap)
+      X <- X[, idx$source, drop = FALSE]
+      Y <- Y[, idx$target, drop = FALSE]
+      matched_labels <- idx$labels
+    } else {
+      matched_labels <- NULL
+    }
+    if (ncol(X) != ncol(Y)) {
+      stop(
+        sprintf(
+          "Left-convention requires matching observations: ncol(source)=%d, ncol(target)=%d",
+          ncol(X), ncol(Y)
+        ),
+        call. = FALSE
+      )
+    }
+    if (nrow(X) != nrow(Y)) {
+      stop(
+        sprintf(
+          "Left-convention requires matching feature dimensions: nrow(source)=%d, nrow(target)=%d",
+          nrow(X), nrow(Y)
+        ),
+        call. = FALSE
+      )
+    }
+
+    Q <- .procrustes_single(X, Y, scale = scale, reflection = reflection)
+    aligned <- Q %*% X
+    resid <- norm(aligned - Y, "F")
+    scale_factor <- if (isTRUE(scale)) attr(Q, "scale_factor") %||% 1 else 1
+    attr(Q, "scale_factor") <- NULL
+
+    return(list(
+      Q = Q,
+      scale_factor = scale_factor,
+      residual = resid,
+      convention = "left",
+      matched_labels = matched_labels
+    ))
+  }
+
+  Xr <- as.matrix(source)
+  Yr <- as.matrix(target)
+  if (!is.null(obs_labels_source) || !is.null(obs_labels_target)) {
+    idx <- .match_obs_indices(obs_labels_source, obs_labels_target, min_overlap = min_overlap)
+    Xr <- Xr[idx$source, , drop = FALSE]
+    Yr <- Yr[idx$target, , drop = FALSE]
+    matched_labels <- idx$labels
+  } else {
+    matched_labels <- NULL
+  }
+
+  if (nrow(Xr) != nrow(Yr)) {
+    stop(
+      sprintf(
+        "Right-convention requires matching observations: nrow(source)=%d, nrow(target)=%d",
+        nrow(Xr), nrow(Yr)
+      ),
+      call. = FALSE
+    )
+  }
+  if (ncol(Xr) != ncol(Yr)) {
+    stop(
+      sprintf(
+        "Right-convention requires matching feature dimensions: ncol(source)=%d, ncol(target)=%d",
+        ncol(Xr), ncol(Yr)
+      ),
+      call. = FALSE
+    )
+  }
+
+  left_res <- procrustes_rotation(
+    t(Xr),
+    t(Yr),
+    convention = "left",
+    scale = scale,
+    reflection = reflection,
+    obs_labels_source = NULL,
+    obs_labels_target = NULL,
+    min_overlap = min_overlap
+  )
+  Qr <- t(left_res$Q)
+  aligned <- Xr %*% Qr
+  resid <- norm(aligned - Yr, "F")
+
+  list(
+    Q = Qr,
+    scale_factor = left_res$scale_factor,
+    residual = resid,
+    convention = "right",
+    matched_labels = matched_labels
+  )
+}
+
+#' Procrustes Distance
+#'
+#' Convenience wrapper returning the Procrustes residual (Frobenius norm of
+#' the alignment error) between two matrices.
+#'
+#' @param x First matrix.
+#' @param y Second matrix.
+#' @param convention Multiplication convention (`"left"` or `"right"`).
+#' @param obs_labels_x Optional observation labels for `x`.
+#' @param obs_labels_y Optional observation labels for `y`.
+#' @param min_overlap Minimum number of shared labels when labels are supplied.
+#' @return Numeric scalar residual.
+#' @export
+procrustes_distance <- function(x,
+                                y,
+                                convention = c("left", "right"),
+                                obs_labels_x = NULL,
+                                obs_labels_y = NULL,
+                                min_overlap = 2L) {
+  res <- procrustes_rotation(
+    source = x,
+    target = y,
+    convention = convention,
+    scale = FALSE,
+    reflection = FALSE,
+    obs_labels_source = obs_labels_x,
+    obs_labels_target = obs_labels_y,
+    min_overlap = min_overlap
+  )
+  res$residual
 }
 
 
@@ -228,6 +419,7 @@ NULL
     for (i in seq_len(n_subjects)) {
       # Get left-multiply transform Q such that Q %*% X ≈ consensus
       Q <- .procrustes_single(data_list[[i]], consensus, scale, reflection)
+      attr(Q, "scale_factor") <- NULL
       transforms[[i]] <- Q
       # Apply left-multiply: Q %*% X
       aligned[[i]] <- Q %*% data_list[[i]]

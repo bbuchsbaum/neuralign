@@ -158,6 +158,217 @@ create_cv_folds <- function(data,
   }
 }
 
+.as_obs_ids_list <- function(obs_ids) {
+  if (is.atomic(obs_ids)) {
+    return(NULL)
+  }
+  if (!is.list(obs_ids)) {
+    stop("'obs_ids' must be an atomic vector or a list", call. = FALSE)
+  }
+  if (is.null(names(obs_ids))) {
+    stop("When 'obs_ids' is a list, it must be a named list (one entry per subject)", call. = FALSE)
+  }
+  lapply(obs_ids, as.character)
+}
+
+.blocked_time_folds <- function(n_obs, k, guard_tr) {
+  if (!is.numeric(n_obs) || length(n_obs) != 1L || n_obs < 2) {
+    stop("blocked_time folds require n_obs >= 2", call. = FALSE)
+  }
+  k <- as.integer(k)
+  guard_tr <- as.integer(guard_tr)
+  if (k < 2L) stop("'k' must be >= 2 for blocked_time folds", call. = FALSE)
+  if (guard_tr < 0L) stop("'guard_tr' must be >= 0", call. = FALSE)
+  if (k > n_obs) stop("'k' cannot exceed number of observations", call. = FALSE)
+
+  # Split indices into k contiguous blocks as evenly as possible
+  sizes <- rep(floor(n_obs / k), k)
+  sizes[seq_len(n_obs %% k)] <- sizes[seq_len(n_obs %% k)] + 1L
+  ends <- cumsum(sizes)
+  starts <- c(1L, utils::head(ends, -1L) + 1L)
+
+  folds <- vector("list", k)
+  for (i in seq_len(k)) {
+    test_idx <- seq.int(starts[i], ends[i])
+    train_idx <- setdiff(seq_len(n_obs), test_idx)
+    if (guard_tr > 0L) {
+      guard_lo <- max(1L, starts[i] - guard_tr)
+      guard_hi <- min(n_obs, ends[i] + guard_tr)
+      guard_idx <- seq.int(guard_lo, guard_hi)
+      train_idx <- setdiff(train_idx, guard_idx)
+    }
+    if (length(train_idx) < 1L) {
+      stop("guard_tr too large: training set becomes empty", call. = FALSE)
+    }
+    folds[[i]] <- list(train_idx = train_idx, test_idx = test_idx)
+  }
+  names(folds) <- paste0("block-", seq_len(k))
+  folds
+}
+
+#' Create Observation-Axis Fold Specifications
+#'
+#' Construct cross-validation folds along the observation axis (e.g., runs or
+#' contiguous time blocks). Unlike subject-axis CV, these folds return per-subject
+#' index sets suitable for timepoint/run-based cross-fitting workflows.
+#'
+#' @param obs_ids Observation identifiers. Either a single vector (shared across
+#'   subjects), or a named list of per-subject vectors.
+#' @param method Fold construction method:
+#'   \itemize{
+#'     \item `"run"`: leave-one-run-out (each unique run id defines a fold)
+#'     \item `"blocked_time"`: split a single time series into contiguous blocks
+#'   }
+#' @param k Number of blocks for `method="blocked_time"`.
+#' @param guard_tr Number of TRs to exclude around each held-out block/run from
+#'   the training set (to reduce temporal leakage).
+#' @param seed Optional random seed (currently only used for future extensions).
+#' @param id_policy For per-subject `obs_ids` lists and `method="run"`, choose how
+#'   fold ids are defined: `"intersection"` uses only run ids present for all
+#'   subjects; `"union"` uses the union (subjects without a given run contribute
+#'   an empty test set for that fold).
+#'
+#' @return A list with elements `method`, `axis="observation"`, `folds`,
+#'   `n_folds`, and `fold_ids`. When `obs_ids` is a list, each fold contains a
+#'   named list of per-subject `train_idx`/`test_idx` vectors.
+#'
+#' @export
+create_obs_folds <- function(obs_ids,
+                             method = c("run", "blocked_time"),
+                             k = 5,
+                             guard_tr = 0L,
+                             seed = NULL,
+                             id_policy = c("intersection", "union")) {
+  method <- match.arg(method)
+  id_policy <- match.arg(id_policy)
+  guard_tr <- as.integer(guard_tr)
+  if (!is.finite(guard_tr) || guard_tr < 0L) {
+    stop("'guard_tr' must be a non-negative integer", call. = FALSE)
+  }
+  if (!is.null(seed)) set.seed(seed)
+
+  obs_list <- .as_obs_ids_list(obs_ids)
+
+  if (method == "blocked_time") {
+    if (is.null(obs_list)) {
+      folds <- .blocked_time_folds(length(obs_ids), k = k, guard_tr = guard_tr)
+      return(list(
+        method = "blocked_time",
+        axis = "observation",
+        folds = folds,
+        n_folds = length(folds),
+        fold_ids = names(folds)
+      ))
+    }
+    folds <- lapply(obs_list, function(v) .blocked_time_folds(length(v), k = k, guard_tr = guard_tr))
+    fold_ids <- unique(unlist(lapply(folds, names)))
+    out_folds <- lapply(fold_ids, function(fid) {
+      per_subject <- lapply(names(folds), function(subj) folds[[subj]][[fid]])
+      names(per_subject) <- names(folds)
+      per_subject
+    })
+    names(out_folds) <- fold_ids
+    return(list(
+      method = "blocked_time",
+      axis = "observation",
+      folds = out_folds,
+      n_folds = length(out_folds),
+      fold_ids = fold_ids
+    ))
+  }
+
+  # method == "run"
+  if (is.null(obs_list)) {
+    ids <- as.character(obs_ids)
+    if (anyNA(ids)) stop("'obs_ids' contains NA", call. = FALSE)
+    run_ids <- unique(ids)
+    if (length(run_ids) < 2) stop("Need >= 2 unique run ids for method='run'", call. = FALSE)
+    folds <- lapply(run_ids, function(run) {
+      test_idx <- which(ids == run)
+      train_idx <- which(ids != run)
+      if (guard_tr > 0L) {
+        guard <- unique(unlist(lapply(test_idx, function(i) seq.int(max(1L, i - guard_tr), min(length(ids), i + guard_tr)))))
+        train_idx <- setdiff(train_idx, guard)
+      }
+      list(train_idx = train_idx, test_idx = test_idx)
+    })
+    names(folds) <- as.character(run_ids)
+    return(list(
+      method = "run",
+      axis = "observation",
+      folds = folds,
+      n_folds = length(folds),
+      fold_ids = names(folds)
+    ))
+  }
+
+  # Per-subject run ids
+  obs_list <- lapply(obs_list, function(v) {
+    if (anyNA(v)) stop("Per-subject 'obs_ids' contains NA", call. = FALSE)
+    v
+  })
+  run_sets <- lapply(obs_list, unique)
+  fold_ids <- if (id_policy == "intersection") {
+    Reduce(intersect, run_sets)
+  } else {
+    Reduce(union, run_sets)
+  }
+  if (length(fold_ids) < 2) {
+    stop(
+      sprintf("Need >= 2 fold ids for method='run' (id_policy='%s')", id_policy),
+      call. = FALSE
+    )
+  }
+
+  folds <- lapply(fold_ids, function(fid) {
+    per_subject <- lapply(names(obs_list), function(subj) {
+      ids <- obs_list[[subj]]
+      if (!fid %in% ids) {
+        if (id_policy == "intersection") {
+          # Should not happen by construction
+          return(list(train_idx = integer(0), test_idx = integer(0)))
+        }
+        return(list(train_idx = seq_along(ids), test_idx = integer(0)))
+      }
+      test_idx <- which(ids == fid)
+      train_idx <- which(ids != fid)
+      if (guard_tr > 0L) {
+        guard <- unique(unlist(lapply(test_idx, function(i) seq.int(max(1L, i - guard_tr), min(length(ids), i + guard_tr)))))
+        train_idx <- setdiff(train_idx, guard)
+      }
+      if (length(train_idx) < 1L) {
+        stop(
+          sprintf("guard_tr too large for subject '%s' fold '%s': training set empty", subj, fid),
+          call. = FALSE
+        )
+      }
+      list(train_idx = train_idx, test_idx = test_idx)
+    })
+    names(per_subject) <- names(obs_list)
+    per_subject
+  })
+  names(folds) <- as.character(fold_ids)
+
+  if (id_policy == "union") {
+    missing_any <- vapply(folds, function(f) any(vapply(f, function(s) length(s$test_idx) == 0L, logical(1))), logical(1))
+    if (any(missing_any)) {
+      warning(
+        "Some folds have empty test sets for one or more subjects (id_policy='union'); downstream evaluation should account for this.",
+        call. = FALSE
+      )
+    }
+  }
+
+  list(
+    method = "run",
+    axis = "observation",
+    folds = folds,
+    n_folds = length(folds),
+    fold_ids = names(folds),
+    id_policy = id_policy
+  )
+}
+
 
 #' Run Cross-Validated Alignment
 #'
