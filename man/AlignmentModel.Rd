@@ -13,7 +13,8 @@ AlignmentModel(
   space_to = NULL,
   params = list(),
   method_state = list(),
-  train_subjects = character(0)
+  train_subjects = character(0),
+  provenance = NULL
 )
 }
 \arguments{
@@ -34,6 +35,10 @@ AlignmentModel(
 \item{method_state}{Method-specific state for applying to new data.}
 
 \item{train_subjects}{Character vector of subjects used in training.}
+
+\item{provenance}{Optional pre-built provenance list. If provided, used
+directly instead of auto-generating from params. Useful for composed models
+or models reconstructed from serialized state.}
 }
 \value{
 An AlignmentModel object.

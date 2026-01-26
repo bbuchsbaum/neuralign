@@ -11,7 +11,8 @@ register_aligner(
   capabilities = list(),
   package = NA_character_,
   description = "",
-  version = "0.0.0"
+  version = "0.0.0",
+  api_version = NEURALIGN_ALIGNER_API_VERSION
 )
 }
 \arguments{
@@ -20,7 +21,10 @@ register_aligner(
 \item{fit_fn}{Function implementing the fit operation. See Details for signature.}
 
 \item{apply_fn}{Optional function for applying to new data. If NULL, default
-left-multiply application is used.}
+left-multiply application is used. When provided, must accept
+\code{fit_result} (list with transforms, reference_data, space_from,
+space_to, method_state) and \code{new_data} (AlignmentData), and return
+a list with a \code{transforms} element.}
 
 \item{capabilities}{Named list of capability flags. See Details.}
 
@@ -29,6 +33,9 @@ left-multiply application is used.}
 \item{description}{Brief description of the method.}
 
 \item{version}{Version string for the method implementation.}
+
+\item{api_version}{Integer declaring which neuralign aligner API version
+this method implements. Defaults to \code{NEURALIGN_ALIGNER_API_VERSION}.}
 }
 \value{
 Invisibly returns TRUE.
@@ -60,7 +67,7 @@ fit_fn <- function(data, reference, train_idx = NULL, ...) {
 Capability flags:
 \describe{
 \item{supports_cv}{Can handle train/test splits}
-\item{cv_axes}{Which axes support CV: "subject", "run", "task"}
+\item{cv_axes}{Which axes support CV: "subject", "observation"}
 \item{needs_geometry}{Requires adjacency/graph in AlignmentData}
 \item{needs_design}{Requires task structure in AlignmentData}
 \item{returns_invertible}{Transform has exact inverse}

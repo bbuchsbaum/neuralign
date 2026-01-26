@@ -4,7 +4,14 @@
 \alias{.fit_cv_loso}
 \title{Internal: Leave-One-Subject-Out CV}
 \usage{
-.fit_cv_loso(data, aligner, reference, compute_quality, ...)
+.fit_cv_loso(
+  data,
+  aligner,
+  reference,
+  compute_quality,
+  return_aligned = TRUE,
+  ...
+)
 }
 \description{
 Internal: Leave-One-Subject-Out CV

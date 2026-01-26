@@ -129,6 +129,121 @@ dim(X1)
 
 Downstream packages can use these matrices as standardized inputs to alignment.
 
+### Feature blocks in downstream packages (graphlowrank example)
+
+Many downstream workflows (including graphlowrank in `fmrireg.lowrank`) build a per-subject
+correspondence matrix `F_s` by stacking multiple signals: task betas, contrast betas, ROI
+fingerprints, lightweight anatomical features, etc. neuralign’s feature blocks are intended
+to standardize this plumbing across packages.
+
+#### Suggested block taxonomy
+
+Use stable, semantic block names so results and diagnostics remain interpretable:
+
+- `task_beta`: GLM betas for selected design columns.
+- `contrast_beta`: contrast betas / linear combinations of betas.
+- `roi_fingerprint`: ROI-level summaries of functional patterns (if used as correspondence).
+- `anat_feature`: coarse anatomical/geometry-derived features used to *guide* alignment (not as
+  the final alignment target).
+
+#### Orientation: left vs right Procrustes conventions
+
+neuralign’s alignment API uses a **left-multiply** convention (operators act on rows of
+`features × observations` matrices). graphlowrank’s basis-rotation step is often written as
+**right-multiply** on a correspondence matrix:
+
+- right convention (graphlowrank style): `F_s %*% O_s ≈ F_ref` where `F_s` is
+  `(correspondence_rows × K)` and `O_s` is `(K × K)`.
+- left convention (neuralign style): `Q_s %*% X_s ≈ X_ref` where `X_s = t(F_s)` is
+  `(K × correspondence_rows)` and `Q_s = t(O_s)`.
+
+neuralign exposes both conventions via `procrustes_rotation()`:
+
+```{r procrustes-conventions}
+set.seed(10)
+P <- 6
+K <- 3
+O_true <- qr.Q(qr(matrix(rnorm(K * K), K, K)))
+if (det(O_true) < 0) O_true[, 1] <- -O_true[, 1]
+
+F_ref <- matrix(rnorm(P * K), P, K)
+F_s <- F_ref %*% t(O_true) # so F_s %*% O_true = F_ref
+
+rot_right <- procrustes_rotation(F_s, F_ref, convention = "right")
+rot_left <- procrustes_rotation(t(F_s), t(F_ref), convention = "left")
+
+max(abs(rot_right$Q - O_true))
+max(abs(t(rot_left$Q) - O_true))
+```
+
+#### Weight semantics (important!)
+
+`stack_feature_blocks()` scales each block by `sqrt(weight)` so weights behave naturally in a
+sum-of-squares objective. If a legacy pipeline multiplied blocks by a linear weight `w`
+directly, an equivalent neuralign weight is `weight = w^2`.
+
+Example: if graphlowrank used `F = rbind( w_task * B_task, w_con * B_con )`, then in neuralign
+you can set `weight = w_task^2` and `weight = w_con^2` to preserve influence.
+
+To quantify how much of the transform space is identified by your correspondence signal(s), use
+`feature_block_diagnostics()`:
+
+```{r feature-block-diagnostics}
+feature_block_diagnostics(blocks$s1, convention = "right")$stacked
+```
+
+#### Minimal migration recipe
+
+Downstream packages should keep domain-specific extraction (betas, contrasts, filtering), but
+delegate representation and harmonization:
+
+1. Build per-subject block lists with `alignment_feature_block()` (set `feature_names` to the
+   regressor/contrast identifiers, and ensure that *correspondence identifiers are rows* of each
+   block matrix).
+2. Call `harmonize_feature_blocks()` to intersect and reorder features within each block.
+3. Call `stack_feature_blocks()` to obtain `F_s` (a single stacked matrix).
+4. Estimate rotations with `procrustes_rotation(..., convention = "right")` if you need a
+   right-multiply operator `O_s`.
+
+In particular, if your extraction produces matrices shaped `(K × P)` where `P` are regressors or
+stimuli (common for beta matrices), then use `t(B_s)` as the block `x` so that rows correspond to
+the named correspondence axis.
+
+If a block has **no shared features** across subjects (e.g., empty intersection), it will be
+dropped by harmonization; if *all* correspondence signals vanish, you must switch regimes (see
+Section 2 on sparse overlap and Section 4–5 on anatomical/geometry guidance).
+
+#### Sparse overlap within a correspondence signal
+
+If a correspondence signal has **no global intersection** (e.g., each subject saw a different
+subset of stimuli), do not force an intersection via `harmonize_feature_blocks()`. If the overlap
+graph is connected, use `"procrustes_graph"` on the raw per-subject matrices with per-subject
+`obs_labels`. You can still recover a right-multiply rotation by transposing the left-multiply
+transform:
+
+```{r procrustes-graph-right-rotation}
+set.seed(11)
+K <- 3
+stim <- paste0("stim", 1:8)
+Z <- matrix(rnorm(K * length(stim)), K, length(stim))
+A <- qr.Q(qr(matrix(rnorm(K * K), K, K)))
+if (det(A) < 0) A[, 1] <- -A[, 1]
+
+B1 <- A %*% Z[, 1:4, drop = FALSE]
+B2 <- A %*% Z[, 1:8, drop = FALSE]
+B3 <- A %*% Z[, 5:8, drop = FALSE]
+
+adat <- AlignmentData(
+  data = list(s1 = B1, s2 = B2, s3 = B3),
+  obs_labels = list(s1 = stim[1:4], s2 = stim[1:8], s3 = stim[5:8])
+)
+
+res <- fit_alignment(adat, method = "procrustes_graph", reference = "s1", min_overlap = K)
+Q2 <- get_transform(get_model(res), "s2") # left-multiply transform
+O2 <- t(Q2)                               # right-multiply rotation
+dim(O2)
+```
+
 ## 4) ROI/parcel anchors: projector guidance
 
 If you have subject-specific ROI labels (even outside template space), you can build a projector
@@ -190,4 +305,3 @@ get_guidance(data2, type = "coords")
 
 These coordinates are comparable only up to sign/rotation ambiguities and are intended as priors for
 guided alignment objectives (e.g., fused costs for OT/GW-style methods).
-

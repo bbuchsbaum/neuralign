@@ -13,6 +13,7 @@ fit_alignment(
   train_idx = NULL,
   obs_labels = NULL,
   compute_quality = TRUE,
+  return_aligned = TRUE,
   ...
 )
 }
@@ -52,6 +53,10 @@ list, this is passed through to \code{\link{AlignmentData}} via
 \code{AlignmentData} and has no observation labels, they will be set.}
 
 \item{compute_quality}{Logical; if TRUE, compute quality metrics.}
+
+\item{return_aligned}{Logical; if TRUE (default), apply transforms and store
+aligned data in the result. Set to FALSE to return only the model (saves
+memory in pipeline workflows where aligned data is not needed immediately).}
 
 \item{...}{Additional arguments passed to the method's fit function.}
 }

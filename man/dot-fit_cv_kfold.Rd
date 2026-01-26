@@ -4,7 +4,15 @@
 \alias{.fit_cv_kfold}
 \title{Internal: K-Fold CV}
 \usage{
-.fit_cv_kfold(data, aligner, reference, k, compute_quality, ...)
+.fit_cv_kfold(
+  data,
+  aligner,
+  reference,
+  k,
+  compute_quality,
+  return_aligned = TRUE,
+  ...
+)
 }
 \description{
 Internal: K-Fold CV

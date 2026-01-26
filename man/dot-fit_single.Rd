@@ -4,7 +4,15 @@
 \alias{.fit_single}
 \title{Internal: Single Fit (No CV)}
 \usage{
-.fit_single(data, aligner, reference, train_idx, compute_quality, ...)
+.fit_single(
+  data,
+  aligner,
+  reference,
+  train_idx,
+  compute_quality,
+  return_aligned = TRUE,
+  ...
+)
 }
 \description{
 Internal: Single Fit (No CV)
