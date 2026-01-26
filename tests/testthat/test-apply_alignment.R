@@ -355,3 +355,249 @@ test_that("inverse_transform rejects OT transforms", {
 
   unregister_aligner("ot_dummy")
 })
+
+# ---------- NEW TESTS ----------
+
+test_that(".fit_transform_for_subject uses custom apply_fn when provided", {
+  # Register an aligner that has a custom apply_fn
+  register_aligner(
+    name = "custom_apply_test",
+    fit_fn = function(data, reference, train_idx = NULL, ...) {
+      if (is.null(train_idx)) train_idx <- seq_along(data@subjects)
+      train_data <- data[train_idx]
+      subjects <- train_data@subjects
+      transforms <- setNames(
+        lapply(subjects, function(s) diag(5)),
+        subjects
+      )
+      list(
+        transforms = transforms,
+        reference_data = matrix(0, 5, 3),
+        space_from = NULL,
+        space_to = NULL,
+        method_state = list(custom_state = TRUE)
+      )
+    },
+    apply_fn = function(fit_result, new_data, ...) {
+      # Custom apply: return identity scaled by 2
+      n <- nrow(get_subject_data(new_data, new_data@subjects[1]))
+      list(transforms = list(diag(n) * 2))
+    },
+    capabilities = list(
+      supports_new_subject = TRUE,
+      returns = "operator"
+    ),
+    package = "neuralign"
+  )
+
+  set.seed(1234)
+  train_data <- list(
+    "sub-01" = matrix(rnorm(15), 5, 3),
+    "sub-02" = matrix(rnorm(15), 5, 3)
+  )
+  train_adat <- AlignmentData(train_data)
+
+  result <- fit_alignment(train_adat, method = "custom_apply_test")
+
+  # New subject to trigger apply_fn path
+  new_data <- list("sub-03" = matrix(rnorm(15), 5, 3))
+  new_adat <- AlignmentData(new_data)
+
+  applied <- apply_alignment(result, new_adat, warn_leakage = FALSE)
+
+  # The custom apply_fn returns identity * 2, so the transform should be 2*I
+  new_transform <- get_transform(get_model(applied), "sub-03")
+  expect_equal(new_transform, diag(5) * 2)
+
+  unregister_aligner("custom_apply_test")
+})
+
+test_that("inverse_transform method=auto errors when caps say returns_invertible=FALSE", {
+  register_aligner(
+    name = "noninvertible_test",
+    fit_fn = function(data, reference, ...) {
+      list(transforms = list("x" = diag(3)), reference_data = NULL)
+    },
+    capabilities = list(
+      returns_invertible = FALSE,
+      transform_type = "linear",
+      returns = "operator"
+    ),
+    package = "neuralign"
+  )
+
+  model <- AlignmentModel(
+    transforms = list("sub-01" = diag(3)),
+    reference = "consensus",
+    method = "noninvertible_test"
+  )
+
+  expect_error(
+    inverse_transform(model, "sub-01", method = "auto"),
+    "does not declare invertible"
+  )
+
+  unregister_aligner("noninvertible_test")
+})
+
+test_that("inverse_transform method=auto uses solve for linear invertible transforms", {
+  register_aligner(
+    name = "linear_invertible_test",
+    fit_fn = function(data, reference, ...) {
+      list(transforms = list("x" = diag(3)), reference_data = NULL)
+    },
+    capabilities = list(
+      returns_invertible = TRUE,
+      transform_type = "linear",
+      returns = "operator"
+    ),
+    package = "neuralign"
+  )
+
+  # Non-orthogonal but invertible
+  mat <- matrix(c(1, 2, 0, 0, 1, 0, 0, 0, 3), 3, 3)
+  model <- AlignmentModel(
+    transforms = list("sub-01" = mat),
+    reference = "consensus",
+    method = "linear_invertible_test"
+  )
+
+  inv <- inverse_transform(model, "sub-01", method = "auto")
+  # "auto" should resolve to "solve" for linear invertible
+
+  expect_equal(mat %*% inv, diag(3), tolerance = 1e-10)
+
+  unregister_aligner("linear_invertible_test")
+})
+
+test_that("inverse_transform method=solve errors on non-square transform", {
+  # 2x3 non-square matrix
+  transforms <- list("sub-01" = matrix(1:6, 2, 3))
+  model <- AlignmentModel(
+    transforms = transforms,
+    reference = "consensus",
+    method = "test"
+  )
+
+  expect_error(
+    inverse_transform(model, "sub-01", method = "solve"),
+    "not square"
+  )
+})
+
+test_that(".pseudoinverse on a 1x1 zero matrix returns zero matrix", {
+  # The !length(d) guard in .pseudoinverse is unreachable for truly 0x0 matrices
+
+  # because R's svd() errors on zero-dimension inputs. Test the near-zero path
+  # where all singular values fall below the cutoff.
+  zero_mat <- matrix(0, 1, 1)
+  result <- neuralign:::.pseudoinverse(zero_mat)
+  expect_equal(dim(result), c(1, 1))
+  expect_equal(result[1, 1], 0)
+})
+
+test_that(".pseudoinverse on a rank-deficient matrix zeroes small singular values", {
+  # 3x3 rank-1 matrix
+  v <- c(1, 2, 3)
+  rank1 <- outer(v, v)
+  result <- neuralign:::.pseudoinverse(rank1)
+  expect_equal(dim(result), c(3, 3))
+  # rank1 %*% result %*% rank1 should equal rank1 (Moore-Penrose condition)
+  expect_equal(rank1 %*% result %*% rank1, rank1, tolerance = 1e-10)
+})
+
+test_that(".ridge_inverse errors on invalid lambda values", {
+  mat <- diag(3)
+
+  # Negative lambda
+  expect_error(
+    neuralign:::.ridge_inverse(mat, lambda = -1),
+    "lambda.*must be a single positive number"
+  )
+
+  # Non-numeric lambda
+  expect_error(
+    neuralign:::.ridge_inverse(mat, lambda = "abc"),
+    "lambda.*must be a single positive number"
+  )
+
+  # NA lambda
+  expect_error(
+    neuralign:::.ridge_inverse(mat, lambda = NA_real_),
+    "lambda.*must be a single positive number"
+  )
+
+  # Zero lambda
+  expect_error(
+    neuralign:::.ridge_inverse(mat, lambda = 0),
+    "lambda.*must be a single positive number"
+  )
+
+  # Vector lambda
+  expect_error(
+    neuralign:::.ridge_inverse(mat, lambda = c(0.1, 0.2)),
+    "lambda.*must be a single positive number"
+  )
+
+  # Inf lambda
+  expect_error(
+    neuralign:::.ridge_inverse(mat, lambda = Inf),
+    "lambda.*must be a single positive number"
+  )
+})
+
+test_that(".ridge_inverse wide matrix path (n_out < n_in)", {
+  # Wide matrix: 2 rows x 5 cols => n_out=2, n_in=5, so n_out < n_in
+  set.seed(42)
+  wide_mat <- matrix(rnorm(10), 2, 5)
+
+  result <- neuralign:::.ridge_inverse(wide_mat, lambda = 0.01)
+  # Result should be 5 x 2 (n_in x n_out)
+  expect_equal(dim(result), c(5, 2))
+
+  # Verify the inverse is approximately correct: wide_mat %*% result ~ I_2
+  product <- wide_mat %*% result
+  expect_equal(dim(product), c(2, 2))
+  # With ridge regularization, should be approximately identity
+  expect_true(all(abs(diag(product) - 1) < 0.1))
+})
+
+test_that(".ridge_inverse tall matrix path (n_out >= n_in)", {
+  # Tall matrix: 5 rows x 2 cols => n_out=5, n_in=2, so n_out >= n_in
+  set.seed(43)
+  tall_mat <- matrix(rnorm(10), 5, 2)
+
+  result <- neuralign:::.ridge_inverse(tall_mat, lambda = 0.01)
+  # Result should be 2 x 5 (n_in x n_out)
+  expect_equal(dim(result), c(2, 5))
+
+  # Verify: result %*% tall_mat ~ I_2
+  product <- result %*% tall_mat
+  expect_equal(dim(product), c(2, 2))
+  expect_true(all(abs(diag(product) - 1) < 0.1))
+})
+
+test_that(".as_dense_matrix converts sparse Matrix to dense", {
+  skip_if_not_installed("Matrix")
+  sparse <- Matrix::sparseMatrix(i = c(1, 2, 3), j = c(1, 2, 3), x = c(1, 2, 3))
+  result <- neuralign:::.as_dense_matrix(sparse)
+  expect_true(is.matrix(result))
+  expect_false(inherits(result, "Matrix"))
+  expect_equal(result, matrix(c(1, 0, 0, 0, 2, 0, 0, 0, 3), 3, 3))
+})
+
+test_that(".as_dense_matrix converts data.frame to matrix", {
+  df <- data.frame(a = 1:3, b = 4:6)
+  result <- neuralign:::.as_dense_matrix(df)
+  expect_true(is.matrix(result))
+  expect_equal(dim(result), c(3, 2))
+  expect_equal(result[, 1], 1:3)
+  expect_equal(result[, 2], 4:6)
+})
+
+test_that(".as_dense_matrix returns plain matrix unchanged", {
+  mat <- matrix(1:6, 2, 3)
+  result <- neuralign:::.as_dense_matrix(mat)
+  expect_true(is.matrix(result))
+  expect_identical(result, mat)
+})

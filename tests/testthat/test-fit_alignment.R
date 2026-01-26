@@ -161,3 +161,301 @@ test_that("fit_alignment computes quality metrics", {
   expect_true(length(result@quality) > 0)
   expect_true("mean_pairwise_correlation" %in% names(result@quality))
 })
+
+
+# ---------- New tests appended below ----------
+
+test_that("fit_alignment errors when AlignmentData has different obs_labels", {
+  neuralign:::.register_procrustes()
+
+  set.seed(42)
+  n_feat <- 10
+  n_obs <- 5
+  data_list <- lapply(1:2, function(i) matrix(rnorm(n_feat * n_obs), n_feat, n_obs))
+  names(data_list) <- paste0("sub-0", 1:2)
+
+  # Create AlignmentData with obs_labels already set
+  adat <- AlignmentData(data_list, obs_labels = paste0("obs", 1:n_obs))
+
+  # Passing conflicting obs_labels should error
+
+  expect_error(
+    fit_alignment(adat, method = "procrustes", obs_labels = paste0("different", 1:n_obs)),
+    "already has different obs_labels"
+  )
+})
+
+test_that("fit_alignment sets obs_labels when AlignmentData has none", {
+  neuralign:::.register_procrustes()
+
+  set.seed(42)
+  n_feat <- 10
+  n_obs <- 5
+  data_list <- lapply(1:2, function(i) matrix(rnorm(n_feat * n_obs), n_feat, n_obs))
+  names(data_list) <- paste0("sub-0", 1:2)
+
+  # Create AlignmentData without obs_labels
+  adat <- AlignmentData(data_list)
+  expect_null(adat@obs_labels)
+
+  # Pass obs_labels via fit_alignment; should succeed and set them
+  labs <- paste0("obs", 1:n_obs)
+  result <- fit_alignment(adat, method = "procrustes", obs_labels = labs, reference = "sub-01")
+  expect_s4_class(result, "AlignmentResult")
+})
+
+test_that("fit_alignment warns when method does not support CV", {
+  neuralign:::.clear_registry()
+
+  # Register a test aligner with supports_cv = FALSE
+  test_fit <- function(data, reference, train_idx = NULL, ...) {
+    n_feat <- nrow(data@data[[1]])
+    n_obs <- ncol(data@data[[1]])
+    if (is.null(train_idx)) train_idx <- seq_along(data@subjects)
+    transforms <- lapply(data@subjects, function(s) diag(n_feat))
+    names(transforms) <- data@subjects
+    list(
+      transforms = transforms,
+      reference_data = matrix(0, n_feat, n_obs),
+      space_from = NULL,
+      space_to = NULL
+    )
+  }
+
+  register_aligner(
+    "no_cv_method",
+    test_fit,
+    capabilities = list(supports_cv = FALSE)
+  )
+  on.exit(unregister_aligner("no_cv_method"))
+
+  set.seed(42)
+  n_feat <- 10
+  n_obs <- 5
+  data_list <- lapply(1:4, function(i) matrix(rnorm(n_feat * n_obs), n_feat, n_obs))
+  names(data_list) <- paste0("sub-0", 1:4)
+  adat <- AlignmentData(data_list)
+
+  # Use "consensus" reference to avoid the validate_cv_setup leakage error
+  expect_warning(
+    fit_alignment(adat, method = "no_cv_method", cv = "loso", reference = "consensus"),
+    "may not fully support CV"
+  )
+})
+
+test_that(".validate_cv_folds_spec errors on invalid fold specs", {
+  n_subjects <- 4
+
+  # Not a list / missing $folds
+  expect_error(
+    neuralign:::.validate_cv_folds_spec("not_a_list", n_subjects),
+    "must be a fold spec list"
+  )
+  expect_error(
+    neuralign:::.validate_cv_folds_spec(list(something = "else"), n_subjects),
+    "must be a fold spec list"
+  )
+
+  # Fewer than 2 folds
+  expect_error(
+    neuralign:::.validate_cv_folds_spec(
+      list(folds = list(fold1 = list(train = 1:3, test = 4))),
+      n_subjects
+    ),
+    "must contain >= 2 folds"
+  )
+
+  # Fold missing $train or $test
+  expect_error(
+    neuralign:::.validate_cv_folds_spec(
+      list(folds = list(
+        fold1 = list(train = 1:3),
+        fold2 = list(train = c(1, 4), test = c(2, 3))
+      )),
+      n_subjects
+    ),
+    "must contain \\$train and \\$test"
+  )
+
+  # NA indices
+  expect_error(
+    neuralign:::.validate_cv_folds_spec(
+      list(folds = list(
+        fold1 = list(train = c(1, NA), test = 3),
+        fold2 = list(train = c(1, 3), test = 2)
+      )),
+      n_subjects
+    ),
+    "has NA indices"
+  )
+
+  # Out-of-range indices
+  expect_error(
+    neuralign:::.validate_cv_folds_spec(
+      list(folds = list(
+        fold1 = list(train = c(1, 2), test = 99),
+        fold2 = list(train = c(1, 3), test = 2)
+      )),
+      n_subjects
+    ),
+    "has out-of-range indices"
+  )
+
+  # Overlapping train/test
+  expect_error(
+    neuralign:::.validate_cv_folds_spec(
+      list(folds = list(
+        fold1 = list(train = c(1, 2, 3), test = c(3, 4)),
+        fold2 = list(train = c(1, 3), test = 2)
+      )),
+      n_subjects
+    ),
+    "has overlapping train/test"
+  )
+})
+
+test_that(".reference_kind classifies references correctly", {
+  # Matrix -> "template"
+  expect_equal(neuralign:::.reference_kind(matrix(1:4, 2, 2)), "template")
+
+  # Subject name (not one of the special values) -> "fixed_subject"
+  expect_equal(neuralign:::.reference_kind("sub-01"), "fixed_subject")
+
+  # "medoid", "centroid", "consensus" -> "data_driven"
+  expect_equal(neuralign:::.reference_kind("medoid"), "data_driven")
+  expect_equal(neuralign:::.reference_kind("centroid"), "data_driven")
+  expect_equal(neuralign:::.reference_kind("consensus"), "data_driven")
+
+  # Numeric -> "unknown"
+  expect_equal(neuralign:::.reference_kind(42), "unknown")
+})
+
+test_that(".fit_new_subject uses apply_fn when available", {
+  neuralign:::.clear_registry()
+
+  set.seed(42)
+  n_feat <- 10
+  n_obs <- 5
+  data_list <- lapply(1:3, function(i) matrix(rnorm(n_feat * n_obs), n_feat, n_obs))
+  names(data_list) <- paste0("sub-0", 1:3)
+  adat <- AlignmentData(data_list)
+
+  # Create a mock aligner with apply_fn
+  test_fit <- function(data, reference, train_idx = NULL, ...) {
+    transforms <- lapply(data@subjects, function(s) diag(n_feat))
+    names(transforms) <- data@subjects
+    list(
+      transforms = transforms,
+      reference_data = matrix(0, n_feat, n_obs),
+      space_from = NULL,
+      space_to = NULL
+    )
+  }
+
+  apply_fn_called <- FALSE
+  test_apply <- function(fit_result, new_data, ...) {
+    # Return identity transform scaled by 2 to distinguish from fit path
+    subj <- new_data@subjects[1]
+    list(transforms = setNames(list(diag(n_feat) * 2), subj))
+  }
+
+  # Build a mock aligner list (as returned by get_aligner)
+  aligner <- list(
+    name = "apply_test",
+    fit_fn = test_fit,
+    apply_fn = test_apply,
+    capabilities = list(supports_cv = TRUE)
+  )
+
+  fit_result <- test_fit(adat, reference = "consensus")
+  reference <- "consensus"
+
+  result <- neuralign:::.fit_new_subject(aligner, fit_result, adat, 3, reference)
+
+  # Should be the 2x identity (from apply_fn), not the 1x identity (from fit_fn)
+  expect_equal(result, diag(n_feat) * 2)
+})
+
+test_that(".fit_new_subject falls back to fit_fn without apply_fn and uses reference_data", {
+  neuralign:::.clear_registry()
+
+  set.seed(42)
+  n_feat <- 10
+  n_obs <- 5
+  data_list <- lapply(1:3, function(i) matrix(rnorm(n_feat * n_obs), n_feat, n_obs))
+  names(data_list) <- paste0("sub-0", 1:3)
+  adat <- AlignmentData(data_list)
+
+  ref_data <- matrix(rnorm(n_feat * n_obs), n_feat, n_obs)
+
+  # fit_fn that records which reference was passed
+  captured_ref <- NULL
+  test_fit <- function(data, reference, train_idx = NULL, ...) {
+    captured_ref <<- reference
+    transforms <- lapply(data@subjects, function(s) diag(n_feat))
+    names(transforms) <- data@subjects
+    list(
+      transforms = transforms,
+      reference_data = ref_data,
+      space_from = NULL,
+      space_to = NULL
+    )
+  }
+
+  aligner <- list(
+    name = "no_apply_test",
+    fit_fn = test_fit,
+    apply_fn = NULL,
+    capabilities = list(supports_cv = TRUE)
+  )
+
+  fit_result <- test_fit(adat, reference = "consensus")
+  captured_ref <- NULL  # reset
+
+  result <- neuralign:::.fit_new_subject(aligner, fit_result, adat, 3, "consensus")
+
+  # The fallback path should use reference_data from fit_result, not "consensus"
+  expect_true(is.matrix(captured_ref))
+  expect_equal(captured_ref, ref_data)
+  expect_equal(result, diag(n_feat))
+})
+
+test_that(".fit_new_subject falls back to original reference when reference_data is NULL", {
+  neuralign:::.clear_registry()
+
+  set.seed(42)
+  n_feat <- 10
+  n_obs <- 5
+  data_list <- lapply(1:3, function(i) matrix(rnorm(n_feat * n_obs), n_feat, n_obs))
+  names(data_list) <- paste0("sub-0", 1:3)
+  adat <- AlignmentData(data_list)
+
+  captured_ref <- NULL
+  test_fit <- function(data, reference, train_idx = NULL, ...) {
+    captured_ref <<- reference
+    transforms <- lapply(data@subjects, function(s) diag(n_feat))
+    names(transforms) <- data@subjects
+    list(
+      transforms = transforms,
+      reference_data = NULL,  # no reference_data
+      space_from = NULL,
+      space_to = NULL
+    )
+  }
+
+  aligner <- list(
+    name = "null_ref_test",
+    fit_fn = test_fit,
+    apply_fn = NULL,
+    capabilities = list(supports_cv = TRUE)
+  )
+
+  fit_result <- test_fit(adat, reference = "consensus")
+  captured_ref <- NULL  # reset
+
+  result <- neuralign:::.fit_new_subject(aligner, fit_result, adat, 3, "consensus")
+
+  # Should fall back to the original reference since reference_data is NULL
+  expect_equal(captured_ref, "consensus")
+  expect_equal(result, diag(n_feat))
+})

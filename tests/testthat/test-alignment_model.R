@@ -167,3 +167,87 @@ test_that("AlignmentModel provenance is recorded", {
   expect_true(!is.null(model@provenance$neuralign_version))
   expect_equal(model@provenance$params$scale, TRUE)
 })
+
+# ---------- NEW TESTS ----------
+
+test_that("show() displays fold_specific reference correctly", {
+  transforms <- list(
+    "sub-01" = diag(5),
+    "sub-02" = diag(5)
+  )
+
+  model <- AlignmentModel(
+    transforms = transforms,
+    reference = "fold_specific",
+    method = "test",
+    train_subjects = c("sub-01", "sub-02")
+  )
+
+  output <- capture.output(show(model))
+
+  expect_true(any(grepl("fold-specific", output)))
+  expect_true(any(grepl("no common anchor", output)))
+})
+
+test_that("show() displays subject ID reference correctly", {
+  transforms <- list(
+    "sub-01" = diag(5),
+    "sub-02" = diag(5)
+  )
+
+  model <- AlignmentModel(
+    transforms = transforms,
+    reference = "sub-01",
+    method = "test",
+    train_subjects = c("sub-01", "sub-02")
+  )
+
+  output <- capture.output(show(model))
+
+  expect_true(any(grepl("Reference: subject 'sub-01'", output, fixed = TRUE)))
+})
+
+test_that("show() displays template matrix reference correctly", {
+  transforms <- list(
+    "sub-01" = diag(5),
+    "sub-02" = diag(5)
+  )
+
+  ref_matrix <- matrix(rnorm(25), 5, 5)
+  model <- AlignmentModel(
+    transforms = transforms,
+    reference = ref_matrix,
+    method = "test",
+    train_subjects = c("sub-01", "sub-02")
+  )
+
+  output <- capture.output(show(model))
+
+  expect_true(any(grepl("Reference: template matrix", output, fixed = TRUE)))
+})
+
+test_that(".format_space with gds_space-like object", {
+  space <- structure(list(name = "MNI"), class = "gds_space")
+  result <- neuralign:::.format_space(space)
+  expect_true(grepl("gds_space", result))
+  expect_true(grepl("MNI", result))
+})
+
+test_that(".format_space with gds_space without name", {
+  space <- structure(list(), class = "gds_space")
+  result <- neuralign:::.format_space(space)
+  expect_true(grepl("gds_space", result))
+  expect_true(grepl("unnamed", result))
+})
+
+test_that(".format_space with non-character, non-gds_space object", {
+  obj <- structure(list(), class = "custom_space_type")
+  result <- neuralign:::.format_space(obj)
+  expect_equal(result, "custom_space_type")
+})
+
+test_that(".format_space with numeric object falls back to class name", {
+  obj <- structure(42, class = "special_space")
+  result <- neuralign:::.format_space(obj)
+  expect_equal(result, "special_space")
+})

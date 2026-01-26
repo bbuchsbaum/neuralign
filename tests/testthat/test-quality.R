@@ -148,3 +148,162 @@ test_that("alignment_quality variance metrics require abind", {
   expect_true("between_subject_variance" %in% names(quality))
   expect_true("within_subject_variance" %in% names(quality))
 })
+
+# ---- Additional coverage tests ----
+
+test_that("alignment_quality rejects bad input (line 40)", {
+  expect_error(
+    alignment_quality("not_a_list_or_result"),
+    "must be an AlignmentResult or list of matrices"
+  )
+  expect_error(
+    alignment_quality(42),
+    "must be an AlignmentResult or list of matrices"
+  )
+})
+
+test_that("alignment_quality rejects empty list (line 44)", {
+  expect_error(
+    alignment_quality(list()),
+    "No aligned data to compute quality"
+  )
+})
+
+test_that("alignment_quality computes improvement from AlignmentData original (line 69)", {
+  set.seed(600)
+
+  # Original data: random, low correlation
+  original_list <- list(
+    "sub-01" = matrix(rnorm(50), 10, 5),
+    "sub-02" = matrix(rnorm(50), 10, 5),
+    "sub-03" = matrix(rnorm(50), 10, 5)
+  )
+  original <- AlignmentData(original_list)
+
+  # Aligned data: share a common pattern, higher correlation
+  shared <- matrix(rnorm(50), 10, 5)
+  aligned <- list(
+    "sub-01" = shared + matrix(rnorm(50, sd = 0.1), 10, 5),
+    "sub-02" = shared + matrix(rnorm(50, sd = 0.1), 10, 5),
+    "sub-03" = shared + matrix(rnorm(50, sd = 0.1), 10, 5)
+  )
+
+  quality <- alignment_quality(aligned, original = original, metrics = "correlation")
+
+  expect_true("correlation_improvement" %in% names(quality))
+  expect_true("original_mean_correlation" %in% names(quality))
+  expect_true("aligned_mean_correlation" %in% names(quality))
+  expect_true("relative_improvement" %in% names(quality))
+  expect_true(is.numeric(quality$correlation_improvement))
+  expect_true(quality$correlation_improvement > 0)
+})
+
+test_that("variance metrics with 3 subjects (lines 153-159)", {
+  skip_if_not_installed("abind")
+
+  set.seed(601)
+  aligned <- list(
+    "sub-01" = matrix(rnorm(50), 10, 5),
+    "sub-02" = matrix(rnorm(50), 10, 5),
+    "sub-03" = matrix(rnorm(50), 10, 5)
+  )
+
+  quality <- alignment_quality(aligned, metrics = "variance")
+
+  expect_true("total_variance" %in% names(quality))
+  expect_true("between_subject_variance" %in% names(quality))
+  expect_true("within_subject_variance" %in% names(quality))
+  expect_true("variance_ratio" %in% names(quality))
+
+  expect_true(is.numeric(quality$total_variance))
+  expect_true(quality$total_variance > 0)
+  expect_true(is.numeric(quality$variance_ratio))
+  expect_true(quality$variance_ratio > 0)
+  expect_true(is.numeric(quality$between_subject_variance))
+  expect_true(is.numeric(quality$within_subject_variance))
+})
+
+test_that("ISC metrics with 2+ subjects return expected fields (lines 199-231)", {
+  set.seed(602)
+
+  # Shared signal + noise so ISC is measurable
+  signal <- matrix(rnorm(50), 10, 5)
+  aligned <- list(
+    "sub-01" = signal + matrix(rnorm(50, sd = 0.3), 10, 5),
+    "sub-02" = signal + matrix(rnorm(50, sd = 0.3), 10, 5),
+    "sub-03" = signal + matrix(rnorm(50, sd = 0.3), 10, 5)
+  )
+
+  quality <- alignment_quality(aligned, metrics = "isc")
+
+  expect_true("mean_isc" %in% names(quality))
+  expect_true("isc_per_subject" %in% names(quality))
+  expect_true("isc_per_feature" %in% names(quality))
+
+  expect_true(is.numeric(quality$mean_isc))
+  # With strong shared signal, mean ISC should be positive
+
+  expect_true(quality$mean_isc > 0)
+  expect_length(quality$isc_per_subject, 3)
+  expect_length(quality$isc_per_feature, 10)
+})
+
+test_that("ISC metrics with single subject returns NA", {
+  aligned <- list(
+    "sub-01" = matrix(rnorm(50), 10, 5)
+  )
+
+  quality <- alignment_quality(aligned, metrics = "isc")
+  expect_true(is.na(quality$isc))
+})
+
+test_that("print_quality_summary prints reference_correlation branch (lines 289-292)", {
+  quality <- list(
+    mean_pairwise_correlation = 0.80,
+    sd_pairwise_correlation = 0.05,
+    min_pairwise_correlation = 0.70,
+    max_pairwise_correlation = 0.90,
+    mean_reference_correlation = 0.95
+  )
+
+  out <- capture.output(print_quality_summary(quality))
+  full <- paste(out, collapse = "\n")
+  expect_true(grepl("Reference Correlation", full))
+  expect_true(grepl("0.9500", full))
+  expect_true(grepl("Pairwise Correlation", full))
+})
+
+test_that("print_quality_summary prints ISC branch (lines 294-298)", {
+  quality <- list(
+    mean_isc = 0.42
+  )
+
+  out <- capture.output(print_quality_summary(quality))
+  full <- paste(out, collapse = "\n")
+  expect_true(grepl("Inter-Subject Correlation", full))
+  expect_true(grepl("0.4200", full))
+})
+
+test_that("print_quality_summary prints improvement branch (lines 300-311)", {
+  quality <- list(
+    mean_pairwise_correlation = 0.80,
+    correlation_improvement = 0.30,
+    original_mean_correlation = 0.50,
+    aligned_mean_correlation = 0.80,
+    relative_improvement = 0.60
+  )
+
+  out <- capture.output(print_quality_summary(quality))
+  full <- paste(out, collapse = "\n")
+  expect_true(grepl("Improvement", full))
+  expect_true(grepl("Original correlation", full))
+  expect_true(grepl("Aligned correlation", full))
+  expect_true(grepl("0.3000", full))
+  expect_true(grepl("60.0%", full))
+})
+
+test_that("print_quality_summary returns quality list invisibly", {
+  quality <- list(mean_pairwise_correlation = 0.75)
+  result <- invisible(capture.output(ret <- print_quality_summary(quality)))
+  expect_identical(ret, quality)
+})

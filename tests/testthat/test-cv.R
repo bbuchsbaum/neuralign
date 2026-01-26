@@ -268,3 +268,213 @@ test_that("get_fold_assignments returns NULL for non-CV result", {
   assignments <- get_fold_assignments(result)
   expect_null(assignments)
 })
+
+
+# --- Additional tests for uncovered lines ---
+
+test_that("run_cv_alignment errors when obs_labels conflict with AlignmentData", {
+  neuralign:::.register_procrustes()
+
+  set.seed(42)
+  n_feat <- 10
+  n_obs <- 5
+  data_list <- lapply(1:3, function(i) matrix(rnorm(n_feat * n_obs), n_feat, n_obs))
+  names(data_list) <- paste0("sub-0", 1:3)
+
+  # Create AlignmentData with obs_labels already set
+  adat <- AlignmentData(data_list, obs_labels = paste0("obs_", 1:n_obs))
+
+  # Pass conflicting obs_labels to run_cv_alignment
+  expect_error(
+    run_cv_alignment(adat, method = "procrustes", cv_folds = "loso",
+                     obs_labels = paste0("different_", 1:n_obs)),
+    "obs_labels supplied but AlignmentData already has different obs_labels"
+  )
+})
+
+test_that("run_cv_alignment sets obs_labels when AlignmentData has none", {
+  neuralign:::.register_procrustes()
+
+  set.seed(42)
+  n_feat <- 10
+  n_obs <- 5
+  data_list <- lapply(1:3, function(i) matrix(rnorm(n_feat * n_obs), n_feat, n_obs))
+  names(data_list) <- paste0("sub-0", 1:3)
+
+  # Create AlignmentData without obs_labels
+  adat <- AlignmentData(data_list)
+  expect_null(adat@obs_labels)
+
+  new_labels <- paste0("obs_", 1:n_obs)
+
+  # Should not error; obs_labels get set on the internal copy
+  cv_result <- run_cv_alignment(adat, method = "procrustes", cv_folds = "loso",
+                                obs_labels = new_labels)
+
+  expect_s4_class(cv_result$result, "AlignmentResult")
+  expect_equal(length(cv_result$fold_results), 3)
+})
+
+test_that("run_cv_alignment with data-driven reference yields fold-specific anchor", {
+  neuralign:::.register_procrustes()
+
+  set.seed(42)
+  n_feat <- 10
+  n_obs <- 5
+  data_list <- lapply(1:4, function(i) matrix(rnorm(n_feat * n_obs), n_feat, n_obs))
+  names(data_list) <- paste0("sub-0", 1:4)
+  adat <- AlignmentData(data_list)
+
+  # Default reference = "medoid" is data-driven
+  cv_result <- run_cv_alignment(adat, method = "procrustes", cv_folds = "loso",
+                                reference = "medoid")
+
+  expect_s4_class(cv_result$result, "AlignmentResult")
+  expect_equal(cv_result$result@cv_info$reference_kind, "data_driven")
+  expect_false(cv_result$result@cv_info$anchor_common)
+
+  # Model reference should be "fold_specific" for data-driven references
+  expect_equal(cv_result$result@model@reference, "fold_specific")
+})
+
+test_that("run_cv_alignment with template matrix reference yields common anchor", {
+  neuralign:::.register_procrustes()
+
+  set.seed(42)
+  n_feat <- 10
+  n_obs <- 5
+  data_list <- lapply(1:4, function(i) matrix(rnorm(n_feat * n_obs), n_feat, n_obs))
+  names(data_list) <- paste0("sub-0", 1:4)
+  adat <- AlignmentData(data_list)
+
+  # Use a template matrix as reference (external anchor)
+  template <- matrix(rnorm(n_feat * n_obs), n_feat, n_obs)
+  cv_result <- run_cv_alignment(adat, method = "procrustes", cv_folds = "loso",
+                                reference = template)
+
+  expect_s4_class(cv_result$result, "AlignmentResult")
+  expect_equal(cv_result$result@cv_info$reference_kind, "template")
+  expect_true(cv_result$result@cv_info$anchor_common)
+  expect_null(cv_result$result@cv_info$anchor_note)
+})
+
+test_that("has_common_anchor works for AlignmentModel", {
+  # Model with fold_specific reference -> FALSE
+  model_fold <- AlignmentModel(
+    transforms = list("sub-01" = diag(3)),
+    reference = "fold_specific",
+    method = "test"
+  )
+  expect_false(has_common_anchor(model_fold))
+
+  # Model with a specific subject reference -> TRUE
+  model_subj <- AlignmentModel(
+    transforms = list("sub-01" = diag(3)),
+    reference = "sub-01",
+    method = "test"
+  )
+  expect_true(has_common_anchor(model_subj))
+
+  # Model with consensus reference -> TRUE
+  model_consensus <- AlignmentModel(
+    transforms = list("sub-01" = diag(3)),
+    reference = "consensus",
+    method = "test"
+  )
+  expect_true(has_common_anchor(model_consensus))
+})
+
+test_that("has_common_anchor errors on bad input", {
+  expect_error(
+    has_common_anchor("not_a_model"),
+    "must be an AlignmentResult or AlignmentModel"
+  )
+
+  expect_error(
+    has_common_anchor(42),
+    "must be an AlignmentResult or AlignmentModel"
+  )
+
+  expect_error(
+    has_common_anchor(list(a = 1)),
+    "must be an AlignmentResult or AlignmentModel"
+  )
+})
+
+test_that("validate_common_anchor with error action throws error", {
+  model_fold <- AlignmentModel(
+    transforms = list("sub-01" = diag(3)),
+    reference = "fold_specific",
+    method = "test"
+  )
+
+  expect_error(
+    validate_common_anchor(model_fold, action = "error"),
+    "No common anchor detected"
+  )
+})
+
+test_that("validate_common_anchor with warn action gives warning", {
+  model_fold <- AlignmentModel(
+    transforms = list("sub-01" = diag(3)),
+    reference = "fold_specific",
+    method = "test"
+  )
+
+  expect_warning(
+    result <- validate_common_anchor(model_fold, action = "warn"),
+    "No common anchor detected"
+  )
+  expect_false(result)
+})
+
+test_that("validate_common_anchor with silent action returns FALSE invisibly", {
+  model_fold <- AlignmentModel(
+    transforms = list("sub-01" = diag(3)),
+    reference = "fold_specific",
+    method = "test"
+  )
+
+  # No error, no warning
+  expect_no_warning(
+    expect_no_error(
+      result <- validate_common_anchor(model_fold, action = "silent")
+    )
+  )
+  expect_false(result)
+})
+
+test_that("validate_common_anchor returns TRUE for common-anchor result", {
+  model_common <- AlignmentModel(
+    transforms = list("sub-01" = diag(3)),
+    reference = "sub-01",
+    method = "test"
+  )
+
+  result_common <- AlignmentResult(
+    model = model_common,
+    aligned = list("sub-01" = diag(3)),
+    cv_info = list(method = "loso", anchor_common = TRUE)
+  )
+
+  result <- validate_common_anchor(result_common, action = "error")
+  expect_true(result)
+})
+
+test_that("validate_common_anchor includes context in messages", {
+  model_fold <- AlignmentModel(
+    transforms = list("sub-01" = diag(3)),
+    reference = "fold_specific",
+    method = "test"
+  )
+
+  expect_error(
+    validate_common_anchor(model_fold, action = "error", context = "ISC computation"),
+    "ISC computation"
+  )
+
+  expect_warning(
+    validate_common_anchor(model_fold, action = "warn", context = "decoding"),
+    "decoding"
+  )
+})

@@ -136,3 +136,177 @@ test_that("AlignmentModel %*% matrix applies transform", {
   expected <- transforms[["sub-01"]] %*% data
   expect_equal(result, expected)
 })
+
+
+# --- Additional tests for uncovered lines ---
+
+test_that("compose_alignment accepts AlignmentResult arguments", {
+  transforms1 <- list(
+    "sub-01" = diag(3),
+    "sub-02" = diag(3)
+  )
+  transforms2 <- list(
+    "sub-01" = diag(3) * 2,
+    "sub-02" = diag(3) * 3
+  )
+
+  model1 <- AlignmentModel(transforms1, reference = "consensus", method = "m1")
+  model2 <- AlignmentModel(transforms2, reference = "consensus", method = "m2")
+
+  # Wrap in AlignmentResult
+  result1 <- AlignmentResult(
+    model = model1,
+    aligned = list("sub-01" = diag(3), "sub-02" = diag(3))
+  )
+  result2 <- AlignmentResult(
+    model = model2,
+    aligned = list("sub-01" = diag(3) * 2, "sub-02" = diag(3) * 3)
+  )
+
+  # Both arguments are AlignmentResult — should extract models internally
+
+  composed <- compose_alignment(result1, result2)
+  expect_s4_class(composed, "AlignmentModel")
+  expect_equal(composed@method, "m1+m2")
+  expect_equal(composed@transforms[["sub-01"]], diag(3) * 2)
+  expect_equal(composed@transforms[["sub-02"]], diag(3) * 3)
+
+  # One AlignmentResult and one AlignmentModel
+  composed2 <- compose_alignment(result1, model2)
+  expect_s4_class(composed2, "AlignmentModel")
+  expect_equal(composed2@transforms[["sub-01"]], diag(3) * 2)
+})
+
+test_that("compose_alignment errors on non-model inputs", {
+  model1 <- AlignmentModel(
+    list("sub-01" = diag(3)),
+    reference = NULL,
+    method = "m1"
+  )
+
+  # Pass a string as model1
+
+  expect_error(
+    compose_alignment("not_a_model", model1),
+    "must be an AlignmentModel"
+  )
+
+  # Pass a number as model2
+  expect_error(
+    compose_alignment(model1, 42),
+    "must be an AlignmentModel"
+  )
+
+  # Pass a list (not an AlignmentModel or AlignmentResult)
+  expect_error(
+    compose_alignment(list(a = 1), model1),
+    "must be an AlignmentModel"
+  )
+})
+
+test_that("compose_alignment errors on non-matrix transforms", {
+  # Create models where transforms are functions instead of matrices
+  transforms1 <- list("sub-01" = function(x) x)
+  transforms2 <- list("sub-01" = diag(3))
+
+  model1 <- AlignmentModel(transforms1, reference = NULL, method = "m1")
+  model2 <- AlignmentModel(transforms2, reference = NULL, method = "m2")
+
+  expect_error(
+    compose_alignment(model1, model2),
+    "Non-matrix transforms"
+  )
+
+  # Also test when model2 has non-matrix transform
+  transforms3 <- list("sub-01" = diag(3))
+  transforms4 <- list("sub-01" = "not_a_matrix")
+
+  model3 <- AlignmentModel(transforms3, reference = NULL, method = "m3")
+  model4 <- AlignmentModel(transforms4, reference = NULL, method = "m4")
+
+  expect_error(
+    compose_alignment(model3, model4),
+    "Non-matrix transforms"
+  )
+})
+
+test_that("check_composition handles AlignmentResult inputs", {
+  transforms1 <- list("sub-01" = matrix(1, 5, 10))
+  transforms2 <- list("sub-01" = matrix(1, 3, 5))
+
+  model1 <- AlignmentModel(transforms1, reference = NULL, method = "m1")
+  model2 <- AlignmentModel(transforms2, reference = NULL, method = "m2")
+
+  result1 <- AlignmentResult(
+    model = model1,
+    aligned = list("sub-01" = matrix(1, 5, 10))
+  )
+  result2 <- AlignmentResult(
+    model = model2,
+    aligned = list("sub-01" = matrix(1, 3, 5))
+  )
+
+  # Both AlignmentResult
+  check <- check_composition(result1, result2)
+  expect_true(check$compatible)
+
+  # Mixed: AlignmentResult and AlignmentModel
+  check2 <- check_composition(result1, model2)
+  expect_true(check2$compatible)
+})
+
+test_that("check_composition detects no subjects in common", {
+  transforms1 <- list("sub-01" = diag(3))
+  transforms2 <- list("sub-99" = diag(3))
+
+  model1 <- AlignmentModel(transforms1, reference = NULL, method = "m1")
+  model2 <- AlignmentModel(transforms2, reference = NULL, method = "m2")
+
+  result <- check_composition(model1, model2)
+  expect_false(result$compatible)
+  expect_match(result$message, "No subjects in common")
+})
+
+test_that("check_composition detects non-matrix transforms", {
+  transforms1 <- list("sub-01" = function(x) x)
+  transforms2 <- list("sub-01" = diag(3))
+
+  model1 <- AlignmentModel(transforms1, reference = NULL, method = "m1")
+  model2 <- AlignmentModel(transforms2, reference = NULL, method = "m2")
+
+  result <- check_composition(model1, model2)
+  expect_false(result$compatible)
+  expect_match(result$message, "Non-matrix")
+})
+
+test_that("check_composition detects dimension mismatch", {
+  # model1 output rows = 5, model2 input cols = 7 -> mismatch
+  transforms1 <- list("sub-01" = matrix(1, 5, 10))
+  transforms2 <- list("sub-01" = matrix(1, 3, 7))
+
+  model1 <- AlignmentModel(transforms1, reference = NULL, method = "m1")
+  model2 <- AlignmentModel(transforms2, reference = NULL, method = "m2")
+
+  result <- check_composition(model1, model2)
+  expect_false(result$compatible)
+  expect_match(result$message, "Dimension mismatch")
+})
+
+test_that("check_composition returns info message for compatible models", {
+  transforms1 <- list(
+    "sub-01" = matrix(1, 5, 10),
+    "sub-02" = matrix(1, 5, 10)
+  )
+  transforms2 <- list(
+    "sub-01" = matrix(1, 3, 5),
+    "sub-02" = matrix(1, 3, 5)
+  )
+
+  model1 <- AlignmentModel(transforms1, reference = NULL, method = "m1")
+  model2 <- AlignmentModel(transforms2, reference = NULL, method = "m2")
+
+  result <- check_composition(model1, model2)
+  expect_true(result$compatible)
+  expect_match(result$message, "compatible")
+  expect_match(result$message, "2 common subjects")
+})
