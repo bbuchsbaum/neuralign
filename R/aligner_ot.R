@@ -167,7 +167,7 @@ NULL
   returns_invertible = FALSE,  # OT couplings are not bijections
   transform_type = "ot",
   mass_preserving = TRUE,
-  returns = "coupling",
+  returns = "operator",  # Couplings converted to operators via .coupling_to_operator
   supports_new_subject = TRUE,
   supports_new_data = TRUE,
   reference_types = c("subject", "barycenter", "template")
@@ -276,7 +276,7 @@ NULL
   returns_invertible = FALSE,
   transform_type = "ot",
   mass_preserving = TRUE,
-  returns = "coupling",
+  returns = "operator",  # Couplings converted to operators via .coupling_to_operator
   supports_new_subject = TRUE,
   supports_new_data = TRUE,
   reference_types = c("subject", "template")

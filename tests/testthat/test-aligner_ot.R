@@ -37,7 +37,7 @@ test_that(".gw_capabilities has correct structure", {
   expect_equal(caps$transform_type, "ot")
   expect_true(caps$mass_preserving)
   expect_false(caps$returns_invertible)
-  expect_equal(caps$returns, "coupling")
+  expect_equal(caps$returns, "operator")
 })
 
 test_that(".fpgw_capabilities has correct structure", {
@@ -174,4 +174,133 @@ test_that("GW registration via fit_alignment works", {
 
   expect_s4_class(result, "AlignmentResult")
   expect_equal(length(get_aligned(result)), 2)
+})
+
+test_that(".register_gw registers aligner correctly", {
+  # Unregister first if exists
+  tryCatch(unregister_aligner("gw"), error = function(e) NULL)
+
+  # Register - expected to succeed
+  neuralign:::.register_gw()
+
+  # Verify registration
+  expect_true("gw" %in% available_aligners())
+
+  # Check capabilities via registry
+  caps <- aligner_capabilities("gw")
+  expect_equal(caps$transform_type, "ot")
+  expect_true(caps$supports_cv)
+  expect_equal(caps$returns, "operator")
+
+  # Cleanup
+  unregister_aligner("gw")
+})
+
+test_that(".register_fpgw registers aligner correctly", {
+  # Unregister first if exists
+  tryCatch(unregister_aligner("fpgw"), error = function(e) NULL)
+
+  # Register
+  neuralign:::.register_fpgw()
+
+  # Verify registration
+  expect_true("fpgw" %in% available_aligners())
+
+  # Check capabilities
+  caps <- aligner_capabilities("fpgw")
+  expect_equal(caps$transform_type, "ot")
+  expect_true(caps$mass_preserving)
+
+  # Cleanup
+  unregister_aligner("fpgw")
+})
+
+test_that(".coupling_to_operator handles larger matrices", {
+  # 5x5 coupling matrix
+  set.seed(123)
+  P <- matrix(runif(25), 5, 5)
+  P <- P / sum(P)  # Normalize to valid coupling
+
+  op <- neuralign:::.coupling_to_operator(P)
+
+  expect_equal(dim(op), c(5, 5))
+  # Each row should sum to 1
+  expect_equal(rowSums(op), rep(1, 5), tolerance = 1e-10)
+})
+
+test_that(".coupling_to_operator handles uniform coupling", {
+  # Uniform coupling (all equal)
+  P <- matrix(1/9, 3, 3)
+
+  op <- neuralign:::.coupling_to_operator(P)
+
+  expect_equal(dim(op), c(3, 3))
+  # Each row should sum to 1
+  expect_equal(rowSums(op), rep(1, 3), tolerance = 1e-10)
+  # All elements should be equal (1/3)
+  expect_equal(unique(as.vector(op)), 1/3, tolerance = 1e-10)
+})
+
+test_that(".coupling_to_operator handles sparse coupling", {
+  # Sparse coupling (permutation-like)
+  P <- matrix(0, 3, 3)
+  P[1, 2] <- 1
+  P[2, 3] <- 1
+  P[3, 1] <- 1
+
+  op <- neuralign:::.coupling_to_operator(P)
+
+  expect_equal(dim(op), c(3, 3))
+  # Result should be a permutation matrix (transposed)
+  expect_equal(rowSums(op), rep(1, 3))
+  expect_equal(colSums(op), rep(1, 3))
+})
+
+test_that(".gw_capabilities has all required fields", {
+  caps <- neuralign:::.gw_capabilities
+
+  # Check all expected fields exist
+  expect_true("supports_cv" %in% names(caps))
+  expect_true("cv_axes" %in% names(caps))
+  expect_true("needs_geometry" %in% names(caps))
+  expect_true("needs_design" %in% names(caps))
+  expect_true("returns_invertible" %in% names(caps))
+  expect_true("transform_type" %in% names(caps))
+  expect_true("mass_preserving" %in% names(caps))
+  expect_true("returns" %in% names(caps))
+  expect_true("supports_new_subject" %in% names(caps))
+  expect_true("supports_new_data" %in% names(caps))
+  expect_true("reference_types" %in% names(caps))
+
+  # Check specific values
+  expect_equal(caps$cv_axes, c("subject"))
+  expect_false(caps$needs_geometry)
+  expect_false(caps$needs_design)
+  expect_true(caps$supports_new_subject)
+  expect_true(caps$supports_new_data)
+  expect_true("barycenter" %in% caps$reference_types)
+})
+
+test_that(".fpgw_capabilities has all required fields", {
+  caps <- neuralign:::.fpgw_capabilities
+
+  # Check all expected fields exist
+  expect_true("supports_cv" %in% names(caps))
+  expect_true("cv_axes" %in% names(caps))
+  expect_true("needs_geometry" %in% names(caps))
+  expect_true("needs_design" %in% names(caps))
+  expect_true("returns_invertible" %in% names(caps))
+  expect_true("transform_type" %in% names(caps))
+  expect_true("mass_preserving" %in% names(caps))
+  expect_true("returns" %in% names(caps))
+  expect_true("supports_new_subject" %in% names(caps))
+  expect_true("supports_new_data" %in% names(caps))
+  expect_true("reference_types" %in% names(caps))
+
+  # Check specific values
+  expect_equal(caps$cv_axes, c("subject"))
+  expect_false(caps$needs_geometry)
+  expect_false(caps$needs_design)
+  expect_false(caps$returns_invertible)
+  expect_true(caps$supports_new_subject)
 })
