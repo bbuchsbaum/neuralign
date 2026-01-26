@@ -229,41 +229,124 @@ apply_transform <- function(transform, data) {
 #'   \itemize{
 #'     \item "transpose" - Use transpose (valid for orthogonal transforms)
 #'     \item "solve" - Use matrix solve (valid for invertible transforms)
+#'     \item "pinv" - Moore-Penrose pseudoinverse (works for non-square / rank-deficient operators)
+#'     \item "ridge" - Tikhonov-regularized inverse (stable approximate inverse; requires \code{lambda > 0})
 #'     \item "auto" - Choose based on transform type
 #'   }
+#' @param tol Tolerance used by \code{method = "pinv"} (relative to the largest singular value).
+#' @param lambda Regularization strength used by \code{method = "ridge"}.
 #'
 #' @return The inverse transform operator.
 #'
 #' @export
-inverse_transform <- function(model, subject, method = "auto") {
+inverse_transform <- function(model,
+                              subject,
+                              method = "auto",
+                              tol = sqrt(.Machine$double.eps),
+                              lambda = 1e-6) {
   transform <- get_transform(model, subject)
   caps <- aligner_capabilities(model@method)
 
+  if (!is.null(caps) && identical(caps$transform_type, "ot")) {
+    stop(
+      sprintf(
+        "Method '%s' returns OT-style couplings (non-bijective); inverse_transform() is not defined",
+        model@method
+      ),
+      call. = FALSE
+    )
+  }
+
   if (method == "auto") {
-    if (!is.null(caps) && isTRUE(caps$returns_invertible)) {
-      if (caps$transform_type == "orthogonal") {
+    if (!is.null(caps)) {
+      if (!isTRUE(caps$returns_invertible)) {
+        stop(
+          sprintf(
+            "Method '%s' does not declare invertible operators; use method='pinv' or method='ridge' for an approximate inverse",
+            model@method
+          ),
+          call. = FALSE
+        )
+      }
+      if (caps$transform_type %in% c("orthogonal", "permutation")) {
         method <- "transpose"
       } else {
         method <- "solve"
       }
     } else {
-      method <- "solve"
+      if (nrow(transform) == ncol(transform)) {
+        method <- "solve"
+      } else {
+        stop(
+          "Transform is not square; no exact inverse. Use method='pinv' or method='ridge' for an approximate inverse.",
+          call. = FALSE
+        )
+      }
     }
   }
 
   if (method == "transpose") {
     return(t(transform))
   } else if (method == "solve") {
+    if (nrow(transform) != ncol(transform)) {
+      stop(
+        "Transform is not square; no exact inverse. Use method='pinv' or method='ridge' for an approximate inverse.",
+        call. = FALSE
+      )
+    }
     tryCatch(
       solve(transform),
       error = function(e) {
         stop(sprintf(
-          "Transform is not invertible: %s",
+          "Transform is not invertible: %s. Consider method='pinv' or method='ridge'.",
           conditionMessage(e)
-        ))
+        ), call. = FALSE)
       }
     )
+  } else if (method == "pinv") {
+    return(.pseudoinverse(transform, tol = tol))
+  } else if (method == "ridge") {
+    return(.ridge_inverse(transform, lambda = lambda))
   } else {
     stop(sprintf("Unknown inverse method: %s", method))
+  }
+}
+
+.as_dense_matrix <- function(x) {
+  if (inherits(x, "Matrix")) return(as.matrix(x))
+  if (is.matrix(x)) return(x)
+  as.matrix(x)
+}
+
+.pseudoinverse <- function(x, tol = sqrt(.Machine$double.eps)) {
+  x <- .as_dense_matrix(x)
+  svd_result <- svd(x)
+  d <- svd_result$d
+
+  if (!length(d)) {
+    return(matrix(numeric(0), ncol(x), nrow(x)))
+  }
+
+  cutoff <- max(dim(x)) * max(d) * tol
+  d_inv <- ifelse(d > cutoff, 1 / d, 0)
+
+  svd_result$v %*% (t(svd_result$u) * d_inv)
+}
+
+.ridge_inverse <- function(x, lambda = 1e-6) {
+  if (!is.numeric(lambda) || length(lambda) != 1L || !is.finite(lambda) || lambda <= 0) {
+    stop("'lambda' must be a single positive number for method='ridge'", call. = FALSE)
+  }
+
+  x <- .as_dense_matrix(x)
+  n_out <- nrow(x)
+  n_in <- ncol(x)
+
+  if (n_out >= n_in) {
+    gram <- crossprod(x) + diag(lambda, n_in)
+    solve(gram, t(x))
+  } else {
+    gram <- tcrossprod(x) + diag(lambda, n_out)
+    t(x) %*% solve(gram)
   }
 }

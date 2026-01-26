@@ -288,3 +288,70 @@ test_that("inverse_transform rejects unknown method", {
     "Unknown inverse method"
   )
 })
+
+test_that("inverse_transform with method = pinv works for non-square operators", {
+  transforms <- list("sub-01" = matrix(c(1, 0, 0, 1, 1, 1), nrow = 2)) # 2 x 3
+  model <- AlignmentModel(
+    transforms = transforms,
+    reference = "consensus",
+    method = "test"
+  )
+
+  forward <- get_transform(model, "sub-01")
+  inverse <- inverse_transform(model, "sub-01", method = "pinv")
+
+  expect_equal(dim(inverse), c(ncol(forward), nrow(forward)))
+  expect_equal(forward %*% inverse %*% forward, forward, tolerance = 1e-10)
+})
+
+test_that("inverse_transform with method = ridge works for non-square operators", {
+  transforms <- list("sub-01" = matrix(c(1, 0, 0, 1, 1, 1), nrow = 2)) # 2 x 3
+  model <- AlignmentModel(
+    transforms = transforms,
+    reference = "consensus",
+    method = "test"
+  )
+
+  forward <- get_transform(model, "sub-01")
+  inverse <- inverse_transform(model, "sub-01", method = "ridge", lambda = 1e-3)
+
+  expect_equal(dim(inverse), c(ncol(forward), nrow(forward)))
+})
+
+test_that("inverse_transform auto errors for non-square operator", {
+  transforms <- list("sub-01" = matrix(c(1, 0, 0, 1, 1, 1), nrow = 2)) # 2 x 3
+  model <- AlignmentModel(
+    transforms = transforms,
+    reference = "consensus",
+    method = "test"
+  )
+
+  expect_error(
+    inverse_transform(model, "sub-01", method = "auto"),
+    "not square"
+  )
+})
+
+test_that("inverse_transform rejects OT transforms", {
+  register_aligner(
+    name = "ot_dummy",
+    fit_fn = function(data, reference, ...) {
+      list(transforms = list("x" = diag(2)), reference_data = NULL)
+    },
+    capabilities = list(transform_type = "ot", returns_invertible = FALSE),
+    package = "neuralign"
+  )
+
+  model <- AlignmentModel(
+    transforms = list("sub-01" = diag(2)),
+    reference = "consensus",
+    method = "ot_dummy"
+  )
+
+  expect_error(
+    inverse_transform(model, "sub-01", method = "pinv"),
+    "OT-style"
+  )
+
+  unregister_aligner("ot_dummy")
+})

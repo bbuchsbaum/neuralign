@@ -4,7 +4,13 @@
 \alias{inverse_transform}
 \title{Get Inverse Transform}
 \usage{
-inverse_transform(model, subject, method = "auto")
+inverse_transform(
+  model,
+  subject,
+  method = "auto",
+  tol = sqrt(.Machine$double.eps),
+  lambda = 1e-06
+)
 }
 \arguments{
 \item{model}{An AlignmentModel.}
@@ -15,8 +21,14 @@ inverse_transform(model, subject, method = "auto")
 \itemize{
 \item "transpose" - Use transpose (valid for orthogonal transforms)
 \item "solve" - Use matrix solve (valid for invertible transforms)
+\item "pinv" - Moore-Penrose pseudoinverse (works for non-square / rank-deficient operators)
+\item "ridge" - Tikhonov-regularized inverse (stable approximate inverse; requires \code{lambda > 0})
 \item "auto" - Choose based on transform type
 }}
+
+\item{tol}{Tolerance used by \code{method = "pinv"} (relative to the largest singular value).}
+
+\item{lambda}{Regularization strength used by \code{method = "ridge"}.}
 }
 \value{
 The inverse transform operator.
