@@ -80,47 +80,28 @@ test_that("FPGW fit function requires manifoldalign", {
   )
 })
 
-test_that("GW barycenter requires manifoldalign", {
-  skip_if(requireNamespace("manifoldalign", quietly = TRUE),
-          "manifoldalign is available")
-
+test_that("GW barycenter falls back to arithmetic mean", {
   data_list <- list(
     matrix(1:4, 2, 2),
     matrix(5:8, 2, 2)
   )
 
-  # Should error when manifoldalign not installed
-  expect_error(
-    neuralign:::.compute_gw_barycenter(data_list, 0.01, 100, 1e-6),
-    "manifoldalign"
+  expect_warning(
+    result <- neuralign:::.compute_gw_barycenter(data_list, 0.01, 100, 1e-6),
+    "arithmetic mean"
   )
+  expect_equal(result, Reduce(`+`, data_list) / length(data_list))
 })
 
-test_that("GW barycenter fallback works when function missing", {
-  skip_if_not_installed("manifoldalign")
-
-  # This test verifies the tryCatch fallback works
-  # when manifoldalign is installed but gw_barycenter fails
-  data_list <- list(
-    matrix(1:4, 2, 2),
-    matrix(5:8, 2, 2)
-  )
-
-  # Mock a failure by using invalid input that causes gw_barycenter to fail
-  # The fallback should catch the error and use arithmetic mean
-  # This is implementation-dependent, so we just verify the function doesn't
-  # completely fail when manifoldalign is available
-  result <- tryCatch(
-    neuralign:::.compute_gw_barycenter(data_list, 0.01, 100, 1e-6),
-    error = function(e) NULL,
-    warning = function(w) {
-      # If warning about fallback, that's expected
-      invokeRestart("muffleWarning")
-    }
-  )
-
-  # Should return something (either barycenter or mean fallback)
-  # Don't test exact value since it depends on manifoldalign behavior
+test_that(".extract_pair_plan indexes packed pairs correctly", {
+  # For n=4, packed order indices are:
+  # 1:(1,2), 2:(1,3), 3:(1,4), 4:(2,3), 5:(2,4), 6:(3,4)
+  plans <- as.list(seq_len(6))
+  expect_equal(neuralign:::.extract_pair_plan(plans, 1, 2, 4), 1L)
+  expect_equal(neuralign:::.extract_pair_plan(plans, 1, 4, 4), 3L)
+  expect_equal(neuralign:::.extract_pair_plan(plans, 2, 4, 4), 5L)
+  # Order-invariant
+  expect_equal(neuralign:::.extract_pair_plan(plans, 4, 2, 4), 5L)
 })
 
 # Integration tests if manifoldalign is available

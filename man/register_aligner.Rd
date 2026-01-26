@@ -66,7 +66,7 @@ Capability flags:
 \item{returns_invertible}{Transform has exact inverse}
 \item{transform_type}{Type: "orthogonal", "linear", "ot", "permutation"}
 \item{mass_preserving}{For OT: does transport preserve mass?}
-\item{returns}{What the method returns: "operator" or "embedding"}
+\item{returns}{What the method returns. Currently "operator" only; "embedding" is reserved}
 \item{supports_new_subject}{Can compute operator for new subject}
 \item{supports_new_data}{Can apply existing operator to new data}
 \item{reference_types}{Character vector of supported reference types}

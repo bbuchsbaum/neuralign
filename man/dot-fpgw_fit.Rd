@@ -8,7 +8,7 @@
   data,
   reference = "medoid",
   train_idx = NULL,
-  alpha = 0.5,
+  omega1 = 0.001,
   epsilon = 0.01,
   max_iter = 100,
   tol = 1e-06,
