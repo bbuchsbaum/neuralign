@@ -111,10 +111,9 @@ apply_alignment <- function(model,
       caps <- aligner$capabilities
       if (!is.null(caps$supports_new_subject) && !caps$supports_new_subject) {
         stop(sprintf(
-          "Method '%s' does not support fitting transforms for new subjects. ",
-          "Use fit_new=FALSE to apply only to subjects with existing transforms.",
+          "Method '%s' does not support fitting transforms for new subjects. Use fit_new=FALSE to apply only to subjects with existing transforms.",
           model@method
-        ))
+        ), call. = FALSE)
       }
 
       # Fit transforms for new subjects

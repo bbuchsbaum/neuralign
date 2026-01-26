@@ -2,6 +2,7 @@
 #'
 #' Internal helpers for validating operator transforms returned by aligners.
 #'
+#' @name validate_transforms
 #' @keywords internal
 NULL
 
@@ -43,4 +44,3 @@ NULL
 
   invisible(TRUE)
 }
-
