@@ -87,9 +87,6 @@ fit_alignment <- function(data,
     data <- as_alignment_data(data, obs_labels = obs_labels)
   }
 
-  # Validate data
-  validate_alignment_data(data, check_features = TRUE)
-
   # Try to load aligner if not registered
   if (!is_aligner_registered(method)) {
     if (!.try_autoload_aligner(method)) {
@@ -106,6 +103,14 @@ fit_alignment <- function(data,
 
   # Get aligner
   aligner <- get_aligner(method)
+  caps <- aligner$capabilities %||% list()
+
+  # Validate data dimensions based on method capabilities
+  validate_alignment_data(
+    data,
+    check_features = isTRUE(caps$requires_shared_features %||% TRUE),
+    check_observations = isTRUE(caps$requires_shared_observations %||% FALSE)
+  )
 
   # Route based on CV strategy
   if (cv == "none") {
@@ -557,11 +562,44 @@ fit_alignment <- function(data,
 
   # Mean pairwise correlation of aligned data
   if (length(aligned) >= 2) {
+    obs_labels_by_subject <- .resolve_obs_labels_by_subject(data)
     pairs <- combn(names(aligned), 2)
     cors <- apply(pairs, 2, function(p) {
-      x <- aligned[[p[1]]]
-      y <- aligned[[p[2]]]
-      mean(diag(cor(t(x), t(y))), na.rm = TRUE)
+      x <- as.matrix(aligned[[p[1]]])
+      y <- as.matrix(aligned[[p[2]]])
+
+      if (!is.null(obs_labels_by_subject)) {
+        labs_x <- obs_labels_by_subject[[p[1]]]
+        labs_y <- obs_labels_by_subject[[p[2]]]
+        common <- intersect(labs_x, labs_y)
+        if (length(common) < 2L) return(NA_real_)
+        ix <- match(common, labs_x)
+        iy <- match(common, labs_y)
+        x <- x[, ix, drop = FALSE]
+        y <- y[, iy, drop = FALSE]
+      } else {
+        if (ncol(x) != ncol(y)) return(NA_real_)
+      }
+
+      if (nrow(x) != nrow(y) || ncol(x) != ncol(y)) {
+        return(NA_real_)
+      }
+
+      n_obs <- ncol(x)
+      sx <- rowSums(x)
+      sy <- rowSums(y)
+      sxx <- rowSums(x * x)
+      syy <- rowSums(y * y)
+      sxy <- rowSums(x * y)
+
+      cov_xy <- sxy - (sx * sy) / n_obs
+      var_x <- sxx - (sx * sx) / n_obs
+      var_y <- syy - (sy * sy) / n_obs
+      denom <- sqrt(var_x * var_y)
+      row_cors <- cov_xy / denom
+      row_cors[denom == 0] <- NA_real_
+
+      mean(row_cors, na.rm = TRUE)
     })
     metrics$mean_pairwise_correlation <- mean(cors, na.rm = TRUE)
     metrics$pairwise_correlations <- setNames(

@@ -32,12 +32,16 @@ Suggests:
     jsonlite,
     abind,
     R.matlab,
+    RSpectra,
     knitr,
     rmarkdown
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 Collate:
     'alignment_data.R'
+    'guidance.R'
+    'roi_anchors.R'
+    'intrinsic_geometry.R'
     'alignment_model.R'
     'alignment_result.R'
     'registry.R'
@@ -53,5 +57,6 @@ Collate:
     'serialize.R'
     'compat_fmrigds.R'
     'aligner_procrustes.R'
+    'aligner_procrustes_graph.R'
     'aligner_ot.R'
     'zzz.R'

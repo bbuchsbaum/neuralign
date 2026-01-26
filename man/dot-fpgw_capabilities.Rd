@@ -5,7 +5,7 @@
 \alias{.fpgw_capabilities}
 \title{FPGW Capabilities}
 \format{
-An object of class \code{list} of length 11.
+An object of class \code{list} of length 13.
 }
 \usage{
 .fpgw_capabilities

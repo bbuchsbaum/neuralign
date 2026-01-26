@@ -170,6 +170,8 @@ NULL
   cv_axes = c("subject"),
   needs_geometry = FALSE,
   needs_design = FALSE,
+  requires_shared_features = FALSE,
+  requires_shared_observations = FALSE,
   returns_invertible = FALSE,  # OT couplings are not bijections
   transform_type = "ot",
   mass_preserving = TRUE,
@@ -291,6 +293,8 @@ NULL
   cv_axes = c("subject"),
   needs_geometry = FALSE,
   needs_design = FALSE,
+  requires_shared_features = FALSE,
+  requires_shared_observations = FALSE,
   returns_invertible = FALSE,
   transform_type = "ot",
   mass_preserving = TRUE,

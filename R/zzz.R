@@ -7,6 +7,7 @@ NULL
 .onLoad <- function(libname, pkgname) {
   # Register built-in aligners
   .register_procrustes()
+  .register_procrustes_graph()
 
   # Register OT aligners if manifoldalign is available
   if (requireNamespace("manifoldalign", quietly = TRUE)) {

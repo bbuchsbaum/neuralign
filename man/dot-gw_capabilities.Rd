@@ -5,7 +5,7 @@
 \alias{.gw_capabilities}
 \title{GW Capabilities}
 \format{
-An object of class \code{list} of length 11.
+An object of class \code{list} of length 13.
 }
 \usage{
 .gw_capabilities

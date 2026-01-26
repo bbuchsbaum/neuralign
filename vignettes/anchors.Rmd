@@ -1,0 +1,193 @@
+---
+title: "Choosing Anchors and Guidance"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Choosing Anchors and Guidance}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Core idea: you need a shared axis
+
+All alignment methods require **some notion of correspondence across subjects**. In practice,
+neuralign supports three common regimes:
+
+1. **Shared observation labels** (classic task alignment): subjects share a condition/trial/time axis.
+2. **Sparse label overlap**: subjects have partially overlapping label sets, but the overlap graph is connected.
+3. **No shared labels** (e.g., resting-state embeddings): you manufacture a comparable anchor space via anatomy/geometry guidance.
+
+This vignette shows the primitives neuralign provides for each regime.
+
+```{r setup}
+library(neuralign)
+```
+
+## 1) Shared labels: Procrustes
+
+If all subjects share the same observation axis (e.g., timepoints or trial labels), use the built-in
+Procrustes aligner:
+
+```{r shared-labels}
+set.seed(1)
+X <- matrix(rnorm(50), 5, 10)
+Q <- qr.Q(qr(matrix(rnorm(25), 5, 5)))
+if (det(Q) < 0) Q[, 1] <- -Q[, 1]
+
+adat <- AlignmentData(list(
+  s1 = X,
+  s2 = Q %*% X
+))
+
+res <- fit_alignment(adat, method = "procrustes", reference = "s1")
+get_quality(res)
+```
+
+## 2) Sparse overlap: graph-synchronized Procrustes
+
+When subjects have **different subsets of labels** (possibly empty global intersection), but the
+overlap graph is connected, use `"procrustes_graph"`. Supply per-subject `obs_labels`:
+
+```{r sparse-overlap}
+set.seed(2)
+d <- 4
+labels <- paste0("stim", 1:8)
+Z <- matrix(rnorm(d * length(labels)), d, length(labels))
+rand_rot <- function(d) {
+  q <- qr.Q(qr(matrix(rnorm(d * d), d, d)))
+  if (det(q) < 0) q[, 1] <- -q[, 1]
+  q
+}
+A1 <- rand_rot(d)
+A2 <- rand_rot(d)
+A3 <- rand_rot(d)
+
+adat <- AlignmentData(
+  data = list(
+    s1 = A1 %*% Z[, 1:4, drop = FALSE],
+    s2 = A2 %*% Z[, 1:8, drop = FALSE],
+    s3 = A3 %*% Z[, 5:8, drop = FALSE]
+  ),
+  obs_labels = list(
+    s1 = labels[1:4],
+    s2 = labels[1:8],
+    s3 = labels[5:8]
+  )
+)
+
+res <- fit_alignment(
+  adat,
+  method = "procrustes_graph",
+  reference = "s1",
+  min_overlap = d
+)
+
+get_quality(res)
+```
+
+The result aligns each subject into a **globally consistent** reference space, without requiring a
+full label intersection.
+
+## 3) Shared feature bases ("betas-as-features"): feature blocks
+
+If subjects share a **named feature basis** (e.g., encoding-model betas), you can treat the feature
+axis as the shared coordinate system. neuralign provides block helpers for harmonizing and stacking
+named feature matrices:
+
+```{r feature-blocks}
+set.seed(3)
+
+b1 <- alignment_feature_block(
+  x = matrix(rnorm(6), 3, 2),
+  name = "betas",
+  weight = 1,
+  feature_names = c("f1", "f2", "f3")
+)
+
+b2 <- alignment_feature_block(
+  x = matrix(rnorm(6), 3, 2),
+  name = "betas",
+  weight = 1,
+  feature_names = c("f3", "f2", "f1") # different order
+)
+
+blocks <- harmonize_feature_blocks(list(
+  s1 = list(betas = b1),
+  s2 = list(betas = b2)
+))
+
+X1 <- stack_feature_blocks(blocks$s1)
+X2 <- stack_feature_blocks(blocks$s2)
+dim(X1)
+```
+
+Downstream packages can use these matrices as standardized inputs to alignment.
+
+## 4) ROI/parcel anchors: projector guidance
+
+If you have subject-specific ROI labels (even outside template space), you can build a projector
+`P_s` of shape `(anchors x features)` and store it as guidance:
+
+```{r roi-guidance}
+set.seed(4)
+data <- AlignmentData(list(
+  s1 = matrix(rnorm(12), 3, 4),
+  s2 = matrix(rnorm(15), 3, 5)
+))
+
+roi <- list(
+  s1 = c("V1", "V1", "MT"),
+  s2 = c("V1", "V1", "V1")
+)
+
+data2 <- set_roi_guidance(data, roi_by_subject = roi, anchor_policy = "union")
+get_guidance(data2, type = "projector")
+```
+
+Projectors can be used to create shared anchor summaries (e.g., `P_s %*% X_s`) or as anatomical costs
+in methods that support guided alignment.
+
+## 5) Intrinsic geometry: coordinate guidance
+
+When ROI labels are unavailable or unreliable, you can compute smooth intrinsic coordinates from a
+subject-specific adjacency graph (e.g., mesh or voxel neighborhood graph):
+
+```{r intrinsic-geometry}
+path_adj <- function(n) {
+  A <- matrix(0, n, n)
+  for (i in seq_len(n - 1L)) {
+    A[i, i + 1L] <- 1
+    A[i + 1L, i] <- 1
+  }
+  A
+}
+
+data <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 5, 4),
+  s2 = matrix(rnorm(24), 6, 4)
+))
+
+adj <- list(
+  s1 = path_adj(5),
+  s2 = path_adj(6)
+)
+
+data2 <- set_intrinsic_geometry_guidance(
+  data,
+  adjacency_by_subject = adj,
+  k = 2,
+  method = "eigen"
+)
+
+get_guidance(data2, type = "coords")
+```
+
+These coordinates are comparable only up to sign/rotation ambiguities and are intended as priors for
+guided alignment objectives (e.g., fused costs for OT/GW-style methods).
+

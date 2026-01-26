@@ -345,6 +345,32 @@ unregister_aligner <- function(name) {
     }
   }
 
+  # Check guidance requirement (anatomy/geometry priors)
+  if (isTRUE(caps$needs_guidance)) {
+    guidance <- tryCatch(get_guidance(data), error = function(e) NULL)
+    has_any <- !is.null(guidance) && any(vapply(guidance, function(chs) length(chs %||% list()) > 0L, logical(1)))
+    if (!has_any) {
+      stop(sprintf(
+        "Method '%s' requires guidance channels (set via set_guidance())",
+        name
+      ), call. = FALSE)
+    }
+
+    if (!is.null(caps$guidance_types)) {
+      types <- as.character(caps$guidance_types)
+      for (subj in data@subjects) {
+        chs <- guidance[[subj]] %||% list()
+        ok <- any(vapply(chs, function(ch) is.list(ch) && !is.null(ch$type) && ch$type %in% types, logical(1)))
+        if (!ok) {
+          stop(sprintf(
+            "Method '%s' requires guidance types {%s}; subject '%s' has none",
+            name, paste(types, collapse = ", "), subj
+          ), call. = FALSE)
+        }
+      }
+    }
+  }
+
   TRUE
 }
 
