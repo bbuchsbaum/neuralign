@@ -7,7 +7,8 @@
 validate_alignment_data(
   object,
   check_features = TRUE,
-  check_observations = FALSE
+  check_observations = FALSE,
+  check_obs_labels = FALSE
 )
 }
 \arguments{

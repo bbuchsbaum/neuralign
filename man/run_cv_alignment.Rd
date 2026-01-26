@@ -10,6 +10,7 @@ run_cv_alignment(
   cv_folds = "loso",
   k = 5,
   reference = "medoid",
+  obs_labels = NULL,
   ...
 )
 }
@@ -24,6 +25,10 @@ run_cv_alignment(
 \item{k}{Number of folds if cv_folds is "kfold".}
 
 \item{reference}{Reference selection method.}
+
+\item{obs_labels}{Optional shared observation labels; passed through to
+\code{\link{as_alignment_data}} when \code{data} is not already an
+\code{\link{AlignmentData}}.}
 
 \item{...}{Additional arguments passed to fit_alignment.}
 }

@@ -22,6 +22,11 @@ Each matrix should be (features x observations) or (voxels x time).}
 
 \item{\code{geometry}}{Optional adjacency/graph structure for graph-based methods.}
 
+\item{\code{obs_labels}}{Optional vector of length n_obs defining a shared observation
+label system across subjects (e.g., design column names, trial ids, or
+timepoints for time-locked paradigms). When provided, validation can enforce
+that observations are comparable across subjects.}
+
 \item{\code{metadata}}{Named list for additional method-specific information.}
 }}
 

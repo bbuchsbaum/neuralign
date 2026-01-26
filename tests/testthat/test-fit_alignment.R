@@ -31,6 +31,27 @@ test_that("fit_alignment works with procrustes", {
   expect_equal(model@method, "procrustes")
 })
 
+test_that("fit_alignment threads obs_labels into AlignmentData coercion", {
+  neuralign:::.register_procrustes()
+
+  set.seed(321)
+  data_list <- list(
+    "sub-01" = matrix(rnorm(50), 5, 10),
+    "sub-02" = matrix(rnorm(50), 5, 10)
+  )
+  labs <- paste0("reg", seq_len(10))
+
+  res <- fit_alignment(data_list, method = "procrustes", obs_labels = labs, reference = "sub-01")
+  expect_s4_class(res, "AlignmentResult")
+  expect_equal(get_obs_labels(as_alignment_data(data_list, obs_labels = labs)), labs)
+
+  # Mismatched labels should error (validation auto-enables when obs_labels present)
+  expect_error(
+    fit_alignment(data_list, method = "procrustes", obs_labels = c("a", "b"), reference = "sub-01"),
+    "obs_labels length mismatch"
+  )
+})
+
 test_that("fit_alignment with medoid reference works", {
   neuralign:::.register_procrustes()
 

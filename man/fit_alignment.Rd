@@ -11,6 +11,7 @@ fit_alignment(
   cv = c("none", "loso", "kfold"),
   cv_folds = 5,
   train_idx = NULL,
+  obs_labels = NULL,
   compute_quality = TRUE,
   ...
 )
@@ -44,6 +45,11 @@ splits.}
 
 \item{train_idx}{Optional integer indices specifying which subjects to use
 for fitting. If NULL, all subjects are used. This enables manual CV schemes.}
+
+\item{obs_labels}{Optional shared observation labels. If \code{data} is a
+list, this is passed through to \code{\link{AlignmentData}} via
+\code{\link{as_alignment_data}}. If \code{data} is already an
+\code{AlignmentData} and has no observation labels, they will be set.}
 
 \item{compute_quality}{Logical; if TRUE, compute quality metrics.}
 

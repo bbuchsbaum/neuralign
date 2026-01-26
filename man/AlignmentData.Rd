@@ -10,6 +10,7 @@ AlignmentData(
   space = NULL,
   design = NULL,
   geometry = NULL,
+  obs_labels = NULL,
   metadata = list()
 )
 }
@@ -25,6 +26,8 @@ from names(data).}
 \item{design}{Optional design/task structure for supervised methods.}
 
 \item{geometry}{Optional adjacency matrix or graph for topology-aware methods.}
+
+\item{obs_labels}{Optional shared observation labels (see slot description).}
 
 \item{metadata}{Optional named list of additional metadata.}
 }

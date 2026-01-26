@@ -27,6 +27,10 @@
 #'   splits.
 #' @param train_idx Optional integer indices specifying which subjects to use
 #'   for fitting. If NULL, all subjects are used. This enables manual CV schemes.
+#' @param obs_labels Optional shared observation labels. If \code{data} is a
+#'   list, this is passed through to \code{\link{AlignmentData}} via
+#'   \code{\link{as_alignment_data}}. If \code{data} is already an
+#'   \code{AlignmentData} and has no observation labels, they will be set.
 #' @param compute_quality Logical; if TRUE, compute quality metrics.
 #' @param ... Additional arguments passed to the method's fit function.
 #'
@@ -63,13 +67,24 @@ fit_alignment <- function(data,
                           cv = c("none", "loso", "kfold"),
                           cv_folds = 5,
                           train_idx = NULL,
+                          obs_labels = NULL,
                           compute_quality = TRUE,
                           ...) {
   cv <- match.arg(cv)
 
   # Coerce data to AlignmentData if needed
-  if (!inherits(data, "AlignmentData")) {
-    data <- as_alignment_data(data)
+  if (inherits(data, "AlignmentData")) {
+    if (!is.null(obs_labels)) {
+      if (!is.null(data@obs_labels) &&
+          !identical(as.character(data@obs_labels), as.character(obs_labels))) {
+        stop("obs_labels supplied but AlignmentData already has different obs_labels", call. = FALSE)
+      }
+      if (is.null(data@obs_labels)) {
+        data@obs_labels <- obs_labels
+      }
+    }
+  } else {
+    data <- as_alignment_data(data, obs_labels = obs_labels)
   }
 
   # Validate data

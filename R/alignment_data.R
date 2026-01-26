@@ -16,6 +16,10 @@ NULL
 #' @slot space Optional space specification (gds_space or compatible).
 #' @slot design Optional design/task structure for methods that need it (e.g., dkge).
 #' @slot geometry Optional adjacency/graph structure for graph-based methods.
+#' @slot obs_labels Optional vector of length n_obs defining a shared observation
+#'   label system across subjects (e.g., design column names, trial ids, or
+#'   timepoints for time-locked paradigms). When provided, validation can enforce
+#'   that observations are comparable across subjects.
 #' @slot metadata Named list for additional method-specific information.
 #'
 #' @export
@@ -26,6 +30,7 @@ setClass("AlignmentData",
     space = "ANY",
     design = "ANY",
     geometry = "ANY",
+    obs_labels = "ANY",
     metadata = "list"
   ),
   prototype = list(
@@ -34,6 +39,7 @@ setClass("AlignmentData",
     space = NULL,
     design = NULL,
     geometry = NULL,
+    obs_labels = NULL,
     metadata = list()
   )
 )
@@ -48,6 +54,7 @@ setClass("AlignmentData",
 #' @param space Optional space specification (e.g., gds_space object).
 #' @param design Optional design/task structure for supervised methods.
 #' @param geometry Optional adjacency matrix or graph for topology-aware methods.
+#' @param obs_labels Optional shared observation labels (see slot description).
 #' @param metadata Optional named list of additional metadata.
 #'
 #' @return An AlignmentData object.
@@ -67,6 +74,7 @@ AlignmentData <- function(data,
                           space = NULL,
                           design = NULL,
                           geometry = NULL,
+                          obs_labels = NULL,
                           metadata = list()) {
   # Validate data is a list
 
@@ -113,6 +121,7 @@ if (!is.list(data)) {
     space = space,
     design = design,
     geometry = geometry,
+    obs_labels = obs_labels,
     metadata = metadata
   )
 }
@@ -146,6 +155,7 @@ setMethod("[", c("AlignmentData", "ANY"),
       space = x@space,
       design = x@design,
       geometry = x@geometry,
+      obs_labels = x@obs_labels,
       metadata = x@metadata
     )
   }
@@ -199,6 +209,20 @@ setMethod("show", "AlignmentData", function(object) {
   }
   if (!is.null(object@geometry)) {
     cat("  Geometry: present\n")
+  }
+  if (!is.null(object@obs_labels)) {
+    n <- length(object@obs_labels)
+    cat(sprintf("  Observation labels: %d\n", n))
+    if (n > 0) {
+      if (n <= 6) {
+        cat(sprintf("    Labels: %s\n", paste(object@obs_labels, collapse = ", ")))
+      } else {
+        cat(sprintf("    Labels: %s, ... (%d more)\n",
+          paste(object@obs_labels[1:3], collapse = ", "),
+          n - 3
+        ))
+      }
+    }
   }
 })
 
@@ -261,6 +285,18 @@ get_data_list <- function(object) {
 }
 
 
+#' Get Observation Labels
+#'
+#' @param object An AlignmentData object.
+#'
+#' @return Observation labels (or NULL if not set).
+#'
+#' @export
+get_obs_labels <- function(object) {
+  object@obs_labels
+}
+
+
 #' Validate AlignmentData for Alignment
 #'
 #' Check that all subjects have compatible dimensions for alignment.
@@ -275,9 +311,16 @@ get_data_list <- function(object) {
 #'
 #' @export
 validate_alignment_data <- function(object, check_features = TRUE,
-                                    check_observations = FALSE) {
+                                    check_observations = FALSE,
+                                    check_obs_labels = FALSE) {
   if (length(object) == 0) {
     stop("AlignmentData contains no subjects")
+  }
+
+  # If obs_labels are present, enforce basic consistency automatically.
+  if (!is.null(object@obs_labels)) {
+    check_obs_labels <- TRUE
+    check_observations <- TRUE
   }
 
   # Get dimensions for each subject
@@ -309,6 +352,62 @@ validate_alignment_data <- function(object, check_features = TRUE,
         "Subjects have different numbers of observations: %s",
         paste(unique(dims_mat[, 2]), collapse = ", ")
       ))
+    }
+  }
+
+  if (check_obs_labels) {
+    n_obs <- unique(dims_mat[, 2])
+    if (length(n_obs) != 1 || is.na(n_obs)) {
+      stop(
+        "Cannot validate obs_labels: subjects have differing or unknown observation counts",
+        call. = FALSE
+      )
+    }
+
+    labs <- object@obs_labels
+    if (is.null(labs)) {
+      stop("check_obs_labels=TRUE but object@obs_labels is NULL", call. = FALSE)
+    }
+
+    if (!is.atomic(labs) && !is.factor(labs)) {
+      stop("obs_labels must be an atomic vector (character/factor/numeric/etc.)", call. = FALSE)
+    }
+
+    if (length(labs) != n_obs) {
+      stop(
+        sprintf("obs_labels length mismatch: expected %d, got %d", n_obs, length(labs)),
+        call. = FALSE
+      )
+    }
+
+    if (any(is.na(labs))) {
+      stop("obs_labels contains NA values", call. = FALSE)
+    }
+
+    # If column names are present, require they agree with obs_labels.
+    data_list <- get_data_list(object)
+    colnames_list <- lapply(data_list, function(x) {
+      if (is.matrix(x) || inherits(x, "Matrix")) {
+        colnames(x)
+      } else {
+        NULL
+      }
+    })
+    has_any_names <- any(vapply(colnames_list, function(nm) !is.null(nm), logical(1)))
+    has_all_names <- all(vapply(colnames_list, function(nm) !is.null(nm), logical(1)))
+    if (has_any_names && !has_all_names) {
+      stop("Some subjects have colnames but others do not; cannot validate against obs_labels", call. = FALSE)
+    }
+    if (has_all_names) {
+      for (subj in names(data_list)) {
+        nm <- colnames_list[[subj]]
+        if (length(nm) != length(labs) || any(nm != as.character(labs))) {
+          stop(
+            sprintf("Subject '%s' colnames do not match obs_labels", subj),
+            call. = FALSE
+          )
+        }
+      }
     }
   }
 

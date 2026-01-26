@@ -95,6 +95,38 @@ test_that("validate_alignment_data works", {
   )
 })
 
+test_that("obs_labels are stored and validated when provided", {
+  data_list <- list(
+    "sub-01" = matrix(1, 10, 5),
+    "sub-02" = matrix(1, 10, 5)
+  )
+
+  labs <- c("A", "B", "C", "D", "E")
+  adat <- AlignmentData(data_list, obs_labels = labs)
+
+  expect_equal(get_obs_labels(adat), labs)
+  expect_true(validate_alignment_data(adat))
+
+  # Length mismatch triggers error
+  adat_bad <- AlignmentData(data_list, obs_labels = c("A", "B"))
+  expect_error(validate_alignment_data(adat_bad), "length mismatch")
+})
+
+test_that("obs_labels can be validated against column names", {
+  m1 <- matrix(1, 10, 3)
+  m2 <- matrix(1, 10, 3)
+  colnames(m1) <- c("x", "y", "z")
+  colnames(m2) <- c("x", "y", "z")
+
+  adat <- AlignmentData(list("sub-01" = m1, "sub-02" = m2), obs_labels = c("x", "y", "z"))
+  expect_true(validate_alignment_data(adat))
+
+  # Mismatched colnames vs obs_labels
+  colnames(m2) <- c("x", "y", "ZZ")
+  adat_bad <- AlignmentData(list("sub-01" = m1, "sub-02" = m2), obs_labels = c("x", "y", "z"))
+  expect_error(validate_alignment_data(adat_bad), "colnames do not match")
+})
+
 test_that("as_alignment_data coercion works", {
   data_list <- list(
     "sub-01" = matrix(1, 5, 5),

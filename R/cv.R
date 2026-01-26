@@ -170,6 +170,9 @@ create_cv_folds <- function(data,
 #'   ("loso", "kfold") to create folds automatically.
 #' @param k Number of folds if cv_folds is "kfold".
 #' @param reference Reference selection method.
+#' @param obs_labels Optional shared observation labels; passed through to
+#'   \code{\link{as_alignment_data}} when \code{data} is not already an
+#'   \code{\link{AlignmentData}}.
 #' @param ... Additional arguments passed to fit_alignment.
 #'
 #' @return List with:
@@ -185,9 +188,20 @@ run_cv_alignment <- function(data,
                              cv_folds = "loso",
                              k = 5,
                              reference = "medoid",
+                             obs_labels = NULL,
                              ...) {
   if (!inherits(data, "AlignmentData")) {
-    data <- as_alignment_data(data)
+    data <- as_alignment_data(data, obs_labels = obs_labels)
+  } else {
+    if (!is.null(obs_labels)) {
+      if (!is.null(data@obs_labels) &&
+          !identical(as.character(data@obs_labels), as.character(obs_labels))) {
+        stop("obs_labels supplied but AlignmentData already has different obs_labels", call. = FALSE)
+      }
+      if (is.null(data@obs_labels)) {
+        data@obs_labels <- obs_labels
+      }
+    }
   }
 
   # Create folds if needed
