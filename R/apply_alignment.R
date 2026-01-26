@@ -91,6 +91,17 @@ apply_alignment <- function(model,
 
   # Fit and apply for new subjects
   if (length(new_subjects) > 0) {
+    if (isTRUE(identical(model@reference, "fold_specific")) &&
+        is.null(model@reference_data)) {
+      stop(
+        paste0(
+          "This model uses fold-specific anchors (no common reference); ",
+          "cannot fit transforms for new subjects. Fit a non-CV model or use a fixed/external reference, ",
+          "or call apply_alignment(..., fit_new=FALSE) to apply only existing transforms."
+        ),
+        call. = FALSE
+      )
+    }
     if (!fit_new) {
       warning(sprintf(
         "No transforms for subjects: %s (fit_new=FALSE)",

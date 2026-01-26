@@ -94,8 +94,17 @@ setMethod("show", "AlignmentResult", function(object) {
     if (!is.null(object@cv_info$method)) {
       cat(sprintf("    Method: %s\n", object@cv_info$method))
     }
+    if (!is.null(object@cv_info$axis)) {
+      cat(sprintf("    Axis: %s\n", object@cv_info$axis))
+    }
     if (!is.null(object@cv_info$n_folds)) {
       cat(sprintf("    Folds: %d\n", object@cv_info$n_folds))
+    }
+    if (!is.null(object@cv_info$anchor_common)) {
+      cat(sprintf(
+        "    Common anchor: %s\n",
+        if (isTRUE(object@cv_info$anchor_common)) "yes" else "no"
+      ))
     }
   }
 })

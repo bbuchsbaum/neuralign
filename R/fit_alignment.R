@@ -21,7 +21,10 @@
 #'     \item "loso" - Leave-one-subject-out
 #'     \item "kfold" - K-fold cross-validation (specify k via cv_folds)
 #'   }
-#' @param cv_folds Number of folds for k-fold CV. Ignored if cv != "kfold".
+#' @param cv_folds Either an integer number of folds for k-fold CV (used when
+#'   \code{cv = "kfold"}), or a fold specification list from
+#'   \code{\link{create_cv_folds}} (or compatible) to control the exact train/test
+#'   splits.
 #' @param train_idx Optional integer indices specifying which subjects to use
 #'   for fitting. If NULL, all subjects are used. This enables manual CV schemes.
 #' @param compute_quality Logical; if TRUE, compute quality metrics.
@@ -94,13 +97,32 @@ fit_alignment <- function(data,
     result <- .fit_single(data, aligner, reference, train_idx,
       compute_quality = compute_quality, ...
     )
+  } else if (.is_cv_folds_spec(cv_folds)) {
+    validate_cv_setup(cv_folds, reference = reference)
+    result <- .fit_cv_folds(
+      data = data,
+      aligner = aligner,
+      reference = reference,
+      cv_folds = cv_folds,
+      compute_quality = compute_quality,
+      ...
+    )
   } else if (cv == "loso") {
-    result <- .fit_cv_loso(data, aligner, reference,
-      compute_quality = compute_quality, ...
+    result <- .fit_cv_loso(
+      data = data,
+      aligner = aligner,
+      reference = reference,
+      compute_quality = compute_quality,
+      ...
     )
   } else if (cv == "kfold") {
-    result <- .fit_cv_kfold(data, aligner, reference, cv_folds,
-      compute_quality = compute_quality, ...
+    result <- .fit_cv_kfold(
+      data = data,
+      aligner = aligner,
+      reference = reference,
+      k = cv_folds,
+      compute_quality = compute_quality,
+      ...
     )
   }
 
@@ -169,100 +191,10 @@ fit_alignment <- function(data,
 #' Internal: Leave-One-Subject-Out CV
 #' @keywords internal
 .fit_cv_loso <- function(data, aligner, reference, compute_quality, ...) {
-  n_subjects <- length(data@subjects)
-  subjects <- data@subjects
-
-  # Check CV support
-  if (!isTRUE(aligner$capabilities$supports_cv)) {
-    warning(sprintf(
-      "Method '%s' may not fully support CV; results may have leakage",
-      aligner$name
-    ))
-  }
-
-  # Storage for per-fold results
-  all_transforms <- list()
-  all_aligned <- list()
-  fold_quality <- vector("list", n_subjects)
-
-  # Iterate over folds
-  for (i in seq_len(n_subjects)) {
-    test_idx <- i
-    train_idx <- setdiff(seq_len(n_subjects), i)
-    test_subj <- subjects[test_idx]
-
-    # Resolve reference using only training subjects
-    ref_resolved <- .resolve_reference(data, reference, train_idx)
-
-    # Fit on training subjects
-    fit_result <- aligner$fit_fn(
-      data = data,
-      reference = ref_resolved$reference,
-      train_idx = train_idx,
-      ...
-    )
-
-    .validate_operator_transforms(
-      transforms = fit_result$transforms,
-      data_list = get_data_list(data)[subjects[train_idx]],
-      context = sprintf("fit_alignment(%s) [loso train]", aligner$name)
-    )
-
-    # Apply to held-out subject
-    test_transform <- .fit_new_subject(
-      aligner, fit_result, data, test_idx, ref_resolved$reference
-    )
-
-    all_transforms[[test_subj]] <- test_transform
-
-    # Apply transform
-    test_data <- get_subject_data(data, test_subj)
-    all_aligned[[test_subj]] <- test_transform %*% test_data
-  }
-
-  # Use final fold's fit for model (or could use all-subject fit)
-  # For CV, we typically want the all-data fit for the model
-  ref_resolved <- .resolve_reference(data, reference, seq_len(n_subjects))
-  fit_result <- aligner$fit_fn(
-    data = data,
-    reference = ref_resolved$reference,
-    train_idx = seq_len(n_subjects),
-    ...
-  )
-
-  .validate_operator_transforms(
-    transforms = fit_result$transforms,
-    data_list = get_data_list(data),
-    context = sprintf("fit_alignment(%s) [loso all]", aligner$name)
-  )
-
-  model <- AlignmentModel(
-    transforms = all_transforms,
-    reference = ref_resolved$reference_spec,
-    reference_data = fit_result$reference_data,
-    method = aligner$name,
-    space_from = fit_result$space_from,
-    space_to = fit_result$space_to,
-    params = list(...),
-    method_state = fit_result$method_state %||% list(),
-    train_subjects = subjects
-  )
-
-  # Quality metrics
-  quality <- list()
-  if (compute_quality) {
-    quality <- .compute_basic_quality(data, all_aligned, model)
-  }
-
-  AlignmentResult(
-    model = model,
-    aligned = all_aligned,
-    quality = quality,
-    cv_info = list(
-      method = "loso",
-      n_folds = n_subjects,
-      fold_assignments = setNames(seq_len(n_subjects), subjects)
-    )
+  cv_folds <- create_cv_folds(data, method = "loso")
+  validate_cv_setup(cv_folds, reference = reference)
+  .fit_cv_folds(data, aligner, reference, cv_folds,
+    compute_quality = compute_quality, ...
   )
 }
 
@@ -270,33 +202,41 @@ fit_alignment <- function(data,
 #' Internal: K-Fold CV
 #' @keywords internal
 .fit_cv_kfold <- function(data, aligner, reference, k, compute_quality, ...) {
-  n_subjects <- length(data@subjects)
+  cv_folds <- create_cv_folds(data, method = "kfold", k = k)
+  # create_cv_folds will fall back to LOSO if k > n.
+  validate_cv_setup(cv_folds, reference = reference)
+  .fit_cv_folds(data, aligner, reference, cv_folds,
+    compute_quality = compute_quality, ...
+  )
+}
+
+
+#' Internal: Generic CV with Provided Folds
+#' @keywords internal
+.fit_cv_folds <- function(data, aligner, reference, cv_folds,
+                          compute_quality, ...) {
+  .validate_cv_folds_spec(cv_folds, n_subjects = length(data@subjects))
+
   subjects <- data@subjects
-
-  if (k > n_subjects) {
-    warning(sprintf("k=%d > n_subjects=%d; using LOSO instead", k, n_subjects))
-    return(.fit_cv_loso(data, aligner, reference, compute_quality, ...))
-  }
-
-  # Create fold assignments
-  fold_assignments <- sample(rep(seq_len(k), length.out = n_subjects))
-  names(fold_assignments) <- subjects
+  n_subjects <- length(subjects)
 
   # Check CV support
   if (!isTRUE(aligner$capabilities$supports_cv)) {
     warning(sprintf(
       "Method '%s' may not fully support CV; results may have leakage",
       aligner$name
-    ))
+    ), call. = FALSE)
   }
 
   all_transforms <- list()
   all_aligned <- list()
+  anchor_by_subject <- setNames(rep(NA_character_, n_subjects), subjects)
 
-  # Iterate over folds
-  for (fold in seq_len(k)) {
-    test_idx <- which(fold_assignments == fold)
-    train_idx <- which(fold_assignments != fold)
+  # Fit/apply for each fold
+  for (fold_name in names(cv_folds$folds)) {
+    fold <- cv_folds$folds[[fold_name]]
+    train_idx <- fold$train
+    test_idx <- fold$test
     test_subjects <- subjects[test_idx]
 
     # Resolve reference using only training subjects
@@ -313,11 +253,21 @@ fit_alignment <- function(data,
     .validate_operator_transforms(
       transforms = fit_result$transforms,
       data_list = get_data_list(data)[subjects[train_idx]],
-      context = sprintf("fit_alignment(%s) [kfold train]", aligner$name)
+      context = sprintf("fit_alignment(%s) [cv train]", aligner$name)
     )
 
     # Apply to held-out subjects
     for (test_subj in test_subjects) {
+      if (test_subj %in% names(all_transforms)) {
+        stop(
+          sprintf(
+            "CV fold spec assigns subject '%s' to multiple test folds; expected each subject exactly once",
+            test_subj
+          ),
+          call. = FALSE
+        )
+      }
+
       test_i <- match(test_subj, subjects)
       test_transform <- .fit_new_subject(
         aligner, fit_result, data, test_i, ref_resolved$reference
@@ -326,51 +276,160 @@ fit_alignment <- function(data,
 
       test_data <- get_subject_data(data, test_subj)
       all_aligned[[test_subj]] <- test_transform %*% test_data
+      anchor_by_subject[[test_subj]] <- as.character(ref_resolved$reference_spec)
     }
   }
 
-  # All-data fit for model
-  ref_resolved <- .resolve_reference(data, reference, seq_len(n_subjects))
-  fit_result <- aligner$fit_fn(
-    data = data,
-    reference = ref_resolved$reference,
-    train_idx = seq_len(n_subjects),
-    ...
-  )
+  missing_subjects <- setdiff(subjects, names(all_transforms))
+  if (length(missing_subjects) > 0) {
+    stop(
+      sprintf(
+        "CV fold spec never assigns these subjects to a test fold: %s",
+        paste(missing_subjects, collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
 
-  .validate_operator_transforms(
-    transforms = fit_result$transforms,
-    data_list = get_data_list(data),
-    context = sprintf("fit_alignment(%s) [kfold all]", aligner$name)
-  )
+  reference_kind <- .reference_kind(reference)
+  anchor_common <- reference_kind %in% c("fixed_subject", "template")
+
+  model_reference <- reference
+  model_reference_data <- NULL
+  model_method_state <- list()
+  model_space_from <- data@space
+  model_space_to <- data@space
+
+  if (anchor_common) {
+    # For a fixed/external anchor, it's safe to store the corresponding reference_data.
+    ref_resolved <- .resolve_reference(data, reference, seq_len(n_subjects))
+    fit_result_all <- aligner$fit_fn(
+      data = data,
+      reference = ref_resolved$reference,
+      train_idx = seq_len(n_subjects),
+      ...
+    )
+
+    .validate_operator_transforms(
+      transforms = fit_result_all$transforms,
+      data_list = get_data_list(data),
+      context = sprintf("fit_alignment(%s) [cv anchor]", aligner$name)
+    )
+
+    model_reference <- ref_resolved$reference_spec
+    model_reference_data <- fit_result_all$reference_data
+    model_method_state <- fit_result_all$method_state %||% list()
+    model_space_from <- fit_result_all$space_from
+    model_space_to <- fit_result_all$space_to
+  } else {
+    # Fold-specific anchors: do not pretend there is a single shared reference.
+    model_reference <- "fold_specific"
+  }
 
   model <- AlignmentModel(
     transforms = all_transforms,
-    reference = ref_resolved$reference_spec,
-    reference_data = fit_result$reference_data,
+    reference = model_reference,
+    reference_data = model_reference_data,
     method = aligner$name,
-    space_from = fit_result$space_from,
-    space_to = fit_result$space_to,
+    space_from = model_space_from,
+    space_to = model_space_to,
     params = list(...),
-    method_state = fit_result$method_state %||% list(),
+    method_state = model_method_state,
     train_subjects = subjects
   )
 
+  # Quality metrics
   quality <- list()
   if (compute_quality) {
     quality <- .compute_basic_quality(data, all_aligned, model)
   }
+
+  cv_method <- cv_folds$method %||% "custom"
+  cv_axis <- cv_folds$axis %||% "subject"
 
   AlignmentResult(
     model = model,
     aligned = all_aligned,
     quality = quality,
     cv_info = list(
-      method = "kfold",
-      n_folds = k,
-      fold_assignments = fold_assignments
+      method = cv_method,
+      axis = cv_axis,
+      n_folds = cv_folds$n_folds %||% length(cv_folds$folds),
+      fold_assignments = cv_folds$assignments %||% NULL,
+      folds = cv_folds$folds,
+      reference_kind = reference_kind,
+      anchor_common = anchor_common,
+      anchor_by_subject = anchor_by_subject,
+      anchor_note = if (!anchor_common) {
+        "Aligned outputs are in fold-specific anchor spaces; do not use for group-level comparisons without mapping to a common anchor."
+      } else {
+        NULL
+      }
     )
   )
+}
+
+
+#' Internal: Identify Fold Spec
+#' @keywords internal
+.is_cv_folds_spec <- function(x) {
+  is.list(x) && !is.null(x$folds) && is.list(x$folds)
+}
+
+
+#' Internal: Validate Fold Spec
+#' @keywords internal
+.validate_cv_folds_spec <- function(cv_folds, n_subjects) {
+  if (!is.list(cv_folds) || is.null(cv_folds$folds) || !is.list(cv_folds$folds)) {
+    stop("cv_folds must be a fold spec list with a $folds list", call. = FALSE)
+  }
+
+  folds <- cv_folds$folds
+  if (length(folds) < 2) {
+    stop("cv_folds$folds must contain >= 2 folds", call. = FALSE)
+  }
+
+  for (fold_name in names(folds)) {
+    fold <- folds[[fold_name]]
+    if (is.null(fold$train) || is.null(fold$test)) {
+      stop(
+        sprintf("cv_folds$folds[['%s']] must contain $train and $test", fold_name),
+        call. = FALSE
+      )
+    }
+    train_idx <- as.integer(fold$train)
+    test_idx <- as.integer(fold$test)
+    if (any(is.na(train_idx)) || any(is.na(test_idx))) {
+      stop(sprintf("cv_folds fold '%s' has NA indices", fold_name), call. = FALSE)
+    }
+    if (any(train_idx < 1 | train_idx > n_subjects) ||
+        any(test_idx < 1 | test_idx > n_subjects)) {
+      stop(sprintf("cv_folds fold '%s' has out-of-range indices", fold_name), call. = FALSE)
+    }
+    if (length(intersect(train_idx, test_idx)) > 0) {
+      stop(sprintf("cv_folds fold '%s' has overlapping train/test indices", fold_name), call. = FALSE)
+    }
+  }
+
+  invisible(TRUE)
+}
+
+
+#' Internal: Classify Reference Kind
+#' @keywords internal
+.reference_kind <- function(reference) {
+  if (is.matrix(reference)) {
+    return("template")
+  }
+
+  if (is.character(reference) && length(reference) == 1) {
+    if (reference %in% c("medoid", "centroid", "consensus")) {
+      return("data_driven")
+    }
+    return("fixed_subject")
+  }
+
+  "unknown"
 }
 
 

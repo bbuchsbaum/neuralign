@@ -37,6 +37,15 @@ as_map_family <- function(model, name = NULL) {
   }
 
   if (inherits(model, "AlignmentResult")) {
+    if (is_cv_result(model) && !has_common_anchor(model)) {
+      stop(
+        paste0(
+          "Cannot convert a cross-validated result with fold-specific anchors to fmrigds::MapFamily(). ",
+          "Fit without CV or use a fixed/external reference so all subjects share a common anchor space."
+        ),
+        call. = FALSE
+      )
+    }
     model <- get_model(model)
   }
 

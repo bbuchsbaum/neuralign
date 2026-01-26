@@ -131,6 +131,8 @@ setMethod("show", "AlignmentModel", function(object) {
   if (is.character(object@reference) && length(object@reference) == 1) {
     if (object@reference == "consensus") {
       cat("  Reference: consensus\n")
+    } else if (object@reference == "fold_specific") {
+      cat("  Reference: fold-specific (no common anchor)\n")
     } else {
       cat(sprintf("  Reference: subject '%s'\n", object@reference))
     }

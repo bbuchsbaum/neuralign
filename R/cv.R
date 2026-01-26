@@ -83,6 +83,7 @@ create_cv_folds <- function(data,
 
     return(list(
       method = "loso",
+      axis = "subject",
       assignments = assignments,
       folds = folds,
       n_folds = n
@@ -109,6 +110,7 @@ create_cv_folds <- function(data,
 
     return(list(
       method = "kfold",
+      axis = "subject",
       assignments = assignments,
       folds = folds,
       n_folds = k
@@ -147,6 +149,7 @@ create_cv_folds <- function(data,
 
     return(list(
       method = "stratified",
+      axis = "subject",
       assignments = assignments,
       folds = folds,
       n_folds = k,
@@ -250,15 +253,25 @@ run_cv_alignment <- function(data,
     ...
   )
 
+  reference_kind <- if (is.matrix(reference)) {
+    "template"
+  } else if (is.character(reference) && length(reference) == 1) {
+    if (reference %in% c("medoid", "centroid", "consensus")) "data_driven" else "fixed_subject"
+  } else {
+    "unknown"
+  }
+
+  anchor_common <- reference_kind %in% c("fixed_subject", "template")
+
   combined_model <- AlignmentModel(
     transforms = all_transforms,
-    reference = full_fit@model@reference,
-    reference_data = full_fit@model@reference_data,
+    reference = if (anchor_common) full_fit@model@reference else "fold_specific",
+    reference_data = if (anchor_common) full_fit@model@reference_data else NULL,
     method = method,
     space_from = full_fit@model@space_from,
     space_to = full_fit@model@space_to,
     params = list(...),
-    method_state = full_fit@model@method_state,
+    method_state = if (anchor_common) full_fit@model@method_state else list(),
     train_subjects = subjects
   )
 
@@ -270,8 +283,17 @@ run_cv_alignment <- function(data,
     quality = quality,
     cv_info = list(
       method = cv_folds$method,
+      axis = cv_folds$axis %||% "subject",
       n_folds = n_folds,
-      fold_assignments = cv_folds$assignments
+      fold_assignments = cv_folds$assignments,
+      folds = cv_folds$folds,
+      reference_kind = reference_kind,
+      anchor_common = anchor_common,
+      anchor_note = if (!anchor_common) {
+        "Aligned outputs are in fold-specific anchor spaces; do not use for group-level comparisons without mapping to a common anchor."
+      } else {
+        NULL
+      }
     )
   )
 
@@ -306,4 +328,84 @@ is_cv_result <- function(result) {
 get_fold_assignments <- function(result) {
   cv_info <- get_cv_info(result)
   cv_info$fold_assignments
+}
+
+
+#' Check if Result/Model Has a Common Anchor Space
+#'
+#' In cross-validation, each fold can define a different reference/anchor
+#' (e.g., medoid/consensus computed from training data only). In that case,
+#' the aligned outputs are expressed in fold-specific spaces and should not be
+#' used for group-level comparisons without a leak-free mapping into a single
+#' common anchor.
+#'
+#' @param x An \code{AlignmentResult} or \code{AlignmentModel}.
+#'
+#' @return Logical; TRUE if outputs are expressed in a single anchor space.
+#'
+#' @export
+has_common_anchor <- function(x) {
+  if (inherits(x, "AlignmentResult")) {
+    cv_info <- get_cv_info(x)
+    # No CV info implies a single fit (common anchor).
+    if (length(cv_info) == 0 || is.null(cv_info$method) || cv_info$method == "none") {
+      return(TRUE)
+    }
+    if (!is.null(cv_info$anchor_common)) {
+      return(isTRUE(cv_info$anchor_common))
+    }
+    # Fallback: treat fold-specific sentinel as non-common.
+    model <- get_model(x)
+    return(!isTRUE(identical(model@reference, "fold_specific")))
+  }
+
+  if (inherits(x, "AlignmentModel")) {
+    return(!isTRUE(identical(x@reference, "fold_specific")))
+  }
+
+  stop("'x' must be an AlignmentResult or AlignmentModel", call. = FALSE)
+}
+
+
+#' Validate That Outputs Are in a Single Anchor Space
+#'
+#' Convenience guard for downstream group analysis. If the result/model does
+#' not have a common anchor, you typically need a fixed/external anchor or an
+#' outer split plus a leak-free mapping from fold-specific spaces into a common
+#' analysis space.
+#'
+#' @param x An \code{AlignmentResult} or \code{AlignmentModel}.
+#' @param action What to do if no common anchor is detected:
+#'   \itemize{
+#'     \item "warn" - Issue a warning (default)
+#'     \item "error" - Throw an error
+#'     \item "silent" - Do nothing
+#'   }
+#' @param context Short context string used in messages.
+#'
+#' @return Invisibly returns TRUE if valid; otherwise warns/errors.
+#'
+#' @export
+validate_common_anchor <- function(x,
+                                   action = c("warn", "error", "silent"),
+                                   context = "group analysis") {
+  action <- match.arg(action)
+
+  if (has_common_anchor(x)) {
+    return(invisible(TRUE))
+  }
+
+  msg <- paste0(
+    "No common anchor detected for ", context, ": aligned outputs are in fold-specific spaces. ",
+    "Use a fixed/external reference, or perform an outer split and map fold-specific anchors ",
+    "into a single analysis space before computing group statistics."
+  )
+
+  if (action == "error") {
+    stop(msg, call. = FALSE)
+  } else if (action == "warn") {
+    warning(msg, call. = FALSE)
+  }
+
+  invisible(FALSE)
 }

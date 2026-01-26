@@ -37,7 +37,10 @@ be coerced to AlignmentData.}
 \item "kfold" - K-fold cross-validation (specify k via cv_folds)
 }}
 
-\item{cv_folds}{Number of folds for k-fold CV. Ignored if cv != "kfold".}
+\item{cv_folds}{Either an integer number of folds for k-fold CV (used when
+\code{cv = "kfold"}), or a fold specification list from
+\code{\link{create_cv_folds}} (or compatible) to control the exact train/test
+splits.}
 
 \item{train_idx}{Optional integer indices specifying which subjects to use
 for fitting. If NULL, all subjects are used. This enables manual CV schemes.}
