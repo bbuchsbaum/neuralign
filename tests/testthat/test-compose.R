@@ -310,3 +310,68 @@ test_that("check_composition returns info message for compatible models", {
   expect_match(result$message, "compatible")
   expect_match(result$message, "2 common subjects")
 })
+
+
+# ---------- Provenance preservation ----------
+
+test_that("compose_alignment preserves provenance from both models", {
+  transforms1 <- list("sub-01" = diag(3))
+  transforms2 <- list("sub-01" = diag(3) * 2)
+
+  model1 <- AlignmentModel(
+    transforms1, reference = "consensus", method = "m1",
+    params = list(scale = TRUE)
+  )
+  model2 <- AlignmentModel(
+    transforms2, reference = "consensus", method = "m2",
+    params = list(alpha = 0.5)
+  )
+
+  composed <- compose_alignment(model1, model2)
+
+  # Provenance should have composed_from with both models
+  prov <- composed@provenance
+  expect_true(!is.null(prov$composed_from))
+  expect_true(!is.null(prov$composed_from$model1))
+  expect_true(!is.null(prov$composed_from$model2))
+  expect_equal(prov$composed_from$model1$method, "m1")
+  expect_equal(prov$composed_from$model2$method, "m2")
+  expect_true(!is.null(prov$composed_at))
+  expect_true(!is.null(prov$neuralign_version))
+})
+
+test_that("compose_alignment warns on space chain mismatch", {
+  transforms1 <- list("sub-01" = diag(3))
+  transforms2 <- list("sub-01" = diag(3))
+
+  model1 <- AlignmentModel(
+    transforms1, reference = "consensus", method = "m1",
+    space_from = "native", space_to = "MNI"
+  )
+  model2 <- AlignmentModel(
+    transforms2, reference = "consensus", method = "m2",
+    space_from = "talairach", space_to = "functional"
+  )
+
+  expect_warning(
+    compose_alignment(model1, model2),
+    "Space chain mismatch"
+  )
+})
+
+test_that("compose_alignment sets correct space_from and space_to", {
+  transforms <- list("sub-01" = diag(3))
+
+  model1 <- AlignmentModel(
+    transforms, reference = "consensus", method = "m1",
+    space_from = "native", space_to = "MNI"
+  )
+  model2 <- AlignmentModel(
+    transforms, reference = "consensus", method = "m2",
+    space_from = "MNI", space_to = "functional"
+  )
+
+  composed <- compose_alignment(model1, model2)
+  expect_equal(composed@space_from, "native")
+  expect_equal(composed@space_to, "functional")
+})

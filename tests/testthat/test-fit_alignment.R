@@ -459,3 +459,205 @@ test_that(".fit_new_subject falls back to original reference when reference_data
   expect_equal(captured_ref, "consensus")
   expect_equal(result, diag(n_feat))
 })
+
+
+# ---------- return_aligned = FALSE (model-only workflow) ----------
+
+test_that("fit_alignment with return_aligned=FALSE returns empty aligned list", {
+  neuralign:::.register_procrustes()
+
+  set.seed(42)
+  n_feat <- 10
+  n_obs <- 15
+  data_list <- list(
+    "sub-01" = matrix(rnorm(n_feat * n_obs), n_feat, n_obs),
+    "sub-02" = matrix(rnorm(n_feat * n_obs), n_feat, n_obs),
+    "sub-03" = matrix(rnorm(n_feat * n_obs), n_feat, n_obs)
+  )
+  adat <- AlignmentData(data_list)
+
+  result <- fit_alignment(adat, method = "procrustes", reference = "consensus",
+                          return_aligned = FALSE)
+
+  expect_s4_class(result, "AlignmentResult")
+
+  # Model should be fully populated
+  model <- get_model(result)
+  expect_equal(length(model@transforms), 3)
+
+  # Aligned list should be empty
+  expect_equal(length(result@aligned), 0)
+})
+
+test_that("fit_alignment with return_aligned=TRUE returns aligned data", {
+  neuralign:::.register_procrustes()
+
+  set.seed(42)
+  n_feat <- 10
+  n_obs <- 15
+  data_list <- list(
+    "sub-01" = matrix(rnorm(n_feat * n_obs), n_feat, n_obs),
+    "sub-02" = matrix(rnorm(n_feat * n_obs), n_feat, n_obs)
+  )
+  adat <- AlignmentData(data_list)
+
+  result <- fit_alignment(adat, method = "procrustes", reference = "consensus",
+                          return_aligned = TRUE)
+
+  expect_equal(length(result@aligned), 2)
+  expect_equal(names(result@aligned), c("sub-01", "sub-02"))
+})
+
+test_that("fit_alignment cv='loso' with return_aligned=FALSE returns empty aligned", {
+  neuralign:::.register_procrustes()
+
+  set.seed(42)
+  n_feat <- 10
+  n_obs <- 15
+  data_list <- list(
+    "sub-01" = matrix(rnorm(n_feat * n_obs), n_feat, n_obs),
+    "sub-02" = matrix(rnorm(n_feat * n_obs), n_feat, n_obs),
+    "sub-03" = matrix(rnorm(n_feat * n_obs), n_feat, n_obs)
+  )
+  adat <- AlignmentData(data_list)
+
+  result <- fit_alignment(adat, method = "procrustes", reference = "consensus",
+                          cv = "loso", return_aligned = FALSE)
+
+  expect_s4_class(result, "AlignmentResult")
+  expect_equal(length(result@aligned), 0)
+  # Model should still exist
+  expect_equal(length(get_model(result)@transforms), 3)
+})
+
+
+# ---------- Observation-axis CV ----------
+
+test_that(".subset_obs works with shared observation indices", {
+  set.seed(42)
+  data_list <- list(
+    "sub-01" = matrix(1:30, 5, 6),
+    "sub-02" = matrix(31:60, 5, 6)
+  )
+  adat <- AlignmentData(data_list)
+
+  result <- neuralign:::.subset_obs(adat, c(1, 3, 5))
+
+  result_list <- get_data_list(result)
+  expect_equal(ncol(result_list[["sub-01"]]), 3)
+  expect_equal(ncol(result_list[["sub-02"]]), 3)
+  expect_equal(result_list[["sub-01"]], data_list[["sub-01"]][, c(1, 3, 5)])
+})
+
+test_that(".subset_obs works with per-subject observation indices", {
+  set.seed(42)
+  data_list <- list(
+    "sub-01" = matrix(1:30, 5, 6),
+    "sub-02" = matrix(31:60, 5, 6)
+  )
+  adat <- AlignmentData(data_list)
+
+  obs_idx <- list(
+    "sub-01" = c(1, 2),
+    "sub-02" = c(3, 4, 5)
+  )
+  result <- neuralign:::.subset_obs(adat, obs_idx)
+
+  result_list <- get_data_list(result)
+  expect_equal(ncol(result_list[["sub-01"]]), 2)
+  expect_equal(ncol(result_list[["sub-02"]]), 3)
+})
+
+test_that(".subset_obs errors on empty observation index", {
+  data_list <- list(
+    "sub-01" = matrix(1:30, 5, 6),
+    "sub-02" = matrix(31:60, 5, 6)
+  )
+  adat <- AlignmentData(data_list)
+
+  obs_idx <- list(
+    "sub-01" = integer(0),
+    "sub-02" = c(1, 2)
+  )
+  expect_error(
+    neuralign:::.subset_obs(adat, obs_idx),
+    "Empty observation index"
+  )
+})
+
+test_that("fit_alignment routes observation-axis folds to .fit_cv_obs_folds", {
+  neuralign:::.register_procrustes()
+
+  set.seed(42)
+  n_feat <- 10
+  n_obs <- 20
+  data_list <- list(
+    "sub-01" = matrix(rnorm(n_feat * n_obs), n_feat, n_obs),
+    "sub-02" = matrix(rnorm(n_feat * n_obs), n_feat, n_obs),
+    "sub-03" = matrix(rnorm(n_feat * n_obs), n_feat, n_obs)
+  )
+  adat <- AlignmentData(data_list)
+
+  # Build observation-axis fold spec
+  obs_folds <- list(
+    axis = "observation",
+    method = "custom",
+    folds = list(
+      fold1 = list(train_idx = 1:10, test_idx = 11:20),
+      fold2 = list(train_idx = 11:20, test_idx = 1:10)
+    )
+  )
+
+  result <- fit_alignment(adat, method = "procrustes", reference = "consensus",
+                          cv_folds = obs_folds)
+
+  expect_s4_class(result, "AlignmentResult")
+  expect_equal(result@cv_info$axis, "observation")
+  expect_equal(result@cv_info$n_folds, 2)
+  expect_equal(length(get_model(result)@transforms), 3)
+})
+
+test_that("observation-axis CV warns when method doesn't declare observation in cv_axes", {
+  neuralign:::.clear_registry()
+
+  test_fit <- function(data, reference, train_idx = NULL, ...) {
+    n_feat <- nrow(data@data[[1]])
+    transforms <- lapply(data@subjects, function(s) diag(n_feat))
+    names(transforms) <- data@subjects
+    list(
+      transforms = transforms,
+      reference_data = matrix(0, n_feat, 1),
+      space_from = NULL,
+      space_to = NULL
+    )
+  }
+
+  register_aligner(
+    "subj_only_method",
+    test_fit,
+    capabilities = list(cv_axes = c("subject"))
+  )
+  on.exit(unregister_aligner("subj_only_method"))
+
+  set.seed(42)
+  data_list <- list(
+    "sub-01" = matrix(rnorm(40), 4, 10),
+    "sub-02" = matrix(rnorm(40), 4, 10)
+  )
+  adat <- AlignmentData(data_list)
+
+  obs_folds <- list(
+    axis = "observation",
+    method = "custom",
+    folds = list(
+      fold1 = list(train_idx = 1:5, test_idx = 6:10),
+      fold2 = list(train_idx = 6:10, test_idx = 1:5)
+    )
+  )
+
+  expect_warning(
+    fit_alignment(adat, method = "subj_only_method", reference = "consensus",
+                  cv_folds = obs_folds),
+    "observation-axis CV may not be meaningful"
+  )
+})

@@ -69,6 +69,14 @@ compose_alignment <- function(model1, model2) {
     )
   }
 
+  # Check space chain compatibility
+  if (!spaces_compatible(model1@space_to, model2@space_from)) {
+    warning(sprintf(
+      "Space chain mismatch: model1 maps to '%s' but model2 expects '%s'",
+      .format_space(model1@space_to), .format_space(model2@space_from)
+    ), call. = FALSE)
+  }
+
   # Get common subjects
   subjects1 <- names(model1@transforms)
   subjects2 <- names(model2@transforms)
@@ -135,12 +143,12 @@ compose_alignment <- function(model1, model2) {
     method = sprintf("%s+%s", model1@method, model2@method),
     space_from = model1@space_from,
     space_to = model2@space_to,
-    params = list(),
     method_state = list(
       model1_state = model1@method_state,
       model2_state = model2@method_state
     ),
-    train_subjects = common_subjects
+    train_subjects = common_subjects,
+    provenance = provenance
   )
 }
 

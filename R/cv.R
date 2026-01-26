@@ -478,7 +478,7 @@ run_cv_alignment <- function(data,
     ...
   )
 
-  reference_kind <- if (is.matrix(reference)) {
+  reference_kind <- if (.is_matrixish(reference)) {
     "template"
   } else if (is.character(reference) && length(reference) == 1) {
     if (reference %in% c("medoid", "centroid", "consensus")) "data_driven" else "fixed_subject"

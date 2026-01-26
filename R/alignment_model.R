@@ -51,6 +51,9 @@ setClass("AlignmentModel",
 #' @param params List of parameters used for fitting.
 #' @param method_state Method-specific state for applying to new data.
 #' @param train_subjects Character vector of subjects used in training.
+#' @param provenance Optional pre-built provenance list. If provided, used
+#'   directly instead of auto-generating from params. Useful for composed models
+#'   or models reconstructed from serialized state.
 #'
 #' @return An AlignmentModel object.
 #'
@@ -63,7 +66,8 @@ AlignmentModel <- function(transforms,
                            space_to = NULL,
                            params = list(),
                            method_state = list(),
-                           train_subjects = character(0)) {
+                           train_subjects = character(0),
+                           provenance = NULL) {
   # Validate transforms
   if (!is.list(transforms)) {
     stop("'transforms' must be a named list of operators")
@@ -73,23 +77,25 @@ AlignmentModel <- function(transforms,
     stop("'transforms' must be named with subject IDs")
   }
 
-  # Build provenance
-  provenance <- list(
-    params = params,
-    fitted_at = Sys.time(),
-    neuralign_version = as.character(utils::packageVersion("neuralign")),
-    r_version = R.version.string,
-    data_hash = NULL
-  )
+  # Build provenance if not provided
+  if (is.null(provenance)) {
+    provenance <- list(
+      params = params,
+      fitted_at = Sys.time(),
+      neuralign_version = as.character(utils::packageVersion("neuralign")),
+      r_version = R.version.string,
+      data_hash = NULL
+    )
 
-  # Try to get method package version
-  aligner_info <- get_aligner(method)
-  if (!is.null(aligner_info)) {
-    pkg <- aligner_info$package
-    if (!is.null(pkg) && requireNamespace(pkg, quietly = TRUE)) {
-      provenance$method_package_version <- as.character(
-        utils::packageVersion(pkg)
-      )
+    # Try to get method package version
+    aligner_info <- get_aligner(method)
+    if (!is.null(aligner_info)) {
+      pkg <- aligner_info$package
+      if (!is.null(pkg) && requireNamespace(pkg, quietly = TRUE)) {
+        provenance$method_package_version <- as.character(
+          utils::packageVersion(pkg)
+        )
+      }
     }
   }
 
@@ -136,7 +142,7 @@ setMethod("show", "AlignmentModel", function(object) {
     } else {
       cat(sprintf("  Reference: subject '%s'\n", object@reference))
     }
-  } else if (is.matrix(object@reference)) {
+  } else if (.is_matrixish(object@reference)) {
     cat("  Reference: template matrix\n")
   }
 
@@ -156,6 +162,39 @@ setMethod("show", "AlignmentModel", function(object) {
   # Provenance
   cat(sprintf("  Fitted at: %s\n", object@provenance$fitted_at))
 })
+
+
+#' Check Space Compatibility
+#'
+#' Determine whether two space specifications are compatible.
+#' NULL is compatible with anything.
+#'
+#' @param a First space specification.
+#' @param b Second space specification.
+#'
+#' @return Logical; TRUE if spaces are compatible.
+#'
+#' @export
+spaces_compatible <- function(a, b) {
+  if (is.null(a) || is.null(b)) return(TRUE)
+  if (identical(a, b)) return(TRUE)
+
+  # Both character: string equality
+
+  if (is.character(a) && is.character(b)) {
+    return(identical(a, b))
+  }
+
+  # Both gds_space: compare by name
+  if (inherits(a, "gds_space") && inherits(b, "gds_space")) {
+    a_name <- a$name %||% ""
+    b_name <- b$name %||% ""
+    return(identical(a_name, b_name))
+  }
+
+  # Fallback: all.equal
+  isTRUE(all.equal(a, b))
+}
 
 
 #' Helper to Format Space Info

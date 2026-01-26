@@ -11,6 +11,122 @@ NULL
 # Internal registry environment
 .aligner_registry <- new.env(parent = emptyenv())
 
+#' Aligner API Version
+#'
+#' The current version of the aligner registration API. Third-party packages
+#' should declare which API version they implement. This allows detection of
+#' incompatible changes as the interface evolves.
+#'
+#' @export
+NEURALIGN_ALIGNER_API_VERSION <- 1L
+
+
+#' Validate Aligner Contract
+#'
+#' Check that an aligner registration entry conforms to the expected contract.
+#' This validates the fit_fn and apply_fn signatures, capabilities structure,
+#' and other requirements.
+#'
+#' @param name Method name.
+#' @param fit_fn The fit function to validate.
+#' @param apply_fn Optional apply function to validate.
+#' @param capabilities Capabilities list to validate.
+#' @param api_version API version the aligner declares (default: current).
+#'
+#' @return TRUE invisibly if valid; otherwise throws an error.
+#'
+#' @details
+#' The \code{fit_fn} must accept at minimum: \code{data}, \code{reference},
+#' \code{train_idx}, and \code{...}.
+#'
+#' If provided, \code{apply_fn} must accept at minimum: \code{fit_result},
+#' \code{new_data}, and \code{...}. It should return a list with a
+#' \code{transforms} element (named list of operators).
+#'
+#' @export
+validate_aligner_contract <- function(name,
+                                      fit_fn,
+                                      apply_fn = NULL,
+                                      capabilities = list(),
+                                      api_version = NEURALIGN_ALIGNER_API_VERSION) {
+  errors <- character(0)
+
+  # Check API version compatibility
+  if (!is.null(api_version) && api_version > NEURALIGN_ALIGNER_API_VERSION) {
+    errors <- c(errors, sprintf(
+      "Aligner declares api_version=%d but neuralign supports up to %d",
+      api_version, NEURALIGN_ALIGNER_API_VERSION
+    ))
+  }
+
+  # Validate fit_fn signature
+  if (!is.function(fit_fn)) {
+    errors <- c(errors, "fit_fn must be a function")
+  } else {
+    fit_args <- names(formals(fit_fn))
+    required_fit <- c("data", "reference")
+    missing_fit <- setdiff(required_fit, fit_args)
+    if (length(missing_fit) > 0 && !"..." %in% fit_args) {
+      errors <- c(errors, sprintf(
+        "fit_fn missing required formals: %s",
+        paste(missing_fit, collapse = ", ")
+      ))
+    }
+  }
+
+  # Validate apply_fn signature if provided
+  if (!is.null(apply_fn)) {
+    if (!is.function(apply_fn)) {
+      errors <- c(errors, "apply_fn must be a function or NULL")
+    } else {
+      apply_args <- names(formals(apply_fn))
+      required_apply <- c("fit_result", "new_data")
+      missing_apply <- setdiff(required_apply, apply_args)
+      if (length(missing_apply) > 0 && !"..." %in% apply_args) {
+        errors <- c(errors, sprintf(
+          "apply_fn missing required formals: %s",
+          paste(missing_apply, collapse = ", ")
+        ))
+      }
+    }
+  }
+
+  # Validate capabilities structure
+  if (!is.list(capabilities)) {
+    errors <- c(errors, "capabilities must be a list")
+  } else {
+    # Use [["..."]] to avoid partial matching (e.g., $returns matching $returns_invertible)
+    ret <- capabilities[["returns"]]
+    if (!is.null(ret) && !ret %in% c("operator", "embedding")) {
+      errors <- c(errors, sprintf(
+        "capabilities$returns must be 'operator' or 'embedding' (got: '%s')",
+        ret
+      ))
+    }
+    tt <- capabilities[["transform_type"]]
+    if (!is.null(tt) && !is.character(tt)) {
+      errors <- c(errors, "capabilities$transform_type must be a character string")
+    }
+    cva <- capabilities[["cv_axes"]]
+    if (!is.null(cva) && !is.character(cva)) {
+      errors <- c(errors, "capabilities$cv_axes must be a character vector")
+    }
+    reft <- capabilities[["reference_types"]]
+    if (!is.null(reft) && !is.character(reft)) {
+      errors <- c(errors, "capabilities$reference_types must be a character vector")
+    }
+  }
+
+  if (length(errors) > 0) {
+    stop(sprintf(
+      "Aligner contract validation failed for '%s':\n  - %s",
+      name, paste(errors, collapse = "\n  - ")
+    ), call. = FALSE)
+  }
+
+  invisible(TRUE)
+}
+
 
 #' Register an Alignment Method
 #'
@@ -21,11 +137,16 @@ NULL
 #' @param name Character string identifying the method (e.g., "procrustes", "fugw").
 #' @param fit_fn Function implementing the fit operation. See Details for signature.
 #' @param apply_fn Optional function for applying to new data. If NULL, default
-#'   left-multiply application is used.
+#'   left-multiply application is used. When provided, must accept
+#'   \code{fit_result} (list with transforms, reference_data, space_from,
+#'   space_to, method_state) and \code{new_data} (AlignmentData), and return
+#'   a list with a \code{transforms} element.
 #' @param capabilities Named list of capability flags. See Details.
 #' @param package Character string identifying the providing package.
 #' @param description Brief description of the method.
 #' @param version Version string for the method implementation.
+#' @param api_version Integer declaring which neuralign aligner API version
+#'   this method implements. Defaults to \code{NEURALIGN_ALIGNER_API_VERSION}.
 #'
 #' @details
 #' The \code{fit_fn} must have the following signature:
@@ -49,7 +170,7 @@ NULL
 #' Capability flags:
 #' \describe{
 #'   \item{supports_cv}{Can handle train/test splits}
-#'   \item{cv_axes}{Which axes support CV: "subject", "run", "task"}
+#'   \item{cv_axes}{Which axes support CV: "subject", "observation"}
 #'   \item{needs_geometry}{Requires adjacency/graph in AlignmentData}
 #'   \item{needs_design}{Requires task structure in AlignmentData}
 #'   \item{returns_invertible}{Transform has exact inverse}
@@ -85,21 +206,20 @@ register_aligner <- function(name,
                              capabilities = list(),
                              package = NA_character_,
                              description = "",
-                             version = "0.0.0") {
+                             version = "0.0.0",
+                             api_version = NEURALIGN_ALIGNER_API_VERSION) {
   # Validate name
   if (!is.character(name) || length(name) != 1) {
     stop("'name' must be a single character string")
   }
 
-  # Validate fit_fn
-  if (!is.function(fit_fn)) {
-    stop("'fit_fn' must be a function")
-  }
-
-  # Validate apply_fn if provided
-  if (!is.null(apply_fn) && !is.function(apply_fn)) {
-    stop("'apply_fn' must be a function or NULL")
-  }
+  # Validate aligner contract
+  validate_aligner_contract(
+    name = name,
+    fit_fn = fit_fn,
+    apply_fn = apply_fn,
+    capabilities = capabilities
+  )
 
   # Set default capabilities
   default_caps <- list(
@@ -126,20 +246,8 @@ register_aligner <- function(name,
   )
   capabilities <- modifyList(default_caps, capabilities)
 
-  # Validate capabilities
-  if (!is.character(capabilities$returns) || length(capabilities$returns) != 1L) {
-    stop("capabilities$returns must be a single string", call. = FALSE)
-  }
-  if (!capabilities$returns %in% c("operator", "embedding")) {
-    stop(
-      sprintf(
-        "capabilities$returns must be one of: operator, embedding (got: %s)",
-        capabilities$returns
-      ),
-      call. = FALSE
-    )
-  }
-  if (identical(capabilities$returns, "embedding")) {
+  # Embedding support is reserved but not yet implemented
+  if (identical(capabilities[["returns"]], "embedding")) {
     stop(
       "neuralign currently supports operator-returning aligners only. ",
       "If your method produces embeddings, expose them as (target x source) operators (e.g., projections) ",
@@ -157,6 +265,7 @@ register_aligner <- function(name,
     package = package,
     description = description,
     version = version,
+    api_version = api_version,
     registered_at = Sys.time()
   )
 

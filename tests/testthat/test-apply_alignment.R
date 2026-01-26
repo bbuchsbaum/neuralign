@@ -601,3 +601,31 @@ test_that(".as_dense_matrix returns plain matrix unchanged", {
   expect_true(is.matrix(result))
   expect_identical(result, mat)
 })
+
+
+# ---------- Space mismatch warning in apply_alignment ----------
+
+test_that("apply_alignment warns on space mismatch", {
+  neuralign:::.register_procrustes()
+
+  set.seed(42)
+  data_list <- list(
+    "sub-01" = matrix(rnorm(50), 10, 5),
+    "sub-02" = matrix(rnorm(50), 10, 5)
+  )
+  adat <- AlignmentData(data_list)
+
+  result <- fit_alignment(adat, method = "procrustes", reference = "sub-01")
+  model <- get_model(result)
+
+  # Force different space_from on the model
+  model@space_from <- "MNI152"
+
+  new_data <- list("sub-03" = matrix(rnorm(50), 10, 5))
+  new_adat <- AlignmentData(new_data, space = "native")
+
+  expect_warning(
+    apply_alignment(model, new_adat, warn_leakage = FALSE),
+    "Space mismatch"
+  )
+})

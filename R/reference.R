@@ -352,8 +352,8 @@ get_reference_data <- function(data, reference) {
     data <- as_alignment_data(data)
   }
 
-  if (is.matrix(reference)) {
-    return(reference)
+  if (.is_matrixish(reference)) {
+    return(as.matrix(reference))
   }
 
   if (reference == "consensus") {
@@ -387,7 +387,7 @@ get_reference_data <- function(data, reference) {
 
   ref_types <- caps$reference_types %||% c("subject", "consensus")
 
-  ref_type <- if (is.matrix(reference)) {
+  ref_type <- if (.is_matrixish(reference)) {
     "template"
   } else if (reference == "consensus") {
     "consensus"

@@ -32,6 +32,9 @@
 #'   \code{\link{as_alignment_data}}. If \code{data} is already an
 #'   \code{AlignmentData} and has no observation labels, they will be set.
 #' @param compute_quality Logical; if TRUE, compute quality metrics.
+#' @param return_aligned Logical; if TRUE (default), apply transforms and store
+#'   aligned data in the result. Set to FALSE to return only the model (saves
+#'   memory in pipeline workflows where aligned data is not needed immediately).
 #' @param ... Additional arguments passed to the method's fit function.
 #'
 #' @return An AlignmentResult object containing the fitted model and
@@ -69,6 +72,7 @@ fit_alignment <- function(data,
                           train_idx = NULL,
                           obs_labels = NULL,
                           compute_quality = TRUE,
+                          return_aligned = TRUE,
                           ...) {
   cv <- match.arg(cv)
 
@@ -113,19 +117,34 @@ fit_alignment <- function(data,
   )
 
   # Route based on CV strategy
-  if (cv == "none") {
+  # Check for explicit fold spec first (overrides cv="none" default)
+  if (.is_cv_folds_spec(cv_folds)) {
+    if (identical(cv_folds$axis, "observation")) {
+      result <- .fit_cv_obs_folds(
+        data = data,
+        aligner = aligner,
+        reference = reference,
+        cv_folds = cv_folds,
+        compute_quality = compute_quality,
+        return_aligned = return_aligned,
+        ...
+      )
+    } else {
+      validate_cv_setup(cv_folds, reference = reference)
+      result <- .fit_cv_folds(
+        data = data,
+        aligner = aligner,
+        reference = reference,
+        cv_folds = cv_folds,
+        compute_quality = compute_quality,
+        return_aligned = return_aligned,
+        ...
+      )
+    }
+  } else if (cv == "none") {
     result <- .fit_single(data, aligner, reference, train_idx,
-      compute_quality = compute_quality, ...
-    )
-  } else if (.is_cv_folds_spec(cv_folds)) {
-    validate_cv_setup(cv_folds, reference = reference)
-    result <- .fit_cv_folds(
-      data = data,
-      aligner = aligner,
-      reference = reference,
-      cv_folds = cv_folds,
       compute_quality = compute_quality,
-      ...
+      return_aligned = return_aligned, ...
     )
   } else if (cv == "loso") {
     result <- .fit_cv_loso(
@@ -133,6 +152,7 @@ fit_alignment <- function(data,
       aligner = aligner,
       reference = reference,
       compute_quality = compute_quality,
+      return_aligned = return_aligned,
       ...
     )
   } else if (cv == "kfold") {
@@ -142,6 +162,7 @@ fit_alignment <- function(data,
       reference = reference,
       k = cv_folds,
       compute_quality = compute_quality,
+      return_aligned = return_aligned,
       ...
     )
   }
@@ -153,7 +174,7 @@ fit_alignment <- function(data,
 #' Internal: Single Fit (No CV)
 #' @keywords internal
 .fit_single <- function(data, aligner, reference, train_idx,
-                        compute_quality, ...) {
+                        compute_quality, return_aligned = TRUE, ...) {
   # Determine training subjects
   if (is.null(train_idx)) {
     train_idx <- seq_along(data@subjects)
@@ -191,11 +212,11 @@ fit_alignment <- function(data,
   )
 
   # Apply alignment to get aligned data
-  aligned <- .apply_transforms(model, data)
+  aligned <- if (return_aligned) .apply_transforms(model, data) else list()
 
   # Compute quality metrics if requested
   quality <- list()
-  if (compute_quality) {
+  if (compute_quality && return_aligned) {
     quality <- .compute_basic_quality(data, aligned, model)
   }
 
@@ -210,23 +231,27 @@ fit_alignment <- function(data,
 
 #' Internal: Leave-One-Subject-Out CV
 #' @keywords internal
-.fit_cv_loso <- function(data, aligner, reference, compute_quality, ...) {
+.fit_cv_loso <- function(data, aligner, reference, compute_quality,
+                         return_aligned = TRUE, ...) {
   cv_folds <- create_cv_folds(data, method = "loso")
   validate_cv_setup(cv_folds, reference = reference)
   .fit_cv_folds(data, aligner, reference, cv_folds,
-    compute_quality = compute_quality, ...
+    compute_quality = compute_quality,
+    return_aligned = return_aligned, ...
   )
 }
 
 
 #' Internal: K-Fold CV
 #' @keywords internal
-.fit_cv_kfold <- function(data, aligner, reference, k, compute_quality, ...) {
+.fit_cv_kfold <- function(data, aligner, reference, k, compute_quality,
+                          return_aligned = TRUE, ...) {
   cv_folds <- create_cv_folds(data, method = "kfold", k = k)
   # create_cv_folds will fall back to LOSO if k > n.
   validate_cv_setup(cv_folds, reference = reference)
   .fit_cv_folds(data, aligner, reference, cv_folds,
-    compute_quality = compute_quality, ...
+    compute_quality = compute_quality,
+    return_aligned = return_aligned, ...
   )
 }
 
@@ -234,7 +259,7 @@ fit_alignment <- function(data,
 #' Internal: Generic CV with Provided Folds
 #' @keywords internal
 .fit_cv_folds <- function(data, aligner, reference, cv_folds,
-                          compute_quality, ...) {
+                          compute_quality, return_aligned = TRUE, ...) {
   .validate_cv_folds_spec(cv_folds, n_subjects = length(data@subjects))
 
   subjects <- data@subjects
@@ -294,8 +319,10 @@ fit_alignment <- function(data,
       )
       all_transforms[[test_subj]] <- test_transform
 
-      test_data <- get_subject_data(data, test_subj)
-      all_aligned[[test_subj]] <- test_transform %*% test_data
+      if (return_aligned) {
+        test_data <- get_subject_data(data, test_subj)
+        all_aligned[[test_subj]] <- test_transform %*% test_data
+      }
       anchor_by_subject[[test_subj]] <- as.character(ref_resolved$reference_spec)
     }
   }
@@ -360,7 +387,7 @@ fit_alignment <- function(data,
 
   # Quality metrics
   quality <- list()
-  if (compute_quality) {
+  if (compute_quality && return_aligned) {
     quality <- .compute_basic_quality(data, all_aligned, model)
   }
 
@@ -438,7 +465,7 @@ fit_alignment <- function(data,
 #' Internal: Classify Reference Kind
 #' @keywords internal
 .reference_kind <- function(reference) {
-  if (is.matrix(reference)) {
+  if (.is_matrixish(reference)) {
     return("template")
   }
 
@@ -491,8 +518,8 @@ fit_alignment <- function(data,
         reference_spec = reference
       ))
     }
-  } else if (is.matrix(reference)) {
-    # External template
+  } else if (.is_matrixish(reference)) {
+    # External template (supports both base matrix and sparse Matrix)
     return(list(
       reference = reference,
       reference_spec = "template"
@@ -533,6 +560,184 @@ fit_alignment <- function(data,
   )
 
   single_fit$transforms[[subject]]
+}
+
+
+#' Internal: Subset AlignmentData by observation indices
+#' @param data AlignmentData object.
+#' @param obs_idx Integer vector of column indices to keep (shared), or a named
+#'   list of per-subject integer vectors.
+#' @return A new AlignmentData with subsetted matrices and updated obs_labels.
+#' @keywords internal
+.subset_obs <- function(data, obs_idx) {
+  subjects <- data@subjects
+  data_list <- get_data_list(data)
+  obs_labels <- data@obs_labels
+  obs_labels_by_subj <- .resolve_obs_labels_by_subject(data)
+
+  new_data <- list()
+  new_labels <- NULL
+
+  if (is.list(obs_idx)) {
+    # Per-subject observation indices
+    for (subj in subjects) {
+      idx <- obs_idx[[subj]]
+      if (is.null(idx) || length(idx) == 0) {
+        stop(sprintf("Empty observation index for subject '%s'", subj), call. = FALSE)
+      }
+      new_data[[subj]] <- data_list[[subj]][, idx, drop = FALSE]
+    }
+    if (!is.null(obs_labels_by_subj)) {
+      new_labels <- lapply(subjects, function(s) obs_labels_by_subj[[s]][obs_idx[[s]]])
+      names(new_labels) <- subjects
+    }
+  } else {
+    # Shared observation indices
+    for (subj in subjects) {
+      new_data[[subj]] <- data_list[[subj]][, obs_idx, drop = FALSE]
+    }
+    if (!is.null(obs_labels) && is.atomic(obs_labels)) {
+      new_labels <- obs_labels[obs_idx]
+    } else if (!is.null(obs_labels_by_subj)) {
+      new_labels <- lapply(subjects, function(s) obs_labels_by_subj[[s]][obs_idx])
+      names(new_labels) <- subjects
+    }
+  }
+
+  as_alignment_data(new_data, obs_labels = new_labels, space = data@space)
+}
+
+
+#' Internal: Observation-Axis Cross-Validation
+#'
+#' Fits alignment using all subjects but partitions observations into
+#' training and test sets within each fold.
+#'
+#' @keywords internal
+.fit_cv_obs_folds <- function(data, aligner, reference, cv_folds,
+                               compute_quality, return_aligned = TRUE, ...) {
+  subjects <- data@subjects
+  n_subjects <- length(subjects)
+  folds <- cv_folds$folds
+  n_folds <- length(folds)
+
+  # Check method supports observation-axis CV
+  caps <- aligner$capabilities %||% list()
+  cv_axes <- caps$cv_axes %||% c("subject")
+  if (!"observation" %in% cv_axes) {
+    warning(sprintf(
+      "Method '%s' declares cv_axes = [%s]; observation-axis CV may not be meaningful",
+      aligner$name, paste(cv_axes, collapse = ", ")
+    ), call. = FALSE)
+  }
+
+  # Determine if folds are per-subject or shared
+  first_fold <- folds[[1]]
+  per_subject_folds <- is.list(first_fold) && !is.null(names(first_fold)) &&
+    is.null(first_fold$train_idx)
+
+  all_aligned_test <- list()  # subject -> list of aligned test columns
+
+  for (fold_name in names(folds)) {
+    fold <- folds[[fold_name]]
+
+    # Extract train/test observation indices
+    if (per_subject_folds) {
+      train_obs <- lapply(subjects, function(s) fold[[s]]$train_idx)
+      test_obs <- lapply(subjects, function(s) fold[[s]]$test_idx)
+      names(train_obs) <- names(test_obs) <- subjects
+    } else {
+      train_obs <- fold$train_idx
+      test_obs <- fold$test_idx
+    }
+
+    # Subset data to training observations
+    train_data <- .subset_obs(data, train_obs)
+
+    # Fit alignment on training observations (all subjects)
+    fit_result <- aligner$fit_fn(
+      data = train_data,
+      reference = reference,
+      train_idx = seq_len(n_subjects),
+      ...
+    )
+
+    # Apply transforms to held-out observations
+    if (return_aligned) {
+      for (subj in subjects) {
+        transform <- fit_result$transforms[[subj]]
+        if (is.null(transform)) next
+        test_idx <- if (per_subject_folds) test_obs[[subj]] else test_obs
+        if (length(test_idx) == 0) next
+        subj_test_data <- get_subject_data(data, subj)[, test_idx, drop = FALSE]
+        aligned_test <- transform %*% subj_test_data
+        if (is.null(all_aligned_test[[subj]])) {
+          all_aligned_test[[subj]] <- list()
+        }
+        all_aligned_test[[subj]][[fold_name]] <- aligned_test
+      }
+    }
+  }
+
+  # Do full fit on all data for the model
+  ref_resolved <- .resolve_reference(data, reference, seq_len(n_subjects))
+  fit_result_all <- aligner$fit_fn(
+    data = data,
+    reference = ref_resolved$reference,
+    train_idx = seq_len(n_subjects),
+    ...
+  )
+
+  .validate_operator_transforms(
+    transforms = fit_result_all$transforms,
+    data_list = get_data_list(data),
+    context = sprintf("fit_alignment(%s) [obs-cv full fit]", aligner$name)
+  )
+
+  model <- AlignmentModel(
+    transforms = fit_result_all$transforms,
+    reference = ref_resolved$reference_spec,
+    reference_data = fit_result_all$reference_data,
+    method = aligner$name,
+    space_from = fit_result_all$space_from %||% data@space,
+    space_to = fit_result_all$space_to %||% data@space,
+    params = list(...),
+    method_state = fit_result_all$method_state %||% list(),
+    train_subjects = subjects
+  )
+
+  # Concatenate aligned test data across folds (reassemble full observation set)
+  aligned <- list()
+  if (return_aligned) {
+    for (subj in subjects) {
+      fold_parts <- all_aligned_test[[subj]]
+      if (!is.null(fold_parts) && length(fold_parts) > 0) {
+        aligned[[subj]] <- do.call(cbind, fold_parts)
+      }
+    }
+  }
+
+  quality <- list()
+  if (compute_quality && return_aligned && length(aligned) >= 2) {
+    quality <- .compute_basic_quality(data, aligned, model)
+  }
+
+  cv_axis <- cv_folds$axis %||% "observation"
+
+  AlignmentResult(
+    model = model,
+    aligned = aligned,
+    quality = quality,
+    cv_info = list(
+      method = cv_folds$method %||% "custom",
+      axis = cv_axis,
+      n_folds = n_folds,
+      fold_ids = cv_folds$fold_ids %||% names(folds),
+      folds = folds,
+      reference_kind = .reference_kind(reference),
+      anchor_common = TRUE
+    )
+  )
 }
 
 

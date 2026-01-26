@@ -54,8 +54,8 @@ NULL
   reference_name <- reference
   if (is.character(reference) && reference != "barycenter") {
     reference_data <- get_subject_data(train_data, reference)
-  } else if (is.matrix(reference)) {
-    reference_data <- reference
+  } else if (.is_matrixish(reference)) {
+    reference_data <- as.matrix(reference)
     reference_name <- "template"
   } else {
     reference_data <- .compute_gw_barycenter(data_list, epsilon, max_iter, tol)
@@ -233,8 +233,8 @@ NULL
   reference_name <- reference
   if (is.character(reference) && reference != "barycenter") {
     reference_data <- get_subject_data(train_data, reference)
-  } else if (is.matrix(reference)) {
-    reference_data <- reference
+  } else if (.is_matrixish(reference)) {
+    reference_data <- as.matrix(reference)
     reference_name <- "template"
   } else {
     reference_data <- Reduce(`+`, data_list) / length(data_list)

@@ -251,3 +251,93 @@ test_that(".format_space with numeric object falls back to class name", {
   result <- neuralign:::.format_space(obj)
   expect_equal(result, "special_space")
 })
+
+
+# ---------- spaces_compatible() tests ----------
+
+test_that("spaces_compatible returns TRUE when both are NULL", {
+  expect_true(spaces_compatible(NULL, NULL))
+})
+
+test_that("spaces_compatible returns TRUE when one is NULL", {
+  expect_true(spaces_compatible(NULL, "MNI"))
+  expect_true(spaces_compatible("MNI", NULL))
+})
+
+test_that("spaces_compatible returns TRUE for identical strings", {
+  expect_true(spaces_compatible("MNI152", "MNI152"))
+})
+
+test_that("spaces_compatible returns FALSE for different strings", {
+  expect_false(spaces_compatible("MNI152", "native"))
+})
+
+test_that("spaces_compatible compares gds_space by name", {
+  s1 <- structure(list(name = "MNI152"), class = "gds_space")
+  s2 <- structure(list(name = "MNI152"), class = "gds_space")
+  s3 <- structure(list(name = "native"), class = "gds_space")
+
+  expect_true(spaces_compatible(s1, s2))
+  expect_false(spaces_compatible(s1, s3))
+})
+
+test_that("spaces_compatible handles gds_space with missing name", {
+  s1 <- structure(list(), class = "gds_space")
+  s2 <- structure(list(), class = "gds_space")
+  expect_true(spaces_compatible(s1, s2))
+})
+
+test_that("spaces_compatible uses all.equal fallback", {
+  expect_true(spaces_compatible(1:5, 1:5))
+  expect_false(spaces_compatible(1:5, 1:4))
+})
+
+
+# ---------- AlignmentModel provenance parameter ----------
+
+test_that("AlignmentModel constructor accepts pre-built provenance", {
+  custom_prov <- list(
+    composed_from = list(method1 = "m1", method2 = "m2"),
+    composed_at = Sys.time()
+  )
+  model <- AlignmentModel(
+    transforms = list("sub-01" = diag(3)),
+    reference = "consensus",
+    method = "composed",
+    provenance = custom_prov
+  )
+  expect_equal(model@provenance$composed_from$method1, "m1")
+  expect_true(!is.null(model@provenance$composed_at))
+  # Should NOT have auto-generated fields
+
+  expect_null(model@provenance$fitted_at)
+})
+
+test_that("AlignmentModel with provenance=NULL auto-generates provenance", {
+  model <- AlignmentModel(
+    transforms = list("sub-01" = diag(3)),
+    reference = "consensus",
+    method = "test",
+    params = list(scale = TRUE)
+  )
+  expect_true(!is.null(model@provenance$fitted_at))
+  expect_true(!is.null(model@provenance$neuralign_version))
+  expect_equal(model@provenance$params$scale, TRUE)
+})
+
+
+# ---------- Template reference with sparse Matrix ----------
+
+test_that("show() works with sparse Matrix reference", {
+  skip_if_not_installed("Matrix")
+
+  sparse_ref <- Matrix::sparseMatrix(i = 1:5, j = 1:5, x = 1, dims = c(5, 5))
+  model <- AlignmentModel(
+    transforms = list("sub-01" = diag(5)),
+    reference = sparse_ref,
+    method = "test"
+  )
+
+  output <- capture.output(show(model))
+  expect_true(any(grepl("template matrix", output)))
+})

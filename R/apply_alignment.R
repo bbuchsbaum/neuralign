@@ -66,6 +66,14 @@ apply_alignment <- function(model,
     new_data <- as_alignment_data(new_data)
   }
 
+  # Check space compatibility
+  if (!spaces_compatible(model@space_from, new_data@space)) {
+    warning(sprintf(
+      "Space mismatch: model expects '%s' but data is in '%s'",
+      .format_space(model@space_from), .format_space(new_data@space)
+    ), call. = FALSE)
+  }
+
   # Check for leakage
   if (warn_leakage) {
     train_subjects <- model@train_subjects

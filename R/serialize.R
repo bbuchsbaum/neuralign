@@ -191,7 +191,7 @@ export_alignment <- function(model,
       transforms = lapply(model@transforms, function(x) {
         as.matrix(x)
       }),
-      reference = if (is.matrix(model@reference_data)) {
+      reference = if (.is_matrixish(model@reference_data)) {
         as.matrix(model@reference_data)
       } else {
         as.character(model@reference)
@@ -222,7 +222,7 @@ export_alignment <- function(model,
     }
 
     # Add reference
-    if (is.matrix(model@reference_data)) {
+    if (.is_matrixish(model@reference_data)) {
       mat_data$reference <- as.matrix(model@reference_data)
     }
 

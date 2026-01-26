@@ -120,8 +120,8 @@ NULL
     reference_data <- gpa_result$consensus
   } else {
     # Fixed reference
-    if (is.matrix(reference)) {
-      reference_data <- reference
+    if (.is_matrixish(reference)) {
+      reference_data <- as.matrix(reference)
     } else {
       reference_data <- get_subject_data(train_data, reference)
     }
@@ -157,8 +157,8 @@ NULL
   }
 
   # Fixed reference
-  if (is.matrix(reference)) {
-    reference_data <- reference
+  if (.is_matrixish(reference)) {
+    reference_data <- as.matrix(reference)
   } else {
     reference_data <- get_subject_data(train_data, reference)
   }
@@ -463,7 +463,7 @@ procrustes_distance <- function(x,
 #' @keywords internal
 .procrustes_capabilities <- list(
   supports_cv = TRUE,
-  cv_axes = c("subject"),
+  cv_axes = c("subject", "observation"),
   needs_geometry = FALSE,
   needs_design = FALSE,
   requires_shared_features = TRUE,
@@ -474,7 +474,7 @@ procrustes_distance <- function(x,
   returns = "operator",
   supports_new_subject = TRUE,
   supports_new_data = TRUE,
-  reference_types = c("subject", "consensus")
+  reference_types = c("subject", "consensus", "template")
 )
 
 

@@ -201,7 +201,7 @@ test_that("register_aligner errors when capabilities$returns is not a string", {
       dummy_fit,
       capabilities = list(returns = 123)
     ),
-    "must be a single string"
+    "must be .operator. or .embedding"
   )
 })
 
@@ -216,7 +216,7 @@ test_that("register_aligner errors when capabilities$returns is an invalid strin
       dummy_fit,
       capabilities = list(returns = "xyz")
     ),
-    "must be one of"
+    "must be .operator. or .embedding"
   )
 })
 
@@ -318,4 +318,98 @@ test_that(".validate_aligner_requirements errors when needs_design but data has 
     neuralign:::.validate_aligner_requirements("design_test", adat),
     "requires design"
   )
+})
+
+
+# ---------- validate_aligner_contract() tests ----------
+
+test_that("validate_aligner_contract passes for valid aligner", {
+  fit_fn <- function(data, reference, train_idx = NULL, ...) {
+    list(transforms = list(), reference_data = NULL)
+  }
+  apply_fn <- function(fit_result, new_data, ...) {
+    list(transforms = list())
+  }
+
+  expect_true(
+    validate_aligner_contract("valid", fit_fn, apply_fn,
+                              capabilities = list(returns = "operator"))
+  )
+})
+
+test_that("validate_aligner_contract errors when fit_fn is not a function", {
+  expect_error(
+    validate_aligner_contract("bad", "not_a_function"),
+    "fit_fn must be a function"
+  )
+})
+
+test_that("validate_aligner_contract errors when fit_fn lacks required formals", {
+  bad_fit <- function(x, y) {}
+  expect_error(
+    validate_aligner_contract("bad", bad_fit),
+    "missing required formals"
+  )
+})
+
+test_that("validate_aligner_contract accepts fit_fn with ... in lieu of formals", {
+  fit_dots <- function(...) {
+    list(transforms = list())
+  }
+  expect_true(validate_aligner_contract("dots", fit_dots))
+})
+
+test_that("validate_aligner_contract errors when apply_fn lacks required formals", {
+  good_fit <- function(data, reference, ...) {}
+  bad_apply <- function(x) {}
+
+  expect_error(
+    validate_aligner_contract("bad_apply", good_fit, bad_apply),
+    "apply_fn missing required formals"
+  )
+})
+
+test_that("validate_aligner_contract errors for invalid capabilities$returns", {
+  good_fit <- function(data, reference, ...) {}
+
+  expect_error(
+    validate_aligner_contract("bad", good_fit,
+                              capabilities = list(returns = "xyz")),
+    "must be .operator. or .embedding"
+  )
+})
+
+test_that("validate_aligner_contract errors when capabilities is not a list", {
+  good_fit <- function(data, reference, ...) {}
+  expect_error(
+    validate_aligner_contract("bad", good_fit, capabilities = "not_list"),
+    "capabilities must be a list"
+  )
+})
+
+test_that("validate_aligner_contract errors for future api_version", {
+  good_fit <- function(data, reference, ...) {}
+  expect_error(
+    validate_aligner_contract("future", good_fit, api_version = 999L),
+    "supports up to"
+  )
+})
+
+test_that("register_aligner stores api_version in registry entry", {
+  neuralign:::.clear_registry()
+
+  dummy_fit <- function(data, reference, train_idx = NULL, ...) {
+    list(transforms = list(), reference_data = NULL)
+  }
+
+  register_aligner("api_test", dummy_fit, api_version = 1L)
+
+  entry <- get_aligner("api_test")
+  expect_equal(entry$api_version, 1L)
+  unregister_aligner("api_test")
+})
+
+test_that("NEURALIGN_ALIGNER_API_VERSION is exported and integer", {
+  expect_true(is.integer(NEURALIGN_ALIGNER_API_VERSION))
+  expect_equal(NEURALIGN_ALIGNER_API_VERSION, 1L)
 })

@@ -46,6 +46,7 @@ Collate:
     'alignment_result.R'
     'registry.R'
     'validate_transforms.R'
+    'basis_rotation.R'
     'fit_alignment.R'
     'apply_alignment.R'
     'compose.R'
