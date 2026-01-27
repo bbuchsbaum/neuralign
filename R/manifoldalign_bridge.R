@@ -56,6 +56,13 @@ NULL
   train_data <- data[train_idx]
   data_list <- get_data_list(train_data)
 
+  if (!requireNamespace("multidesign", quietly = TRUE)) {
+    stop(
+      "Package 'multidesign' is required to construct hyperdesign objects for manifoldalign integration.",
+      call. = FALSE
+    )
+  }
+
   domains <- lapply(names(data_list), function(nm) {
     X <- as.matrix(data_list[[nm]])
     Xo <- t(X) # observations x features
@@ -68,13 +75,11 @@ NULL
         call. = FALSE
       )
     }
-    list(
-      x = Xo,
-      design = data.frame(stats::setNames(list(labels), label_name))
-    )
+    design <- data.frame(stats::setNames(list(labels), label_name))
+    multidesign::multidesign(Xo, design)
   })
-  names(domains) <- names(data_list)
-  structure(domains, class = c("hyperdesign", "list"))
+
+  multidesign::hyperdesign(domains, block_names = names(data_list))
 }
 
 
@@ -83,11 +88,20 @@ NULL
   train_data <- data[train_idx]
   data_list <- get_data_list(train_data)
 
+  if (!requireNamespace("multidesign", quietly = TRUE)) {
+    stop(
+      "Package 'multidesign' is required to construct hyperdesign objects for manifoldalign integration.",
+      call. = FALSE
+    )
+  }
+
   domains <- lapply(names(data_list), function(nm) {
-    list(x = as.matrix(data_list[[nm]])) # features x observations
+    X <- as.matrix(data_list[[nm]]) # features x observations
+    # For feature-as-nodes algorithms (graph methods), we don't require a design.
+    multidesign::multidesign(X, design = data.frame(.id = seq_len(nrow(X))))
   })
-  names(domains) <- names(data_list)
-  structure(domains, class = c("hyperdesign", "list"))
+
+  multidesign::hyperdesign(domains, block_names = names(data_list))
 }
 
 

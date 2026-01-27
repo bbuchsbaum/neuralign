@@ -12,21 +12,6 @@ NULL
 
   # Register manifoldalign-backed aligners when available
   if (requireNamespace("manifoldalign", quietly = TRUE)) {
-    # manifoldalign calls multivarious::init_transform(hyperdesign, preproc) in a few
-    # methods, but multivarious does not ship an init_transform.hyperdesign method.
-    # Register neuralign's method dynamically when the dependency stack is present.
-    if (requireNamespace("multivarious", quietly = TRUE)) {
-      tryCatch(
-        registerS3method(
-          "init_transform",
-          "hyperdesign",
-          init_transform.hyperdesign,
-          envir = asNamespace("multivarious")
-        ),
-        error = function(e) NULL
-      )
-    }
-
     tryCatch(.register_gw(), error = function(e) NULL)
     tryCatch(.register_fpgw(), error = function(e) NULL)
     tryCatch(.register_kema(), error = function(e) NULL)
