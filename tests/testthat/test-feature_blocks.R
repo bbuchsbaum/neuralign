@@ -314,3 +314,48 @@ test_that("build_alignment_features errors when blocks have incompatible column 
     "differing column counts"
   )
 })
+
+test_that("build_alignment_features warns for requires_independence blocks unless obs_crossfit", {
+  s1 <- list(
+    a = alignment_feature_block(
+      matrix(1:4, 2, 2),
+      name = "a",
+      feature_names = c("f1", "f2"),
+      meta = list(requires_independence = TRUE)
+    )
+  )
+  s2 <- list(
+    a = alignment_feature_block(
+      matrix(5:8, 2, 2),
+      name = "a",
+      feature_names = c("f1", "f2"),
+      meta = list(requires_independence = TRUE)
+    )
+  )
+
+  expect_equal(feature_block_requires_independence(list(sub1 = s1, sub2 = s2)), c(a = TRUE))
+
+  expect_warning(
+    res <- build_alignment_features(list(sub1 = s1, sub2 = s2), harmonize = "intersection", min_features = 2),
+    "meta\\$requires_independence=TRUE: a"
+  )
+  expect_true(isTRUE(res$per_block$requires_independence[[1L]]))
+
+  expect_warning(
+    build_alignment_features(list(sub1 = s1, sub2 = s2),
+      harmonize = "intersection",
+      min_features = 2,
+      obs_crossfit = TRUE
+    ),
+    NA
+  )
+
+  expect_warning(
+    build_alignment_features(list(sub1 = s1, sub2 = s2),
+      harmonize = "intersection",
+      min_features = 2,
+      check_independence = FALSE
+    ),
+    NA
+  )
+})

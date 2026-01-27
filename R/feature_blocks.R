@@ -303,6 +303,10 @@ harmonize_feature_blocks <- function(blocks_by_subject, min_features = 2L) {
 #'   `min_features` observed features.
 #' @param block_weights Optional named numeric vector of additional multipliers
 #'   per block name (as in `stack_feature_blocks()`).
+#' @param obs_crossfit Logical; set TRUE when blocks are constructed within an
+#'   observation-axis crossfit workflow (suppresses independence warnings).
+#' @param check_independence Logical; if TRUE (default), warn when any block has
+#'   `meta$requires_independence=TRUE` and `obs_crossfit=FALSE`.
 #' @param fill Fill value used for `"union_fill"` (default 0).
 #' @param union_order Ordering for union construction when `harmonize="union_fill"`
 #'   and no explicit union is provided: `"first_seen"` or `"sorted"`.
@@ -325,6 +329,8 @@ build_alignment_features <- function(blocks_by_subject,
                                      harmonize = c("intersection", "union_fill"),
                                      min_features = 2L,
                                      block_weights = NULL,
+                                     obs_crossfit = FALSE,
+                                     check_independence = TRUE,
                                      fill = 0,
                                      union_order = c("first_seen", "sorted"),
                                      warn_sparse_below = 0.5,
@@ -342,6 +348,9 @@ build_alignment_features <- function(blocks_by_subject,
       stop("'block_weights' must be a named numeric vector", call. = FALSE)
     }
   }
+
+  check_independence <- isTRUE(check_independence)
+  obs_crossfit <- isTRUE(obs_crossfit)
 
   warnings <- character(0)
   capture_warnings <- function(expr) {
@@ -447,8 +456,11 @@ build_alignment_features <- function(blocks_by_subject,
   names(mats_by_subj) <- subjects
 
   block_names <- names(blocks_h[[1L]])
+  requires_independence <- feature_block_requires_independence(blocks_h)
+  requires_independence <- requires_independence[block_names]
   per_block <- data.frame(
     block = block_names,
+    requires_independence = as.logical(requires_independence),
     n_features = vapply(block_names, function(bname) {
       length(.block_feature_names(blocks_h[[subjects[[1L]]]][[bname]]))
     }, integer(1)),
@@ -460,6 +472,20 @@ build_alignment_features <- function(blocks_by_subject,
     block_names
   )
 
+  if (check_independence && !obs_crossfit && any(requires_independence, na.rm = TRUE)) {
+    flagged <- names(requires_independence)[which(requires_independence)]
+    capture_warnings(warning(
+      paste0(
+        "Blocks marked meta$requires_independence=TRUE: ",
+        paste(flagged, collapse = ", "),
+        ". Ensure these signals were estimated on data independent of downstream evaluation ",
+        "(e.g., via observation-axis crossfit). Set obs_crossfit=TRUE when appropriate, ",
+        "or check_independence=FALSE to disable this warning."
+      ),
+      call. = FALSE
+    ))
+  }
+
   list(
     matrices = mats_by_subj,
     blocks = blocks_h,
@@ -467,6 +493,73 @@ build_alignment_features <- function(blocks_by_subject,
     dropped_blocks = dropped_blocks,
     warnings = unique(warnings)
   )
+}
+
+#' Feature Block Independence Requirements
+#'
+#' Summarize which feature blocks declare `meta$requires_independence = TRUE`.
+#' This is a domain-agnostic mechanism for downstream packages to tag blocks
+#' that must be computed on data independent of downstream evaluation (e.g.,
+#' via observation-axis crossfitting).
+#'
+#' neuralign does not enforce a particular crossfitting policy; this helper
+#' only reads the metadata flags.
+#'
+#' @param blocks Either:
+#'   \itemize{
+#'     \item A named list of `"alignment_feature_block"` objects, or
+#'     \item A `blocks_by_subject` list (subject -> named list of blocks).
+#'   }
+#'
+#' @return A named logical vector keyed by block name.
+#' @export
+feature_block_requires_independence <- function(blocks) {
+  if (!is.list(blocks) || length(blocks) < 1L) {
+    stop("'blocks' must be a non-empty list", call. = FALSE)
+  }
+
+  if (all(vapply(blocks, .is_feature_block, logical(1)))) {
+    if (is.null(names(blocks)) || any(!nzchar(names(blocks)))) {
+      blocks <- setNames(blocks, vapply(blocks, function(b) b$name, character(1)))
+    }
+    out <- vapply(blocks, function(b) {
+      isTRUE(b$meta$requires_independence %||% FALSE)
+    }, logical(1))
+    return(out)
+  }
+
+  if (is.null(names(blocks)) || any(!nzchar(names(blocks)))) {
+    stop(
+      "'blocks' must be either a list of feature blocks, or a named list keyed by subject",
+      call. = FALSE
+    )
+  }
+
+  subjects <- names(blocks)
+  block_names <- unique(unlist(lapply(blocks, names)))
+  out <- setNames(rep(FALSE, length(block_names)), block_names)
+
+  for (subj in subjects) {
+    bl <- blocks[[subj]]
+    if (!is.list(bl) || length(bl) < 1L) {
+      stop(sprintf("Subject '%s' must provide a non-empty list of blocks", subj), call. = FALSE)
+    }
+    if (is.null(names(bl)) || any(!nzchar(names(bl)))) {
+      stop(sprintf("Subject '%s' block list must be named by block", subj), call. = FALSE)
+    }
+    if (!all(vapply(bl, .is_feature_block, logical(1)))) {
+      stop(sprintf("Subject '%s' contains non-feature-block entries", subj), call. = FALSE)
+    }
+
+    for (bname in names(bl)) {
+      b <- bl[[bname]]
+      if (isTRUE(b$meta$requires_independence %||% FALSE)) {
+        out[[bname]] <- TRUE
+      }
+    }
+  }
+
+  out
 }
 
 .effective_rank_from_singular_values <- function(d) {

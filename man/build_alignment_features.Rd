@@ -9,6 +9,8 @@ build_alignment_features(
   harmonize = c("intersection", "union_fill"),
   min_features = 2L,
   block_weights = NULL,
+  obs_crossfit = FALSE,
+  check_independence = TRUE,
   fill = 0,
   union_order = c("first_seen", "sorted"),
   warn_sparse_below = 0.5,
@@ -32,6 +34,12 @@ Blocks missing from any subject are dropped in both modes.}
 
 \item{block_weights}{Optional named numeric vector of additional multipliers
 per block name (as in \code{stack_feature_blocks()}).}
+
+\item{obs_crossfit}{Logical; set TRUE when blocks are constructed within an
+observation-axis crossfit workflow (suppresses independence warnings).}
+
+\item{check_independence}{Logical; if TRUE (default), warn when any block has
+\code{meta$requires_independence=TRUE} and \code{obs_crossfit=FALSE}.}
 
 \item{fill}{Fill value used for \code{"union_fill"} (default 0).}
 
