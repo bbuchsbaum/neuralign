@@ -132,6 +132,23 @@ NULL
   )
 }
 
+.ma_build_pair_hyperdesign_features <- function(target, source,
+                                                target_name = "target",
+                                                source_name = "source") {
+  domains <- list()
+  domains[[target_name]] <- list(x = as.matrix(target))
+  domains[[source_name]] <- list(x = as.matrix(source))
+
+  hdes <- .ma_hyperdesign_meta(domains)
+
+  structure(
+    domains,
+    hdes = hdes,
+    common_vars = character(0),
+    class = c("neuralign_hyperdesign", "hyperdesign", "list")
+  )
+}
+
 
 .ma_resolve_reference_spec <- function(data, reference, method, allow_template = FALSE) {
   if (is.character(reference) && length(reference) == 1L && reference %in% c("medoid", "centroid")) {

@@ -61,12 +61,8 @@ NULL
       next
     }
 
-    pair_hd <- structure(
-      list(
-        target = list(x = ref$data),
-        source = list(x = Xi)
-      ),
-      class = c("hyperdesign", "list")
+    pair_hd <- .ma_build_pair_hyperdesign_features(
+      ref$data, Xi, target_name = "target", source_name = "source"
     )
     fit <- do.call(manifoldalign::cone_align, c(list(data = pair_hd), cone_args))
     P <- fit$assignment
@@ -96,9 +92,8 @@ NULL
   if (is.null(ref_data)) stop("cone apply_fn requires reference_data in model", call. = FALSE)
 
   n_target <- nrow(ref_data)
-  pair_hd <- structure(
-    list(target = list(x = ref_data), source = list(x = X)),
-    class = c("hyperdesign", "list")
+  pair_hd <- .ma_build_pair_hyperdesign_features(
+    ref_data, X, target_name = "target", source_name = "source"
   )
   fit <- do.call(manifoldalign::cone_align, c(list(data = pair_hd), cone_args))
   P <- fit$assignment
