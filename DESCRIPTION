@@ -42,6 +42,7 @@ Collate:
     'guidance.R'
     'roi_anchors.R'
     'harmonize.R'
+    'preprocess.R'
     'intrinsic_geometry.R'
     'alignment_model.R'
     'alignment_result.R'

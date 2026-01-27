@@ -74,6 +74,12 @@ Fit an alignment model to multi-subject data. This is the main entry point
 for alignment in neuralign. The fitted model can be saved and applied to
 new data using \code{\link{apply_alignment}}.
 }
+\details{
+\code{fit_alignment()} does not perform any centering or scaling of inputs by
+default. If you want preprocessing, apply it explicitly to your matrices or
+feature blocks (e.g., \code{\link{preprocess_alignment_data}} or
+\code{\link{preprocess_matrix}}) before fitting.
+}
 \examples{
 \dontrun{
 # Create example data
