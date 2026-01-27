@@ -2,7 +2,7 @@
 % Please edit documentation in R/k_procrustes.R
 \name{k_kernel_roots}
 \alias{k_kernel_roots}
-\title{Kernel Roots (K^{1/2} and K^{-1/2})}
+\title{Kernel Roots (K^(1/2) and K^(-1/2))}
 \usage{
 k_kernel_roots(K, jitter = 1e-10)
 }
