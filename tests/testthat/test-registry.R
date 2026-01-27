@@ -413,3 +413,125 @@ test_that("NEURALIGN_ALIGNER_API_VERSION is exported and integer", {
   expect_true(is.integer(NEURALIGN_ALIGNER_API_VERSION))
   expect_equal(NEURALIGN_ALIGNER_API_VERSION, 1L)
 })
+
+
+# ---------- validate_aligner_contract capability field validation ----------
+
+test_that("validate_aligner_contract errors on non-character transform_type", {
+  good_fit <- function(data, reference, ...) {}
+  expect_error(
+    validate_aligner_contract("bad_tt", good_fit,
+      capabilities = list(transform_type = 42)),
+    "transform_type must be a character"
+  )
+})
+
+test_that("validate_aligner_contract errors on non-character cv_axes", {
+  good_fit <- function(data, reference, ...) {}
+  expect_error(
+    validate_aligner_contract("bad_cva", good_fit,
+      capabilities = list(cv_axes = 123)),
+    "cv_axes must be a character"
+  )
+})
+
+test_that("validate_aligner_contract errors on non-character reference_types", {
+  good_fit <- function(data, reference, ...) {}
+  expect_error(
+    validate_aligner_contract("bad_ref", good_fit,
+      capabilities = list(reference_types = TRUE)),
+    "reference_types must be a character"
+  )
+})
+
+test_that("validate_aligner_contract errors on invalid returns value", {
+  good_fit <- function(data, reference, ...) {}
+  expect_error(
+    validate_aligner_contract("bad_ret", good_fit,
+      capabilities = list(returns = "bogus")),
+    "must be.*operator.*embedding"
+  )
+})
+
+test_that("validate_aligner_contract passes with valid embedding returns", {
+  good_fit <- function(data, reference, ...) {}
+  expect_invisible(
+    validate_aligner_contract("emb_ok", good_fit,
+      capabilities = list(returns = "embedding"))
+  )
+})
+
+
+# ---------- .validate_aligner_requirements guidance ----------
+
+test_that(".validate_aligner_requirements errors when guidance is needed but absent", {
+  neuralign:::.clear_registry()
+
+  dummy_fit <- function(data, reference, ...) {
+    list(transforms = list(), reference_data = NULL)
+  }
+  register_aligner("needs_guide", dummy_fit,
+    capabilities = list(needs_guidance = TRUE))
+
+  adat <- AlignmentData(list(s1 = matrix(1, 5, 3), s2 = matrix(1, 5, 3)))
+  expect_error(
+    neuralign:::.validate_aligner_requirements("needs_guide", adat),
+    "requires guidance channels"
+  )
+  neuralign:::.clear_registry()
+})
+
+test_that(".validate_aligner_requirements errors when specific guidance types missing", {
+  neuralign:::.clear_registry()
+
+  dummy_fit <- function(data, reference, ...) {
+    list(transforms = list(), reference_data = NULL)
+  }
+  register_aligner("needs_type", dummy_fit,
+    capabilities = list(needs_guidance = TRUE,
+                        guidance_types = c("intrinsic_geometry")))
+
+  adat <- AlignmentData(list(s1 = matrix(1, 5, 3), s2 = matrix(1, 5, 3)))
+  wrong_guidance <- list(
+    s1 = list(list(type = "roi_anchor", value = diag(3))),
+    s2 = list(list(type = "roi_anchor", value = diag(3)))
+  )
+  adat <- set_guidance(adat, wrong_guidance)
+
+  expect_error(
+    neuralign:::.validate_aligner_requirements("needs_type", adat),
+    "requires guidance types.*intrinsic_geometry"
+  )
+  neuralign:::.clear_registry()
+})
+
+test_that(".validate_aligner_requirements passes with correct guidance", {
+  neuralign:::.clear_registry()
+
+  dummy_fit <- function(data, reference, ...) {
+    list(transforms = list(), reference_data = NULL)
+  }
+  register_aligner("guide_ok", dummy_fit,
+    capabilities = list(needs_guidance = TRUE,
+                        guidance_types = c("intrinsic_geometry")))
+
+  adat <- AlignmentData(list(s1 = matrix(1, 5, 3), s2 = matrix(1, 5, 3)))
+  good_guidance <- list(
+    s1 = list(list(type = "intrinsic_geometry", value = diag(3))),
+    s2 = list(list(type = "intrinsic_geometry", value = diag(3)))
+  )
+  adat <- set_guidance(adat, good_guidance)
+
+  expect_true(
+    neuralign:::.validate_aligner_requirements("guide_ok", adat)
+  )
+  neuralign:::.clear_registry()
+})
+
+test_that(".validate_aligner_requirements errors on unknown aligner", {
+  neuralign:::.clear_registry()
+  expect_error(
+    neuralign:::.validate_aligner_requirements("nonexistent", NULL),
+    "Unknown aligner"
+  )
+})

@@ -356,3 +356,63 @@ test_that("validate_alignment_data errors for differing obs when obs_labels set"
     "different numbers of observations"
   )
 })
+
+
+# ---------- list obs_labels validation ----------
+
+test_that("validate_alignment_data per-subject obs_labels with non-atomic entry errors", {
+  data_list <- list("sub-01" = matrix(1, 5, 3), "sub-02" = matrix(1, 5, 3))
+  adat <- AlignmentData(data_list, obs_labels = list(
+    "sub-01" = c("a", "b", "c"),
+    "sub-02" = list("a", "b", "c")
+  ))
+  expect_error(validate_alignment_data(adat), "must be an atomic vector")
+})
+
+test_that("validate_alignment_data per-subject obs_labels with length mismatch errors", {
+  data_list <- list("sub-01" = matrix(1, 5, 3), "sub-02" = matrix(1, 5, 3))
+  adat <- AlignmentData(data_list, obs_labels = list(
+    "sub-01" = c("a", "b", "c"),
+    "sub-02" = c("a", "b")
+  ))
+  expect_error(validate_alignment_data(adat), "length mismatch")
+})
+
+test_that("validate_alignment_data per-subject obs_labels with NA errors", {
+  data_list <- list("sub-01" = matrix(1, 5, 3), "sub-02" = matrix(1, 5, 3))
+  adat <- AlignmentData(data_list, obs_labels = list(
+    "sub-01" = c("a", "b", "c"),
+    "sub-02" = c("a", NA, "c")
+  ))
+  expect_error(validate_alignment_data(adat), "NA values")
+})
+
+test_that("validate_alignment_data per-subject obs_labels with colnames mismatch errors", {
+  m1 <- matrix(1, 5, 3)
+  colnames(m1) <- c("a", "b", "c")
+  m2 <- matrix(1, 5, 3)
+  colnames(m2) <- c("x", "y", "z")
+  data_list <- list("sub-01" = m1, "sub-02" = m2)
+  adat <- AlignmentData(data_list, obs_labels = list(
+    "sub-01" = c("a", "b", "c"),
+    "sub-02" = c("a", "b", "c")
+  ))
+  expect_error(validate_alignment_data(adat), "colnames do not match")
+})
+
+test_that("validate_alignment_data per-subject obs_labels missing subject errors", {
+  data_list <- list("sub-01" = matrix(1, 5, 3), "sub-02" = matrix(1, 5, 3))
+  adat <- AlignmentData(data_list, obs_labels = list(
+    "sub-01" = c("a", "b", "c")
+  ))
+  expect_error(validate_alignment_data(adat), "missing subjects")
+})
+
+test_that("validate_alignment_data with non-list non-atomic obs_labels errors", {
+  data_list <- list("sub-01" = matrix(1, 5, 3))
+  adat <- AlignmentData(data_list, obs_labels = environment())
+  expect_error(
+    validate_alignment_data(adat, check_obs_labels = TRUE),
+    "atomic vector.*named list"
+  )
+})

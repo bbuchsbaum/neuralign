@@ -507,3 +507,124 @@ test_that("import_alignment from CSV errors on missing metadata file", {
     "Metadata file not found"
   )
 })
+
+
+# ---------- import/export edge cases ----------
+
+test_that("import_alignment CSV warns on missing transform file", {
+  tmp_path <- tempfile()
+  dir_path <- paste0(tmp_path, "_transforms")
+  dir.create(dir_path, recursive = TRUE)
+  on.exit(unlink(dir_path, recursive = TRUE))
+
+  meta <- data.frame(
+    subject = c("s1", "s_missing"),
+    nrow = c(3, 3),
+    ncol = c(3, 3),
+    stringsAsFactors = FALSE
+  )
+  utils::write.csv(meta, file.path(dir_path, "_metadata.csv"), row.names = FALSE)
+  utils::write.csv(diag(3), file.path(dir_path, "s1.csv"), row.names = FALSE)
+
+  expect_warning(
+    model <- import_alignment(tmp_path, format = "csv"),
+    "Transform file not found for s_missing"
+  )
+  expect_true(inherits(model, "AlignmentModel"))
+  expect_true("s1" %in% names(model@transforms))
+  expect_false("s_missing" %in% names(model@transforms))
+})
+
+test_that("import_alignment JSON with .json extension in path works", {
+  skip_if_not_installed("jsonlite")
+  neuralign:::.register_procrustes()
+
+  model <- AlignmentModel(
+    transforms = list(s1 = diag(3), s2 = diag(3)),
+    reference = "s1",
+    reference_data = matrix(rnorm(9), 3, 3),
+    method = "procrustes",
+    train_subjects = c("s1", "s2")
+  )
+
+  tmp <- tempfile(fileext = ".json")
+  on.exit(unlink(tmp))
+  export_alignment(model, sub("\\.json$", "", tmp), format = "json")
+
+  imported <- import_alignment(tmp, format = "json")
+  expect_true(inherits(imported, "AlignmentModel"))
+  expect_equal(imported@method, "procrustes")
+})
+
+test_that("import_alignment JSON errors on missing file", {
+  skip_if_not_installed("jsonlite")
+  expect_error(
+    import_alignment("/nonexistent/path", format = "json"),
+    "File not found"
+  )
+})
+
+test_that("load_alignment with raw model (not save_alignment format)", {
+  neuralign:::.register_procrustes()
+  model <- AlignmentModel(
+    transforms = list(s1 = diag(5)),
+    reference = "s1",
+    method = "procrustes",
+    train_subjects = "s1"
+  )
+
+  tmp <- tempfile(fileext = ".rds")
+  on.exit(unlink(tmp))
+  saveRDS(model, tmp)
+
+  expect_warning(
+    loaded <- load_alignment(tmp),
+    "not saved with save_alignment"
+  )
+  expect_true(inherits(loaded, "AlignmentModel"))
+})
+
+test_that("load_alignment errors on non-alignment object", {
+  tmp <- tempfile(fileext = ".rds")
+  on.exit(unlink(tmp))
+  saveRDS(list(foo = "bar"), tmp)
+
+  expect_error(load_alignment(tmp), "does not contain an alignment model")
+})
+
+test_that("load_alignment errors on nonexistent file", {
+  expect_error(load_alignment("/no/such/file.rds"), "File not found")
+})
+
+test_that("save_alignment rejects non-model objects", {
+  expect_error(
+    save_alignment("not_a_model", tempfile()),
+    "must be an AlignmentModel"
+  )
+})
+
+test_that("load_alignment detects hash mismatch", {
+  neuralign:::.register_procrustes()
+  model <- AlignmentModel(
+    transforms = list(s1 = diag(5)),
+    reference = "s1",
+    method = "procrustes",
+    train_subjects = "s1"
+  )
+
+  tmp <- tempfile(fileext = ".rds")
+  on.exit(unlink(tmp))
+
+  # Save normally
+  save_alignment(model, tmp)
+
+  # Corrupt the hash
+  save_data <- readRDS(tmp)
+  save_data$hash <- "bogus_hash"
+  saveRDS(save_data, tmp)
+
+  expect_warning(
+    load_alignment(tmp),
+    "integrity check failed"
+  )
+})

@@ -629,3 +629,133 @@ test_that("apply_alignment warns on space mismatch", {
     "Space mismatch"
   )
 })
+
+
+# ---------- fold_specific anchor and inverse_transform ----------
+
+test_that("apply_alignment errors on fold_specific reference with new subjects", {
+  neuralign:::.register_procrustes()
+
+  model <- new("AlignmentModel",
+    transforms = list("sub-01" = diag(5)),
+    reference = "fold_specific",
+    reference_data = NULL,
+    method = "procrustes",
+    space_from = NULL,
+    space_to = NULL,
+    provenance = list(),
+    method_state = list(),
+    train_subjects = "sub-01"
+  )
+
+  new_data <- AlignmentData(list("sub-99" = matrix(rnorm(25), 5, 5)))
+  expect_error(apply_alignment(model, new_data), "fold-specific anchors")
+})
+
+test_that("apply_alignment with fit_new=FALSE warns for new subjects", {
+  neuralign:::.register_procrustes()
+
+  set.seed(55)
+  d <- 5; n <- 4
+  model <- new("AlignmentModel",
+    transforms = list("sub-01" = diag(d)),
+    reference = "sub-01",
+    reference_data = matrix(rnorm(d * n), d, n),
+    method = "procrustes",
+    space_from = NULL,
+    space_to = NULL,
+    provenance = list(),
+    method_state = list(),
+    train_subjects = "sub-01"
+  )
+
+  new_data <- AlignmentData(list("sub-99" = matrix(rnorm(d * n), d, n)))
+  expect_warning(
+    apply_alignment(model, new_data, fit_new = FALSE, warn_leakage = FALSE),
+    "fit_new=FALSE"
+  )
+})
+
+test_that("inverse_transform errors on OT-style transform_type", {
+  neuralign:::.clear_registry()
+  dummy_fit <- function(data, reference, ...) {
+    list(transforms = list(), reference_data = NULL)
+  }
+  register_aligner("ot_method", dummy_fit,
+    capabilities = list(transform_type = "ot"))
+
+  model <- new("AlignmentModel",
+    transforms = list("s1" = diag(5)),
+    reference = "s1", reference_data = NULL,
+    method = "ot_method",
+    space_from = NULL, space_to = NULL,
+    provenance = list(), method_state = list(),
+    train_subjects = "s1"
+  )
+
+  expect_error(inverse_transform(model, "s1"), "OT-style couplings")
+  neuralign:::.clear_registry()
+})
+
+test_that("inverse_transform auto errors when not invertible", {
+  neuralign:::.clear_registry()
+  dummy_fit <- function(data, reference, ...) {
+    list(transforms = list(), reference_data = NULL)
+  }
+  register_aligner("non_inv", dummy_fit,
+    capabilities = list(returns_invertible = FALSE, transform_type = "linear"))
+
+  model <- new("AlignmentModel",
+    transforms = list("s1" = diag(5)),
+    reference = "s1", reference_data = NULL,
+    method = "non_inv",
+    space_from = NULL, space_to = NULL,
+    provenance = list(), method_state = list(),
+    train_subjects = "s1"
+  )
+
+  expect_error(inverse_transform(model, "s1", method = "auto"), "does not declare invertible")
+  neuralign:::.clear_registry()
+})
+
+test_that("inverse_transform pinv works for non-square matrix", {
+  set.seed(56)
+  W <- matrix(rnorm(50), 10, 5)
+  model <- new("AlignmentModel",
+    transforms = list("s1" = W),
+    reference = "s1", reference_data = NULL,
+    method = "test_method",
+    space_from = NULL, space_to = NULL,
+    provenance = list(), method_state = list(),
+    train_subjects = "s1"
+  )
+
+  inv <- inverse_transform(model, "s1", method = "pinv")
+  expect_equal(nrow(inv), 5L)
+  expect_equal(ncol(inv), 10L)
+})
+
+test_that("inverse_transform ridge works", {
+  set.seed(57)
+  W <- matrix(rnorm(50), 10, 5)
+  model <- new("AlignmentModel",
+    transforms = list("s1" = W),
+    reference = "s1", reference_data = NULL,
+    method = "test_method",
+    space_from = NULL, space_to = NULL,
+    provenance = list(), method_state = list(),
+    train_subjects = "s1"
+  )
+
+  inv <- inverse_transform(model, "s1", method = "ridge", lambda = 0.01)
+  expect_equal(nrow(inv), 5L)
+  expect_equal(ncol(inv), 10L)
+})
+
+test_that("apply_transform errors on dimension mismatch", {
+  expect_error(apply_transform(diag(5), matrix(1, 3, 4)), "dimension mismatch")
+})
+
+test_that("apply_transform errors on non-matrix transform", {
+  expect_error(apply_transform("not_a_matrix", matrix(1, 3, 3)), "must be a matrix")
+})
