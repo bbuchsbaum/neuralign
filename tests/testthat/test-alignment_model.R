@@ -311,6 +311,9 @@ test_that("AlignmentModel constructor accepts pre-built provenance", {
   # Should NOT have auto-generated fields
 
   expect_null(model@provenance$fitted_at)
+
+  out <- capture.output(show(model))
+  expect_false(any(grepl("Fitted at:", out, fixed = TRUE)))
 })
 
 test_that("AlignmentModel with provenance=NULL auto-generates provenance", {

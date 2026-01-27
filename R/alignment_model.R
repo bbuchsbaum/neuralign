@@ -185,7 +185,10 @@ setMethod("show", "AlignmentModel", function(object) {
   }
 
   # Provenance
-  cat(sprintf("  Fitted at: %s\n", object@provenance$fitted_at))
+  fitted_at <- object@provenance$fitted_at
+  if (!is.null(fitted_at) && length(fitted_at) == 1L) {
+    cat(sprintf("  Fitted at: %s\n", fitted_at))
+  }
 })
 
 
