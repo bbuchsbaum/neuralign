@@ -11,7 +11,7 @@ NULL
 #' KEMA Fit Function
 #'
 #' @param data AlignmentData object.
-#' @param reference Reference specification (subject id, "medoid", "consensus").
+#' @param reference Reference specification (subject id, "medoid", or "centroid").
 #' @param train_idx Indices of subjects to use for fitting.
 #' @param ncomp Number of latent components.
 #' @param knn Number of nearest neighbours for graph construction.
@@ -92,12 +92,13 @@ NULL
 
   list(
     transforms = transforms,
-    reference_data = ref$data,
+    reference_data = Z_ref,
     space_from = train_data@space,
     space_to   = NULL,
     method_state = list(
       reference = ref$name,
       obs_labels_ref = labels,
+      X_ref = ref$data,
       Z_ref = Z_ref,
       lambda = lambda,
       kema_args = kema_args

@@ -71,12 +71,13 @@ NULL
 
   list(
     transforms     = transforms,
-    reference_data = ref$data,
+    reference_data = Z_ref,
     space_from     = train_data@space,
     space_to       = NULL,
     method_state   = list(
       reference = ref$name,
       obs_labels_ref = labels,
+      X_ref = ref$data,
       Z_ref = Z_ref,
       lambda_oos = lambda_oos,
       lr_args = lr_args
