@@ -9,6 +9,7 @@
   reference,
   train_data,
   scale,
+  reflection,
   tol,
   max_iter,
   ...

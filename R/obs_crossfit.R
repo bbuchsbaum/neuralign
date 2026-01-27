@@ -524,20 +524,21 @@ run_obs_crossfit_alignment <- function(train_data_by_fold,
 
 #' Run Observation-Axis Crossfit from AlignmentData
 #'
-#' Convenience wrapper that slices an \code{\link{AlignmentData}} object
-#' according to observation-axis fold specifications (from
-#' \code{\link{create_obs_folds}}) and feeds the per-fold train/test splits
-#' to \code{\link{run_obs_crossfit_alignment}}.
+#' Convenience wrapper around \code{\link{run_obs_crossfit_alignment}} that
+#' slices an \code{\link{AlignmentData}} object into per-fold train/test matrices
+#' using a fold specification produced by \code{\link{create_obs_folds}}.
 #'
-#' @param data An \code{\link{AlignmentData}} object.
-#' @param obs_folds Fold specification from \code{\link{create_obs_folds}}.
-#' @param method Alignment method name.
-#' @param reference Reference specification.
-#' @param anchor_policy Anchor policy (see \code{\link{run_obs_crossfit_alignment}}).
-#' @param ... Additional arguments passed to \code{\link{run_obs_crossfit_alignment}}.
+#' @param data An \code{\link{AlignmentData}} object (or input coercible via
+#'   \code{\link{as_alignment_data}}).
+#' @param obs_folds Observation-axis fold spec as returned by
+#'   \code{\link{create_obs_folds}}.
+#' @param method Alignment method passed to \code{\link{fit_alignment}}.
+#' @param reference Reference specification passed to \code{\link{fit_alignment}}.
+#' @param anchor_policy Passed to \code{\link{run_obs_crossfit_alignment}}.
+#' @param compute_quality Logical; if TRUE, compute per-fold training quality.
+#' @param ... Additional arguments passed to \code{\link{fit_alignment}}.
 #'
-#' @return An \code{"ObsCrossfitAlignment"} object (see
-#'   \code{\link{run_obs_crossfit_alignment}}).
+#' @return An object of class \code{"ObsCrossfitAlignment"}.
 #'
 #' @export
 run_obs_crossfit_from_data <- function(data,
@@ -549,84 +550,149 @@ run_obs_crossfit_from_data <- function(data,
                                          "fold_specific_ok",
                                          "map_to_template"
                                        ),
+                                       compute_quality = FALSE,
                                        ...) {
-  if (!inherits(data, "AlignmentData")) {
-    stop("'data' must be an AlignmentData object", call. = FALSE)
-  }
   anchor_policy <- match.arg(anchor_policy)
+
+  if (!inherits(data, "AlignmentData")) {
+    data <- as_alignment_data(data)
+  }
+
+  if (!is.list(obs_folds) || !identical(obs_folds$axis %||% NULL, "observation") ||
+      !is.list(obs_folds$folds)) {
+    stop("'obs_folds' must be a create_obs_folds() spec with axis='observation' and a $folds list", call. = FALSE)
+  }
+
+  folds <- obs_folds$folds
+  if (length(folds) < 1L || is.null(names(folds)) || any(!nzchar(names(folds)))) {
+    stop("'obs_folds$folds' must be a non-empty named list keyed by fold id", call. = FALSE)
+  }
 
   subjects <- data@subjects
   data_list <- get_data_list(data)
-  obs_labels <- .resolve_obs_labels_by_subject(data)
 
-  fold_ids <- obs_folds$fold_ids
-  folds <- obs_folds$folds
+  if (is.null(names(data_list)) || any(!nzchar(names(data_list))) || !setequal(names(data_list), subjects)) {
+    stop("AlignmentData must contain a named data list keyed by subject id", call. = FALSE)
+  }
+  data_list <- data_list[subjects]
 
-  # Detect per-subject vs shared fold structure.
-  # Per-subject folds: folds[[fid]] is a named list of subjects, each with
-  #   train_idx/test_idx.
-  # Shared folds: folds[[fid]] has train_idx/test_idx directly.
-  first_fold <- folds[[1L]]
-  per_subject <- is.list(first_fold) &&
-    !is.null(names(first_fold)) &&
-    all(subjects %in% names(first_fold))
+  is_matrix_subj <- vapply(data_list, .is_matrixish, logical(1))
+  if (!all(is_matrix_subj)) {
+    bad <- names(is_matrix_subj)[!is_matrix_subj]
+    stop(
+      sprintf(
+        "run_obs_crossfit_from_data requires matrix-like subject data; non-matrix subjects: %s",
+        paste(bad, collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
+
+  fold_ids <- obs_folds$fold_ids %||% names(folds)
+  if (!setequal(fold_ids, names(folds))) {
+    stop("'obs_folds$fold_ids' must match names(obs_folds$folds)", call. = FALSE)
+  }
+  fold_ids <- fold_ids[fold_ids %in% names(folds)]
+
+  first_fold <- folds[[fold_ids[[1L]]]]
+  per_subject_folds <- is.list(first_fold) && !is.null(names(first_fold)) &&
+    is.null(first_fold$train_idx)
+
+  labels_by_subject <- .resolve_obs_labels_by_subject(data)
+
+  check_idx <- function(idx, n_obs, context, allow_empty = FALSE) {
+    idx <- as.integer(idx)
+    if (anyNA(idx)) stop(sprintf("%s contains NA indices", context), call. = FALSE)
+    if (!allow_empty && length(idx) < 1L) stop(sprintf("%s is empty", context), call. = FALSE)
+    if (length(idx) > 0 && any(idx < 1L | idx > n_obs)) {
+      stop(sprintf("%s contains out-of-range indices", context), call. = FALSE)
+    }
+    idx
+  }
 
   train_data_by_fold <- list()
   test_data_by_fold <- list()
-  train_labels <- if (!is.null(obs_labels)) list() else NULL
-  test_labels <- if (!is.null(obs_labels)) list() else NULL
+  obs_labels_train <- if (!is.null(labels_by_subject)) list() else NULL
+  obs_labels_test <- if (!is.null(labels_by_subject)) list() else NULL
 
   for (fid in fold_ids) {
     fold <- folds[[fid]]
-    train_fold <- list()
-    test_fold <- list()
-    train_labs_fold <- list()
-    test_labs_fold <- list()
 
-    for (subj in subjects) {
-      X <- as.matrix(data_list[[subj]])
+    train_fold <- vector("list", length(subjects))
+    test_fold <- vector("list", length(subjects))
+    names(train_fold) <- names(test_fold) <- subjects
 
-      if (per_subject) {
-        train_idx <- fold[[subj]]$train_idx
-        test_idx <- fold[[subj]]$test_idx
-      } else {
-        train_idx <- fold$train_idx
-        test_idx <- fold$test_idx
+    if (isTRUE(per_subject_folds)) {
+      if (!is.list(fold) || is.null(names(fold))) {
+        stop(sprintf("Fold '%s' must be a named list keyed by subject", fid), call. = FALSE)
+      }
+      missing <- setdiff(subjects, names(fold))
+      if (length(missing) > 0) {
+        stop(sprintf("Fold '%s' is missing subjects: %s", fid, paste(missing, collapse = ", ")), call. = FALSE)
       }
 
-      train_fold[[subj]] <- X[, train_idx, drop = FALSE]
-      test_fold[[subj]] <- X[, test_idx, drop = FALSE]
+      for (subj in subjects) {
+        X <- data_list[[subj]]
+        n_obs <- ncol(X)
+        train_idx <- check_idx(fold[[subj]]$train_idx, n_obs, sprintf("Fold '%s' subject '%s' train_idx", fid, subj))
+        test_idx <- check_idx(fold[[subj]]$test_idx, n_obs, sprintf("Fold '%s' subject '%s' test_idx", fid, subj), allow_empty = TRUE)
 
-      if (!is.null(obs_labels)) {
-        labs <- obs_labels[[subj]]
-        train_labs_fold[[subj]] <- labs[train_idx]
-        test_labs_fold[[subj]] <- labs[test_idx]
+        train_fold[[subj]] <- X[, train_idx, drop = FALSE]
+        test_fold[[subj]] <- X[, test_idx, drop = FALSE]
+      }
+
+      if (!is.null(labels_by_subject)) {
+        obs_labels_train[[fid]] <- setNames(lapply(subjects, function(s) labels_by_subject[[s]][fold[[s]]$train_idx]), subjects)
+        obs_labels_test[[fid]] <- setNames(lapply(subjects, function(s) labels_by_subject[[s]][fold[[s]]$test_idx]), subjects)
+      }
+    } else {
+      train_idx <- fold$train_idx %||% NULL
+      test_idx <- fold$test_idx %||% NULL
+      if (is.null(train_idx) || is.null(test_idx)) {
+        stop(sprintf("Fold '%s' must contain $train_idx and $test_idx", fid), call. = FALSE)
+      }
+
+      for (subj in subjects) {
+        X <- data_list[[subj]]
+        n_obs <- ncol(X)
+        tr <- check_idx(train_idx, n_obs, sprintf("Fold '%s' train_idx", fid))
+        te <- check_idx(test_idx, n_obs, sprintf("Fold '%s' test_idx", fid), allow_empty = TRUE)
+        train_fold[[subj]] <- X[, tr, drop = FALSE]
+        test_fold[[subj]] <- X[, te, drop = FALSE]
+      }
+
+      if (!is.null(labels_by_subject)) {
+        obs_labels_train[[fid]] <- setNames(lapply(subjects, function(s) labels_by_subject[[s]][train_idx]), subjects)
+        obs_labels_test[[fid]] <- setNames(lapply(subjects, function(s) labels_by_subject[[s]][test_idx]), subjects)
       }
     }
 
     train_data_by_fold[[fid]] <- train_fold
     test_data_by_fold[[fid]] <- test_fold
-    if (!is.null(train_labels)) {
-      train_labels[[fid]] <- train_labs_fold
-      test_labels[[fid]] <- test_labs_fold
-    }
   }
 
   res <- run_obs_crossfit_alignment(
     train_data_by_fold = train_data_by_fold,
     test_data_by_fold = test_data_by_fold,
-    obs_labels_train = train_labels,
-    obs_labels_test = test_labels,
+    obs_labels_train = obs_labels_train,
+    obs_labels_test = obs_labels_test,
     method = method,
     reference = reference,
     anchor_policy = anchor_policy,
+    compute_quality = compute_quality,
     data_template = data,
     ...
   )
 
-  # Enrich fold_info with obs_folds metadata.
-  obs_folds_info <- obs_folds[setdiff(names(obs_folds), "folds")]
-  res$fold_info$obs_folds <- obs_folds_info
+  res$fold_info$obs_folds <- list(
+    method = obs_folds$method %||% "custom",
+    axis = obs_folds$axis %||% "observation",
+    fold_ids = fold_ids,
+    n_folds = obs_folds$n_folds %||% length(fold_ids),
+    guard_tr = obs_folds$guard_tr %||% NA_integer_,
+    id_policy = obs_folds$id_policy %||% NA_character_,
+    common_ids = obs_folds$common_ids %||% NA
+  )
 
   res
 }

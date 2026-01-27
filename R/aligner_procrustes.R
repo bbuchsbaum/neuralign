@@ -40,22 +40,12 @@ NULL
   train_subjects <- train_data@subjects
   data_list <- get_data_list(train_data)
 
-  # Check if manifoldalign is available
-  use_manifoldalign <- requireNamespace("manifoldalign", quietly = TRUE)
-
-  if (use_manifoldalign) {
-    # Use manifoldalign for fitting
-    result <- .procrustes_fit_manifoldalign(
-      data_list, reference, train_data,
-      scale = scale, tol = tol, max_iter = max_iter, ...
-    )
-  } else {
-    # Use built-in implementation
-    result <- .procrustes_fit_builtin(
-      data_list, reference, train_data,
-      scale = scale, reflection = reflection, tol = tol, max_iter = max_iter
-    )
-  }
+  # Use built-in implementation. (manifoldalign's GPA API has changed over time,
+  # and neuralign avoids relying on unexported or unstable symbols.)
+  result <- .procrustes_fit_builtin(
+    data_list, reference, train_data,
+    scale = scale, reflection = reflection, tol = tol, max_iter = max_iter
+  )
 
   # Ensure all original subjects have transforms
   all_subjects <- data@subjects
@@ -67,16 +57,10 @@ NULL
       subj_data <- get_subject_data(data, subj)
       ref_data <- result$reference_data
 
-      if (use_manifoldalign) {
-        # manifoldalign returns right-multiply, need to transpose
-        Q <- manifoldalign::procrustes(subj_data, ref_data)$Q
-        transforms[[subj]] <- t(Q)
-      } else {
-        # .procrustes_single now returns left-multiply directly
-        Q <- .procrustes_single(subj_data, ref_data, scale, reflection)
-        attr(Q, "scale_factor") <- NULL
-        transforms[[subj]] <- Q
-      }
+      # .procrustes_single returns left-multiply directly
+      Q <- .procrustes_single(subj_data, ref_data, scale, reflection)
+      attr(Q, "scale_factor") <- NULL
+      transforms[[subj]] <- Q
     }
   }
 
@@ -97,7 +81,7 @@ NULL
 #' Procrustes Fit via manifoldalign
 #' @keywords internal
 .procrustes_fit_manifoldalign <- function(data_list, reference, train_data,
-                                          scale, tol, max_iter, ...) {
+                                          scale, reflection, tol, max_iter, ...) {
   # Determine reference
   if (is.character(reference) && reference == "consensus") {
     # Use GPA to find consensus
@@ -132,8 +116,9 @@ NULL
         # Reference subject gets identity
         diag(nrow(data_list[[subj]]))
       } else {
-        Q <- manifoldalign::procrustes(data_list[[subj]], reference_data)$Q
-        t(Q)  # Transpose for left-multiply
+        Q <- .procrustes_single(data_list[[subj]], reference_data, scale = scale, reflection = reflection)
+        attr(Q, "scale_factor") <- NULL
+        Q
       }
     })
     names(transforms) <- names(data_list)
