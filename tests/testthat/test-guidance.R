@@ -228,3 +228,51 @@ test_that("set_guidance with validate=FALSE skips dimension check", {
   expect_equal(nrow(get_guidance(adat2, subject = "s1")$geo$value), 99)
 })
 
+test_that("guidance_channel errors on missing value", {
+  expect_error(
+    neuralign:::.as_guidance_channel(list(type = "coords")),
+    "value"
+  )
+})
+
+test_that("set_guidance errors on non-list guidance", {
+  adat <- AlignmentData(list(s1 = matrix(1, 4, 3)))
+  expect_error(set_guidance(adat, "not_a_list"), "list")
+})
+
+test_that("set_guidance errors on unnamed guidance list", {
+  adat <- AlignmentData(list(s1 = matrix(1, 4, 3)))
+  expect_error(set_guidance(adat, list(list())), "named list")
+})
+
+test_that("set_guidance handles per-subject non-list channels", {
+  adat <- AlignmentData(list(s1 = matrix(1, 4, 3)))
+  g <- list(s1 = "not_a_list")
+  expect_error(set_guidance(adat, g), "must be a list")
+})
+
+test_that("guidance_channel auto-assigns name from .as_guidance_channel", {
+  ch <- list(type = "coords", value = 42)
+  result <- neuralign:::.as_guidance_channel(ch, name = "my_channel")
+  expect_equal(result$name, "my_channel")
+  expect_equal(result$type, "coords")
+})
+
+test_that("validate_guidance_dims skips non-projector/non-coords types", {
+  adat <- AlignmentData(list(s1 = matrix(1, 4, 3)))
+  g <- list(
+    s1 = list(custom = guidance_channel("geometry", value = list(something = TRUE)))
+  )
+  # "geometry" type is not validated for dimensions; should not error
+  adat2 <- set_guidance(adat, g)
+  expect_equal(get_guidance(adat2, subject = "s1")$custom$type, "geometry")
+})
+
+test_that("validate_guidance_dims errors on non-matrix projector", {
+  adat <- AlignmentData(list(s1 = matrix(1, 4, 3)))
+  g <- list(
+    s1 = list(roi = guidance_channel("projector", value = c(1, 2, 3)))
+  )
+  expect_error(set_guidance(adat, g), "matrix-like")
+})
+

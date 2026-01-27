@@ -127,3 +127,124 @@ test_that("procrustes_rotation errors on incompatible dimensions", {
   expect_error(procrustes_rotation(X, Y, "left"))
 })
 
+
+# ---------- Additional procrustes primitive tests ----------
+
+test_that("procrustes_rotation errors on non-matrix input", {
+  expect_error(procrustes_rotation(1:10, matrix(1, 2, 5), "left"), "matrix-like")
+  expect_error(procrustes_rotation(matrix(1, 2, 5), "text", "left"), "matrix-like")
+})
+
+test_that("procrustes_rotation errors on invalid min_overlap", {
+  X <- matrix(1, 3, 5)
+  Y <- matrix(1, 3, 5)
+  expect_error(procrustes_rotation(X, Y, "left", min_overlap = 0L), "positive integer")
+  expect_error(procrustes_rotation(X, Y, "left", min_overlap = -1L), "positive integer")
+})
+
+test_that("procrustes_rotation right convention errors on dimension mismatch", {
+  X <- matrix(rnorm(12), 4, 3)  # 4 obs x 3 features
+  Y <- matrix(rnorm(15), 5, 3)  # 5 obs x 3 features - different observations
+  expect_error(procrustes_rotation(X, Y, "right"), "matching observations")
+
+  X2 <- matrix(rnorm(12), 3, 4)  # 3 obs x 4 features
+  Y2 <- matrix(rnorm(9), 3, 3)   # 3 obs x 3 features - different features
+  expect_error(procrustes_rotation(X2, Y2, "right"), "matching feature dimensions")
+})
+
+test_that("procrustes_rotation left convention errors on feature mismatch", {
+  X <- matrix(rnorm(10), 2, 5)  # 2 features x 5 obs
+  Y <- matrix(rnorm(15), 3, 5)  # 3 features x 5 obs
+  expect_error(procrustes_rotation(X, Y, "left"), "matching feature dimensions")
+})
+
+test_that("procrustes_rotation right convention recovers rotation", {
+  set.seed(10)
+  d <- 5
+  n <- 12
+  Q_true <- qr.Q(qr(matrix(rnorm(d * d), d, d)))
+  if (det(Q_true) < 0) Q_true[, d] <- -Q_true[, d]
+
+  Xr <- matrix(rnorm(n * d), n, d)
+  Yr <- Xr %*% Q_true
+
+  res <- procrustes_rotation(Xr, Yr, "right", scale = TRUE)
+  expect_equal(res$convention, "right")
+  expect_equal(res$scale_factor, 1, tolerance = 1e-6)
+  expect_equal(res$residual, 0, tolerance = 1e-8)
+})
+
+test_that("procrustes_rotation with scale=TRUE right convention", {
+  set.seed(11)
+  d <- 4
+  n <- 10
+  Q_true <- qr.Q(qr(matrix(rnorm(d * d), d, d)))
+  if (det(Q_true) < 0) Q_true[, d] <- -Q_true[, d]
+
+  Xr <- matrix(rnorm(n * d), n, d)
+  Yr <- 3 * (Xr %*% Q_true)
+
+  res <- procrustes_rotation(Xr, Yr, "right", scale = TRUE)
+  expect_equal(res$scale_factor, 3, tolerance = 1e-6)
+  expect_equal(res$residual, 0, tolerance = 1e-6)
+})
+
+test_that("procrustes_rotation with label matching in right convention", {
+  set.seed(12)
+  d <- 4
+  Q_true <- qr.Q(qr(matrix(rnorm(d * d), d, d)))
+  if (det(Q_true) < 0) Q_true[, d] <- -Q_true[, d]
+
+  labs_x <- paste0("obs", 1:8)
+  labs_y <- paste0("obs", 4:11)
+
+  Xr <- matrix(rnorm(8 * d), 8, d)
+  overlap_x <- Xr[4:8, , drop = FALSE]
+  Yr <- matrix(rnorm(8 * d), 8, d)
+  Yr[1:5, ] <- overlap_x %*% Q_true
+
+  res <- procrustes_rotation(
+    Xr, Yr, "right",
+    obs_labels_source = labs_x,
+    obs_labels_target = labs_y
+  )
+  expect_equal(res$matched_labels, paste0("obs", 4:8))
+  expect_equal(res$residual, 0, tolerance = 1e-8)
+})
+
+test_that("procrustes_distance with right convention", {
+  set.seed(13)
+  d <- 4
+  n <- 8
+  Xr <- matrix(rnorm(n * d), n, d)
+  Q <- qr.Q(qr(matrix(rnorm(d * d), d, d)))
+  if (det(Q) < 0) Q[, d] <- -Q[, d]
+  Yr <- Xr %*% Q
+
+  expect_equal(procrustes_distance(Xr, Yr, "right"), 0, tolerance = 1e-8)
+  expect_equal(procrustes_distance(Xr, Xr, "right"), 0, tolerance = 1e-10)
+})
+
+test_that("GPA builtin converges for multiple subjects", {
+  neuralign:::.register_procrustes()
+
+  set.seed(14)
+  d <- 5
+  n <- 10
+  Z <- matrix(rnorm(d * n), d, n)
+
+  data_list <- lapply(1:4, function(i) {
+    Q <- qr.Q(qr(matrix(rnorm(d * d), d, d)))
+    if (det(Q) < 0) Q[, 1] <- -Q[, 1]
+    Q %*% Z
+  })
+  names(data_list) <- paste0("s", 1:4)
+
+  adat <- AlignmentData(data_list)
+  res <- fit_alignment(adat, method = "procrustes", reference = "consensus", compute_quality = FALSE)
+  expect_s4_class(res, "AlignmentResult")
+
+  model <- get_model(res)
+  expect_equal(length(model@transforms), 4)
+})
+

@@ -251,3 +251,181 @@ test_that("procrustes_graph apply_alignment errors when overlap is too small", {
 
   expect_error(apply_alignment(fit, new_data), "Not enough shared observation labels")
 })
+
+
+# ---------- Additional procrustes graph tests ----------
+
+test_that("procrustes_graph errors without obs_labels", {
+  .ensure_procrustes_graph_registered()
+
+  set.seed(20)
+  d <- 3
+  adat <- AlignmentData(list(
+    s1 = matrix(rnorm(d * 4), d, 4),
+    s2 = matrix(rnorm(d * 4), d, 4)
+  ))
+
+  expect_error(
+    fit_alignment(adat, method = "procrustes_graph", reference = "s1", compute_quality = FALSE),
+    "obs_labels"
+  )
+})
+
+test_that("procrustes_graph with uniform weight works", {
+  .ensure_procrustes_graph_registered()
+
+  set.seed(21)
+  d <- 4
+  labels <- paste0("stim", 1:6)
+  Z <- matrix(rnorm(d * length(labels)), d, length(labels))
+
+  A1 <- random_rotation(d)
+  A2 <- random_rotation(d)
+
+  adat <- AlignmentData(
+    data = list(
+      s1 = A1 %*% Z,
+      s2 = A2 %*% Z
+    ),
+    obs_labels = list(
+      s1 = labels,
+      s2 = labels
+    )
+  )
+
+  res <- fit_alignment(
+    adat,
+    method = "procrustes_graph",
+    reference = "s1",
+    weight = "uniform",
+    compute_quality = FALSE
+  )
+
+  expect_s4_class(res, "AlignmentResult")
+  expect_equal(get_model(res)@method_state$weight, "uniform")
+})
+
+test_that("procrustes_graph with shared atomic obs_labels", {
+  .ensure_procrustes_graph_registered()
+
+  set.seed(22)
+  d <- 3
+  n <- 5
+  labels <- paste0("s", 1:n)
+  Z <- matrix(rnorm(d * n), d, n)
+
+  A1 <- random_rotation(d)
+  A2 <- random_rotation(d)
+
+  adat <- AlignmentData(
+    data = list(
+      s1 = A1 %*% Z,
+      s2 = A2 %*% Z
+    ),
+    obs_labels = labels  # shared atomic labels
+  )
+
+  res <- fit_alignment(
+    adat,
+    method = "procrustes_graph",
+    reference = "s1",
+    compute_quality = FALSE
+  )
+
+  expect_s4_class(res, "AlignmentResult")
+  expect_equal(res@model@transforms[["s1"]], diag(d), tolerance = 1e-6)
+})
+
+test_that("procrustes_graph subject-axis CV with held-out subject", {
+  .ensure_procrustes_graph_registered()
+
+  set.seed(23)
+  d <- 4
+  n <- 8
+  labels <- paste0("stim", 1:n)
+  Z <- matrix(rnorm(d * n), d, n)
+
+  A1 <- random_rotation(d)
+  A2 <- random_rotation(d)
+  A3 <- random_rotation(d)
+
+  adat <- AlignmentData(
+    data = list(
+      s1 = A1 %*% Z,
+      s2 = A2 %*% Z,
+      s3 = A3 %*% Z
+    ),
+    obs_labels = list(
+      s1 = labels,
+      s2 = labels,
+      s3 = labels
+    )
+  )
+
+  res <- fit_alignment(
+    adat,
+    method = "procrustes_graph",
+    reference = "medoid",
+    cv = "loso",
+    compute_quality = FALSE
+  )
+
+  expect_s4_class(res, "AlignmentResult")
+})
+
+test_that("procrustes_graph apply errors on non-AlignmentData input", {
+  .ensure_procrustes_graph_registered()
+
+  set.seed(24)
+  d <- 3
+  Z <- matrix(rnorm(d * 4), d, 4)
+  labels <- paste0("s", 1:4)
+
+  adat <- AlignmentData(
+    data = list(s1 = Z, s2 = Z),
+    obs_labels = list(s1 = labels, s2 = labels)
+  )
+  fit <- fit_alignment(adat, method = "procrustes_graph", reference = "s1", compute_quality = FALSE)
+
+  expect_error(
+    neuralign:::.procrustes_graph_apply(
+      list(
+        method_state = list(reference = "s1"),
+        reference_data = Z
+      ),
+      "not_adat"
+    ),
+    "AlignmentData"
+  )
+})
+
+test_that("procrustes_graph apply errors on multiple new subjects", {
+  .ensure_procrustes_graph_registered()
+
+  set.seed(25)
+  d <- 3
+  Z <- matrix(rnorm(d * 4), d, 4)
+  labels <- paste0("s", 1:4)
+
+  adat <- AlignmentData(
+    data = list(s1 = Z, s2 = Z),
+    obs_labels = list(s1 = labels, s2 = labels)
+  )
+  fit <- fit_alignment(adat, method = "procrustes_graph", reference = "s1", compute_quality = FALSE)
+
+  new_data <- AlignmentData(
+    data = list(s3 = Z, s4 = Z),
+    obs_labels = list(s3 = labels, s4 = labels)
+  )
+
+  expect_error(
+    neuralign:::.procrustes_graph_apply(
+      list(
+        method_state = get_model(fit)@method_state,
+        reference_data = get_model(fit)@reference_data
+      ),
+      new_data
+    ),
+    "single new subject"
+  )
+})

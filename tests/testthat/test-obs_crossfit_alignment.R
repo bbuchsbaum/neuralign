@@ -344,3 +344,80 @@ test_that("run_obs_crossfit_alignment with per-fold obs_labels", {
   expect_s3_class(res, "ObsCrossfitAlignment")
   expect_equal(length(res$models_by_fold), 2)
 })
+
+test_that("run_obs_crossfit_alignment errors on inconsistent feature dims across subjects in fold", {
+  train_data <- list(
+    f1 = list(s1 = matrix(1, 3, 2), s2 = matrix(1, 4, 2))  # s1=3 rows, s2=4 rows
+  )
+
+  expect_error(
+    run_obs_crossfit_alignment(
+      train_data_by_fold = train_data,
+      method = "procrustes",
+      reference = "s1"
+    ),
+    "inconsistent feature dimensions"
+  )
+})
+
+test_that("run_obs_crossfit_alignment fold_specific_ok with data-driven ref generates warning", {
+  neuralign:::.register_procrustes()
+
+  set.seed(16)
+  d <- 3
+  Z <- matrix(rnorm(d * 6), d, 6)
+
+  train_data <- list(
+    f1 = list(s1 = Z[, 1:3, drop = FALSE], s2 = Z[, 1:3, drop = FALSE]),
+    f2 = list(s1 = Z[, 4:6, drop = FALSE], s2 = Z[, 4:6, drop = FALSE])
+  )
+
+  res <- run_obs_crossfit_alignment(
+    train_data_by_fold = train_data,
+    method = "procrustes",
+    reference = "consensus",
+    anchor_policy = "fold_specific_ok"
+  )
+
+  expect_false(isTRUE(res$anchor_common))
+  expect_true(length(res$warnings) > 0)
+  expect_true(any(grepl("Fold-specific", res$warnings)))
+})
+
+test_that(".normalize_obs_labels_for_folds handles factor input", {
+  neuralign:::.register_procrustes()
+
+  set.seed(17)
+  d <- 3
+  Z <- matrix(rnorm(d * 4), d, 4)
+
+  train_data <- list(
+    f1 = list(s1 = Z[, 1:2, drop = FALSE], s2 = Z[, 1:2, drop = FALSE]),
+    f2 = list(s1 = Z[, 3:4, drop = FALSE], s2 = Z[, 3:4, drop = FALSE])
+  )
+
+  # Factor labels
+  labs <- factor(c("a", "b"))
+
+  res <- run_obs_crossfit_alignment(
+    train_data_by_fold = train_data,
+    method = "procrustes",
+    reference = "s1",
+    obs_labels_train = labs
+  )
+
+  expect_s3_class(res, "ObsCrossfitAlignment")
+})
+
+test_that(".normalize_obs_labels_for_folds errors on mismatched names", {
+  train_data <- list(
+    f1 = list(s1 = matrix(1, 2, 3), s2 = matrix(1, 2, 3))
+  )
+
+  bad_labels <- list(wrong_key = c("a", "b", "c"))
+
+  expect_error(
+    neuralign:::.normalize_obs_labels_for_folds(bad_labels, train_data, "test_labels"),
+    "fold ids.*subject ids"
+  )
+})
