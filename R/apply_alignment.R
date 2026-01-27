@@ -368,3 +368,111 @@ inverse_transform <- function(model,
     t(x) %*% solve(gram)
   }
 }
+
+#' Lift Aligned Data Into an Ambient Feature Space
+#'
+#' Many aligners (e.g., manifoldalign projection methods) map high-dimensional
+#' feature data `X (p x n)` into a shared bottleneck space `Z (k x n)` using
+#' non-square operators `A (k x p)`. This helper maps aligned data back into an
+#' ambient feature space using an approximate inverse (pseudoinverse or ridge).
+#'
+#' Typical uses:
+#' - Lift aligned latent data into the reference subject's voxel space.
+#' - "Paint" a shared latent representation into a particular subject's voxel
+#'   space for visualization or decoding.
+#'
+#' @param x An \code{\link{AlignmentResult}} (preferred) or \code{\link{AlignmentModel}}.
+#' @param to Target ambient space to lift into:
+#'   \itemize{
+#'     \item \code{"reference"}: use the model's reference subject space.
+#'     \item \code{"subject"}: use a specific \code{subject}.
+#'     \item \code{"each"}: lift each aligned matrix into its own subject space.
+#'   }
+#' @param subject Subject ID used when \code{to="subject"}.
+#' @param aligned Optional aligned data to lift. If \code{x} is an
+#'   \code{AlignmentResult} and \code{aligned} is \code{NULL}, uses
+#'   \code{\link{get_aligned}(x)}.
+#'   Can be a single matrix or a named list of matrices.
+#' @param inverse How to compute the inverse operator; forwarded to
+#'   \code{\link{inverse_transform}}. Use \code{"pinv"} or \code{"ridge"} for
+#'   bottleneck (non-square) operators.
+#' @param tol Tolerance for \code{inverse="pinv"} (relative to largest singular value).
+#' @param lambda Regularization strength for \code{inverse="ridge"}.
+#'
+#' @return A matrix (if \code{aligned} is a matrix) or a named list of matrices.
+#'
+#' @export
+lift_aligned <- function(x,
+                         to = c("reference", "subject", "each"),
+                         subject = NULL,
+                         aligned = NULL,
+                         inverse = c("pinv", "ridge", "transpose", "solve", "auto"),
+                         tol = sqrt(.Machine$double.eps),
+                         lambda = 1e-6) {
+  to <- match.arg(to)
+  inverse <- match.arg(inverse)
+
+  if (inherits(x, "AlignmentResult")) {
+    model <- get_model(x)
+    if (is.null(aligned)) aligned <- get_aligned(x)
+  } else if (inherits(x, "AlignmentModel")) {
+    model <- x
+  } else {
+    stop("'x' must be an AlignmentResult or AlignmentModel", call. = FALSE)
+  }
+
+  if (is.null(aligned)) {
+    stop(
+      "No aligned data provided. Pass an AlignmentResult, or supply 'aligned=' explicitly.",
+      call. = FALSE
+    )
+  }
+
+  single <- FALSE
+  if (!is.list(aligned)) {
+    single <- TRUE
+    aligned <- list(.aligned = aligned)
+  } else if (length(aligned) == 0L) {
+    stop("'aligned' is empty", call. = FALSE)
+  }
+
+  if (to == "reference") {
+    target <- model@reference
+    if (!(is.character(target) && length(target) == 1L && target %in% names(model@transforms))) {
+      stop(
+        "Model does not have a subject-id reference; use to='subject' and supply 'subject=' explicitly.",
+        call. = FALSE
+      )
+    }
+    inv <- inverse_transform(model, target, method = inverse, tol = tol, lambda = lambda)
+    out <- lapply(aligned, function(z) apply_transform(inv, z))
+  } else if (to == "subject") {
+    if (is.null(subject) || !is.character(subject) || length(subject) != 1L) {
+      stop("to='subject' requires a single character 'subject'", call. = FALSE)
+    }
+    if (!subject %in% names(model@transforms)) {
+      stop(sprintf("Unknown subject '%s' in model transforms", subject), call. = FALSE)
+    }
+    inv <- inverse_transform(model, subject, method = inverse, tol = tol, lambda = lambda)
+    out <- lapply(aligned, function(z) apply_transform(inv, z))
+  } else {
+    nm <- names(aligned)
+    if (is.null(nm) || any(nm == "")) {
+      stop("to='each' requires 'aligned' to be a named list keyed by subject", call. = FALSE)
+    }
+    missing <- setdiff(nm, names(model@transforms))
+    if (length(missing) > 0) {
+      stop(
+        sprintf("Missing transforms for subject(s): %s", paste(missing, collapse = ", ")),
+        call. = FALSE
+      )
+    }
+    out <- lapply(nm, function(s) {
+      inv <- inverse_transform(model, s, method = inverse, tol = tol, lambda = lambda)
+      apply_transform(inv, aligned[[s]])
+    })
+    names(out) <- nm
+  }
+
+  if (single) out[[1L]] else out
+}
