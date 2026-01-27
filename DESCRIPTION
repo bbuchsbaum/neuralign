@@ -57,6 +57,7 @@ Collate:
     'cv.R'
     'obs_crossfit.R'
     'feature_blocks.R'
+    'subspace.R'
     'block_alignment_report.R'
     'leakage.R'
     'serialize.R'
