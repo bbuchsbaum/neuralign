@@ -328,8 +328,12 @@ harmonize_feature_blocks <- function(blocks_by_subject, min_features = 2L) {
 #'   \item{matrices}{Named list of per-subject stacked matrices.}
 #'   \item{blocks}{Harmonized per-subject block lists used to build matrices.}
 #'   \item{per_block}{Data frame summarizing retained blocks and feature counts.}
+#'   \item{coverage}{Data frame of per-subject block coverage counts
+#'     (n_total/n_observed/fraction_observed) based on the harmonized feature
+#'     vocabulary.}
 #'   \item{identifiability}{Data frame summarizing stacked transform dimension
 #'     and numeric/effective rank per subject (NULL if `check_identifiability=FALSE`).}
+#'   \item{params}{List of parameters used to construct the output.}
 #'   \item{dropped_blocks}{Character vector of dropped block names.}
 #'   \item{warnings}{Character vector of warning messages encountered.}
 #' }
@@ -504,6 +508,42 @@ build_alignment_features <- function(blocks_by_subject,
     block_names
   )
 
+  coverage <- do.call(rbind, lapply(subjects, function(subj) {
+    do.call(rbind, lapply(block_names, function(bname) {
+      vocab <- .block_feature_names(blocks_h[[subj]][[bname]])
+      orig_feats <- .block_feature_names(blocks_by_subject[[subj]][[bname]])
+      n_total <- length(vocab)
+      n_observed <- if (is.null(orig_feats)) NA_integer_ else sum(vocab %in% orig_feats)
+      data.frame(
+        subject = subj,
+        block = bname,
+        n_total = as.integer(n_total),
+        n_observed = as.integer(n_observed),
+        fraction_observed = if (is.finite(n_observed) && n_total > 0L) {
+          n_observed / n_total
+        } else {
+          NA_real_
+        },
+        stringsAsFactors = FALSE
+      )
+    }))
+  }))
+  rownames(coverage) <- NULL
+
+  params <- list(
+    harmonize = harmonize,
+    min_features = min_features,
+    block_weights = block_weights,
+    obs_crossfit = obs_crossfit,
+    check_independence = check_independence,
+    check_identifiability = check_identifiability,
+    convention = convention,
+    rank_tol = rank_tol,
+    fill = fill,
+    union_order = union_order,
+    warn_sparse_below = warn_sparse_below
+  )
+
   if (check_independence && !obs_crossfit && any(requires_independence, na.rm = TRUE)) {
     flagged <- names(requires_independence)[which(requires_independence)]
     capture_warnings(warning(
@@ -574,7 +614,9 @@ build_alignment_features <- function(blocks_by_subject,
     matrices = mats_by_subj,
     blocks = blocks_h,
     per_block = per_block,
+    coverage = coverage,
     identifiability = identifiability,
+    params = params,
     dropped_blocks = dropped_blocks,
     warnings = unique(warnings)
   )

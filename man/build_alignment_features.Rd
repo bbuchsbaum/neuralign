@@ -72,8 +72,12 @@ A list with elements:
 \item{matrices}{Named list of per-subject stacked matrices.}
 \item{blocks}{Harmonized per-subject block lists used to build matrices.}
 \item{per_block}{Data frame summarizing retained blocks and feature counts.}
+\item{coverage}{Data frame of per-subject block coverage counts
+(n_total/n_observed/fraction_observed) based on the harmonized feature
+vocabulary.}
 \item{identifiability}{Data frame summarizing stacked transform dimension
 and numeric/effective rank per subject (NULL if \code{check_identifiability=FALSE}).}
+\item{params}{List of parameters used to construct the output.}
 \item{dropped_blocks}{Character vector of dropped block names.}
 \item{warnings}{Character vector of warning messages encountered.}
 }
