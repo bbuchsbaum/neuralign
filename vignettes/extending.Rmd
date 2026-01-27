@@ -1,0 +1,378 @@
+---
+title: "Extending neuralign: Custom Alignment Methods"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Extending neuralign: Custom Alignment Methods}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Overview
+
+neuralign is designed to be extended. Any R package (or even a script) can
+register a new alignment method that then works seamlessly with
+`fit_alignment()`, `apply_alignment()`, cross-validation, composition, quality
+assessment, and serialization. This vignette walks through the process.
+
+```{r setup}
+library(neuralign)
+```
+
+## The aligner contract
+
+Every alignment method must provide a **fit function** and optionally an
+**apply function**. neuralign calls these at the right time and feeds them
+standardized inputs.
+
+### Fit function signature
+
+```r
+fit_fn <- function(data, reference, train_idx = NULL, ...) {
+  # data: AlignmentData object
+  # reference: subject ID (character), "consensus", or a matrix
+  # train_idx: integer indices of subjects to use (NULL = all)
+  # ...: method-specific parameters from the user
+
+  list(
+    transforms = list(...),       # Named list: subject_id -> operator matrix
+    reference_data = matrix(...), # The actual reference data used
+    space_from = data@space,      # Source space (can be NULL)
+    space_to = data@space,        # Target space (can be NULL)
+    method_state = list(...)      # Anything needed by apply_fn later
+  )
+}
+```
+
+The fit function receives an `AlignmentData` object containing multi-subject
+data, a reference specification, and optional training indices (for
+cross-validation). It returns per-subject operators that transform each
+subject's data into the reference space.
+
+**Key requirements:**
+
+- `transforms` must be a named list where each value is a matrix (or
+  Matrix object) that left-multiplies the subject's data:
+  `aligned = transform %*% subject_data`.
+- Transform dimensions: `(target_features × source_features)`.
+- `reference_data` is the actual matrix/template used as the alignment target.
+
+### Apply function signature (optional)
+
+```r
+apply_fn <- function(fit_result, new_data, ...) {
+  # fit_result: the list returned by fit_fn (transforms, reference_data,
+  #             method_state, etc.)
+  # new_data: AlignmentData with a SINGLE new subject
+  # ...: method-specific parameters
+
+  list(
+    transforms = list(subject_id = operator_matrix),
+    reference_data = fit_result$reference_data,
+    space_from = fit_result$space_from,
+    space_to = fit_result$space_to,
+    method_state = fit_result$method_state
+  )
+}
+```
+
+If you do not provide an `apply_fn`, neuralign will re-call `fit_fn` with the
+new subject appended to the data. For methods where this is efficient (or the
+only option), you can omit `apply_fn`.
+
+## Declaring capabilities
+
+Each method declares what it can do and what it requires via a **capabilities
+list**. This enables neuralign to validate data before fitting, route
+cross-validation correctly, and provide accurate diagnostics.
+
+```{r capabilities-example}
+my_capabilities <- list(
+  # Cross-validation support
+  supports_cv = TRUE,
+  cv_axes = c("subject"),         # Which axes: "subject", "observation", or both
+
+  # Data requirements
+  needs_geometry = FALSE,          # Requires adjacency matrix?
+  needs_design = FALSE,            # Requires design/task structure?
+  needs_guidance = FALSE,          # Requires guidance channels?
+  guidance_types = character(0),   # Required guidance types if needs_guidance
+
+  # Data shape requirements
+  requires_shared_features = TRUE, # All subjects must have same feature count?
+  requires_shared_observations = TRUE, # All subjects must have same obs count?
+
+  # Transform properties
+  returns = "operator",            # "operator" (matrix) or "embedding"
+  transform_type = "linear",       # "orthogonal", "linear", "ot", "permutation"
+  returns_invertible = FALSE,      # Is the transform exactly invertible?
+  mass_preserving = FALSE,         # For OT: does transport preserve mass?
+
+  # Application capabilities
+  supports_new_subject = TRUE,     # Can compute transform for unseen subject?
+  supports_new_data = TRUE,        # Can apply existing transform to new data?
+
+  # Reference options
+  reference_types = c("subject", "consensus")
+)
+```
+
+**Important capability flags:**
+
+- `returns = "operator"` means transforms are matrices that left-multiply data.
+  This is currently the only supported mode.
+- `transform_type` informs inversion strategy: `"orthogonal"` transforms use
+  transpose for inversion, others may need pseudoinverse.
+- `reference_types` lists which reference specifications the method supports.
+  neuralign validates the user's choice against this list.
+
+## Example: a scaling aligner
+
+Let's implement a simple alignment method that scales each subject's data to
+match the reference subject's variance. This is not a realistic alignment
+method, but it illustrates the full registration flow.
+
+### Step 1: Write the fit function
+
+```{r scaling-fit}
+.scaling_fit <- function(data, reference, train_idx = NULL, ...) {
+  # Determine which subjects to train on
+  if (!is.null(train_idx)) {
+    train_data <- data[train_idx]
+  } else {
+    train_data <- data
+  }
+
+  # Resolve reference
+  if (is.character(reference) && reference %in% data@subjects) {
+    ref_data <- get_subject_data(data, reference)
+  } else if (is.character(reference) && reference == "consensus") {
+    ref_data <- Reduce("+", get_data_list(train_data)) / length(train_data)
+  } else if (is.matrix(reference)) {
+    ref_data <- reference
+  } else {
+    stop("Unsupported reference type")
+  }
+
+  # Compute per-feature variance of the reference
+  ref_var <- apply(ref_data, 1, var)
+  ref_var[ref_var < 1e-12] <- 1  # avoid division by zero
+
+  # For each subject, compute a diagonal scaling transform
+  transforms <- list()
+  for (subj in data@subjects) {
+    subj_data <- get_subject_data(data, subj)
+    subj_var <- apply(subj_data, 1, var)
+    subj_var[subj_var < 1e-12] <- 1
+
+    scale_factors <- sqrt(ref_var / subj_var)
+    transforms[[subj]] <- diag(scale_factors)
+  }
+
+  list(
+    transforms = transforms,
+    reference_data = ref_data,
+    space_from = data@space,
+    space_to = data@space,
+    method_state = list(ref_var = ref_var)
+  )
+}
+```
+
+### Step 2: Define capabilities
+
+```{r scaling-caps}
+.scaling_capabilities <- list(
+  supports_cv = TRUE,
+  cv_axes = c("subject"),
+  needs_geometry = FALSE,
+  needs_design = FALSE,
+  needs_guidance = FALSE,
+  requires_shared_features = TRUE,
+  requires_shared_observations = FALSE,
+  returns = "operator",
+  transform_type = "linear",
+  returns_invertible = TRUE,
+  mass_preserving = FALSE,
+  supports_new_subject = TRUE,
+  supports_new_data = TRUE,
+  reference_types = c("subject", "consensus")
+)
+```
+
+### Step 3: Register
+
+```{r scaling-register}
+register_aligner(
+  name = "variance_scaling",
+  fit_fn = .scaling_fit,
+  apply_fn = NULL,  # will re-call fit_fn for new subjects
+  capabilities = .scaling_capabilities,
+  package = "neuralign",
+  description = "Diagonal variance scaling",
+  version = "0.1.0"
+)
+
+# Verify registration
+"variance_scaling" %in% available_aligners()
+```
+
+### Step 4: Use it
+
+```{r scaling-use}
+set.seed(10)
+data_list <- list(
+  s1 = matrix(rnorm(20), 5, 4),
+  s2 = matrix(rnorm(20) * 3, 5, 4),  # 3x larger variance
+  s3 = matrix(rnorm(20) * 0.5, 5, 4) # 0.5x smaller variance
+)
+adat <- AlignmentData(data_list)
+
+result <- fit_alignment(adat, method = "variance_scaling", reference = "s1")
+result
+get_quality(result)
+```
+
+### Step 5: Cross-validation works automatically
+
+```{r scaling-cv}
+result_cv <- fit_alignment(
+  adat,
+  method = "variance_scaling",
+  reference = "consensus",
+  cv = "loso"
+)
+get_cv_info(result_cv)$n_folds
+```
+
+### Step 6: Applying to new data works automatically
+
+```{r scaling-apply}
+new_data <- AlignmentData(list(s4 = matrix(rnorm(20) * 2, 5, 4)))
+applied <- apply_alignment(result, new_data)
+names(get_aligned(applied))
+```
+
+### Cleanup
+
+```{r scaling-cleanup}
+unregister_aligner("variance_scaling")
+```
+
+## Contract validation
+
+neuralign validates your method at registration time. If your `fit_fn` or
+`apply_fn` signatures don't match the contract, registration will fail:
+
+```{r contract-validation, error=TRUE}
+# This will fail: fit_fn missing required 'data' parameter
+tryCatch(
+  register_aligner(
+    name = "bad_method",
+    fit_fn = function(x, y) list(),  # wrong signature!
+    capabilities = list()
+  ),
+  error = function(e) message("Registration failed: ", e$message)
+)
+```
+
+Use `validate_aligner_contract()` to check your functions before registering:
+
+```{r validate-contract, error=TRUE}
+tryCatch(
+  validate_aligner_contract(
+    name = "test",
+    fit_fn = function(data, reference, ...) list(),
+    capabilities = list(returns = "invalid_value")
+  ),
+  error = function(e) message("Validation failed: ", e$message)
+)
+```
+
+## Registering from an external package
+
+In practice, you register your method in your package's `.onLoad()` hook so it
+becomes available as soon as the package is loaded:
+
+```r
+# In mypackage/R/zzz.R:
+.onLoad <- function(libname, pkgname) {
+  if (requireNamespace("neuralign", quietly = TRUE)) {
+    neuralign::register_aligner(
+      name = "my_method",
+      fit_fn = .my_method_fit,
+      apply_fn = .my_method_apply,
+      capabilities = .my_method_caps,
+      package = pkgname,
+      description = "My alignment method",
+      version = as.character(utils::packageVersion(pkgname))
+    )
+  }
+}
+```
+
+Users then do:
+
+```r
+library(neuralign)
+library(mypackage)  # triggers registration
+
+fit_alignment(data, method = "my_method")
+```
+
+### Auto-loading
+
+neuralign also supports **auto-loading**: if a user requests a method that
+isn't registered but neuralign knows which package provides it, it will
+attempt to load that package. To add your package to the known-method
+mapping, contact the neuralign maintainers or submit a PR.
+
+## API versioning
+
+neuralign declares `NEURALIGN_ALIGNER_API_VERSION` (currently `r NEURALIGN_ALIGNER_API_VERSION`).
+Your registration can declare which API version it implements. If a future
+neuralign release bumps the API version, older registrations will still work
+but may trigger compatibility warnings.
+
+```{r api-version}
+NEURALIGN_ALIGNER_API_VERSION
+```
+
+## Querying the registry
+
+```{r registry-queries}
+# List all registered methods
+available_aligners()
+
+# With details
+available_aligners(details = TRUE)
+
+# Get full entry for a method
+entry <- get_aligner("procrustes")
+names(entry)
+
+# Get just capabilities
+caps <- aligner_capabilities("procrustes")
+caps$transform_type
+caps$returns_invertible
+```
+
+## Summary
+
+To register a custom alignment method:
+
+1. Write a `fit_fn(data, reference, train_idx, ...)` that returns a list with
+   `transforms`, `reference_data`, and optionally `space_from`, `space_to`,
+   `method_state`.
+2. Optionally write an `apply_fn(fit_result, new_data, ...)` for efficient
+   application to new subjects.
+3. Declare capabilities (CV support, data requirements, transform properties).
+4. Call `register_aligner()` with your functions and capabilities.
+5. Your method now works with `fit_alignment()`, `apply_alignment()`,
+   cross-validation, composition, quality assessment, and serialization.

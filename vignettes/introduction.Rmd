@@ -1,0 +1,170 @@
+---
+title: "Introduction to neuralign"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to neuralign}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## What is neuralign?
+
+neuralign provides a **unified interface** for neural alignment methods. It
+standardizes how alignment models are fit, applied, composed, cross-validated,
+and persisted---regardless of which algorithm or package implements the actual
+computation.
+
+### Architecture at a glance
+
+```
+  Raw data (per subject)
+       |
+       v
+  AlignmentData           <-- S4 container: features x observations matrices
+       |
+       v
+  fit_alignment()         <-- dispatches to registered aligner
+       |
+       v
+  AlignmentResult         <-- holds model + aligned data + quality + CV info
+       |
+       +---> AlignmentModel   <-- per-subject transforms + reference + provenance
+       +---> aligned data     <-- transformed matrices
+       +---> quality metrics  <-- correlation, ISC, etc.
+```
+
+### Three core objects
+
+| Object | Role | Key accessors |
+|--------|------|---------------|
+| `AlignmentData` | Input container: named list of `features x observations` matrices, plus optional metadata (design, geometry, space) | `get_data_list()`, `get_subject_data()` |
+| `AlignmentModel` | Fitted model: per-subject transforms, reference data, method, provenance | `get_transform()`, `get_reference()` |
+| `AlignmentResult` | Full result: wraps model + aligned data + quality + CV info | `get_model()`, `get_aligned()`, `get_quality()`, `get_cv_info()` |
+
+```{r setup}
+library(neuralign)
+```
+
+## Quick example
+
+```{r quick-example}
+set.seed(42)
+n_features <- 20
+n_obs <- 30
+
+# Shared signal, rotated differently for each subject
+shared <- matrix(rnorm(n_features * n_obs), n_features, n_obs)
+
+data_list <- lapply(1:4, function(i) {
+  Q <- qr.Q(qr(matrix(rnorm(n_features^2), n_features)))
+  Q %*% shared + 0.3 * matrix(rnorm(n_features * n_obs), n_features, n_obs)
+})
+names(data_list) <- paste0("sub-", sprintf("%02d", 1:4))
+
+# Wrap, fit, inspect
+adat <- AlignmentData(data_list)
+result <- fit_alignment(adat, method = "procrustes", reference = "consensus")
+result
+```
+
+```{r quality}
+get_quality(result)
+```
+
+```{r apply-new}
+# Apply to a new (fifth) subject
+new_sub <- list("sub-05" = {
+  Q <- qr.Q(qr(matrix(rnorm(n_features^2), n_features)))
+  Q %*% shared + 0.3 * matrix(rnorm(n_features * n_obs), n_features, n_obs)
+})
+
+new_result <- apply_alignment(result, AlignmentData(new_sub))
+names(get_aligned(new_result))
+```
+
+## Key concepts
+
+### Data convention
+
+neuralign uses `features x observations` matrices throughout. Transforms are
+operators that **left-multiply** data: `aligned = T %*% original`.
+
+### Reference selection
+
+The *reference* determines what subjects are aligned to. Options include:
+
+- **`"consensus"`** --- iterative mean template (default).
+- **`"medoid"`** --- the subject most similar to all others.
+- **A subject ID** --- align everyone to a specific subject.
+- **A matrix** --- an external template.
+
+### Correspondence regimes
+
+Alignment methods require a *correspondence signal* that defines what should
+match across subjects. neuralign supports three regimes:
+
+1. **Shared labels**: all subjects have the same labelled features (e.g., task
+   conditions). Use standard Procrustes.
+2. **Sparse overlap**: subjects share some but not all features. Use
+   `harmonize_feature_blocks()` or graph Procrustes.
+3. **No shared labels**: use intrinsic geometry or connectivity fingerprints
+   (Gromov--Wasserstein methods).
+
+### Cross-validation and leakage prevention
+
+neuralign provides built-in CV along two orthogonal axes:
+
+- **Subject-axis**: LOSO or k-fold over subjects.
+- **Observation-axis**: run-wise or blocked-time folds over timepoints.
+
+Leakage detection is automatic: neuralign warns when you evaluate on training
+data and provides `assess_leakage_risk()` for comprehensive auditing.
+
+### Plugin registry
+
+Any R package can register a new alignment method that then works with
+`fit_alignment()`, cross-validation, composition, quality assessment, and
+serialization. See `vignette("extending")` for details.
+
+```{r available}
+available_aligners(details = TRUE)
+```
+
+## Choosing a method
+
+| Scenario | Recommended method | Why |
+|----------|--------------------|-----|
+| Shared task labels, want orthogonal transform | `procrustes` | Standard, fast, well-understood |
+| Shared labels with graph/spatial constraints | `procrustes_graph` | Adds geometric regularization |
+| Kernel-space alignment | `kprocrustes` | Handles nonlinear structure |
+| No shared labels, connectivity only | `gw` | Gromov--Wasserstein on distance matrices |
+| No shared labels, mixed features + geometry | `fpgw` | Fused partial Gromov--Wasserstein |
+
+## Package ecosystem
+
+neuralign integrates with several companion packages:
+
+| Package | Role |
+|---------|------|
+| `manifoldalign` | Computational backends (Procrustes, GW, FPGW solvers) |
+| `fmrigds` | fMRI-specific data structures and I/O |
+| `dkge` | Discriminant Kernel Generalized Embedding |
+| `neuroim2` | Neuroimaging data containers |
+
+## Vignette guide
+
+| Vignette | Topic |
+|----------|-------|
+| **Getting Started** (`neuralign`) | Hands-on walkthrough: data, fitting, CV, quality, persistence |
+| **Choosing Anchors and Guidance** (`anchors`) | Correspondence regimes, ROI projectors, geometry |
+| **fMRI Alignment Profile** (`fmri_profile`) | Domain-specific recipes for fMRI workflows |
+| **Cross-Validation and Leakage** (`cv_leakage`) | Subject- and observation-axis CV, guard TRs, leakage detection |
+| **Extending neuralign** (`extending`) | Writing and registering custom alignment methods |
+| **Feature Blocks and Subspaces** (`advanced_blocks`) | Block harmonization, identifiability, composition |

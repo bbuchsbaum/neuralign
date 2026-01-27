@@ -117,14 +117,25 @@ anat <- alignment_feature_block(
   meta = list(source_type = "prior", requires_independence = FALSE)
 )
 
-blocks <- harmonize_feature_blocks(list(
+blocks_by_subject <- list(
   s1 = list(task_beta = task, anat_feature = anat),
   s2 = list(task_beta = task, anat_feature = anat)
-))
+)
 
-F1 <- stack_feature_blocks(blocks$s1)
-feature_block_diagnostics(blocks$s1, convention = "right")$stacked
-dim(F1)
+# Convenience entrypoint: harmonize + stack + record coverage/identifiability.
+# Use obs_crossfit=TRUE when supervised blocks were computed within an
+# observation-axis crossfit workflow (to satisfy meta$requires_independence).
+feat <- build_alignment_features(
+  blocks_by_subject,
+  harmonize = "intersection",
+  obs_crossfit = TRUE,
+  convention = "right"
+)
+feat$per_block
+feat$identifiability
+
+# The stacked correspondence matrix for each subject:
+dim(feat$matrices$s1)
 ```
 
 ## 6) Sparse overlap (subjects see different subsets)
@@ -133,7 +144,53 @@ When there is no global intersection of correspondence features (e.g., different
 of stimuli/conditions), but the overlap graph is connected, use `"procrustes_graph"` with
 per-subject `obs_labels` rather than forcing a global intersection.
 
-## 7) Observation-axis crossfit orchestration
+## 7) Identifiability and subspace restriction
+
+If your correspondence matrix has numeric rank r < K, then only an `r`-dimensional
+subspace of the basis is identified by the alignment objective. neuralign will warn
+about this when using `build_alignment_features(check_identifiability=TRUE)`.
+
+You can compute an orthonormal basis for the identified subspace and work in r-by-r
+space:
+
+```{r identifiability-subspace}
+set.seed(20)
+K <- 4
+
+# Rank-deficient correspondence matrix (2 rows, 4 columns => rank <= 2)
+F_ref <- matrix(rnorm(2 * K), 2, K)
+sub <- identified_subspace_basis(F_ref, convention = "right", tol = 1e-12)
+sub$numeric_rank
+
+# Restrict an operator to the identified subspace
+O <- qr.Q(qr(matrix(rnorm(K * K), K, K)))
+O_sub <- restrict_operator_to_subspace(O, sub$basis)
+dim(O_sub)
+```
+
+## 8) Unified diagnostics report
+
+`block_alignment_report()` produces a single checklist-style report combining:
+
+- per-block coverage after harmonization,
+- rank/effective-rank diagnostics,
+- optional alignment quality metrics (when you pass an `AlignmentResult`).
+
+```{r block-report}
+# Align in the left-multiply convention by transposing the stacked matrices:
+adat_feat <- AlignmentData(lapply(feat$matrices, t))
+res <- fit_alignment(adat_feat, method = "procrustes", reference = "consensus")
+
+rep <- block_alignment_report(
+  blocks_by_subject,
+  aligned = res,
+  obs_crossfit = TRUE,
+  convention = "right"
+)
+rep
+```
+
+## 9) Observation-axis crossfit orchestration
 
 When supervised blocks require independence (e.g., task-derived betas), compute them per fold
 in the client package, then hand fold-wise matrices to neuralign:
@@ -162,4 +219,3 @@ cf <- run_obs_crossfit_alignment(
 cf$anchor_common
 names(cf$aligned_test_by_fold)
 ```
-

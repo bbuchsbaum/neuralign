@@ -201,19 +201,19 @@ not necessarily live in the same coordinate system.
 
 ```{r obs-crossfit}
 set.seed(123)
-n_subjects <- 3
-n_features <- 30
-n_obs <- 12
+n_subjects_cf <- 3
+n_features_cf <- 30
+n_obs_cf <- 12
 
 runs <- rep(paste0("run", 1:3), each = 4)
-obs_labels <- paste0("t", seq_len(n_obs))
+obs_labels <- paste0("t", seq_len(n_obs_cf))
 
-shared <- matrix(rnorm(n_features * n_obs), n_features, n_obs)
-data_list2 <- lapply(seq_len(n_subjects), function(i) {
-  Q <- qr.Q(qr(matrix(rnorm(n_features^2), n_features)))
-  Q %*% shared + 0.3 * matrix(rnorm(n_features * n_obs), n_features, n_obs)
+shared <- matrix(rnorm(n_features_cf * n_obs_cf), n_features_cf, n_obs_cf)
+data_list2 <- lapply(seq_len(n_subjects_cf), function(i) {
+  Q <- qr.Q(qr(matrix(rnorm(n_features_cf^2), n_features_cf)))
+  Q %*% shared + 0.3 * matrix(rnorm(n_features_cf * n_obs_cf), n_features_cf, n_obs_cf)
 })
-names(data_list2) <- paste0("sub-", sprintf("%02d", seq_len(n_subjects)))
+names(data_list2) <- paste0("sub-", sprintf("%02d", seq_len(n_subjects_cf)))
 
 adat2 <- AlignmentData(data_list2, obs_labels = obs_labels)
 obs_folds <- create_obs_folds(runs, method = "run")

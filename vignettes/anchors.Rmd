@@ -182,9 +182,6 @@ max(abs(t(rot_left$Q) - O_true))
 sum-of-squares objective. If a legacy pipeline multiplied blocks by a linear weight `w`
 directly, an equivalent neuralign weight is `weight = w^2`.
 
-If a legacy pipeline multiplied blocks by a linear weight `w` directly, an equivalent
-neuralign weight is `weight = w^2`.
-
 To quantify how much of the transform space is identified by your correspondence signal(s), use
 `feature_block_diagnostics()`:
 
@@ -194,11 +191,17 @@ feature_block_diagnostics(blocks$s1, convention = "right")$stacked
 
 #### Minimal recipe
 
+If you want a single entrypoint that harmonizes + stacks blocks (and records coverage,
+identifiability, and independence guardrails), use `build_alignment_features()`.
+
 1. Build per-subject block lists with `alignment_feature_block()` (set `feature_names` when you
    want harmonization by feature identity).
 2. Call `harmonize_feature_blocks()` to intersect and reorder features within each block.
 3. Call `stack_feature_blocks()` to obtain `F_s` (a single stacked matrix).
 4. Use `procrustes_rotation()` with the convention appropriate to your representation.
+
+For a unified checklist-style report (coverage + rank + optional alignment quality), see
+`block_alignment_report()`.
 
 If your correspondence matrix is naturally stored as `(K × D)` (basis/components × correspondence),
 use `t()` when needed so that rows correspond to named correspondence features.

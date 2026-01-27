@@ -1,0 +1,299 @@
+---
+title: "Cross-Validation and Leakage Prevention"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Cross-Validation and Leakage Prevention}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Why cross-validation matters for alignment
+
+Neural alignment learns a transformation for each subject from training data.
+If you evaluate the alignment on the same data used to fit it, you will
+overestimate quality: the transforms have been optimized to make *those
+particular observations* look similar. Proper cross-validation holds out data
+that the fitting procedure never sees, giving an honest estimate of
+generalization.
+
+neuralign provides two orthogonal CV axes, built-in leakage detection, and
+careful anchor-space tracking---all integrated into the standard
+`fit_alignment()` interface.
+
+```{r setup}
+library(neuralign)
+```
+
+## Subject-axis cross-validation
+
+Subject-axis CV answers the question: *"How well does this alignment
+generalize to a new subject?"*
+
+### Leave-one-subject-out (LOSO)
+
+Each subject is held out once. The model is trained on the remaining subjects,
+and the held-out subject's transform is estimated from the training model.
+
+```{r loso}
+set.seed(1)
+n <- 30; p <- 5
+shared <- matrix(rnorm(p * n), p, n)
+
+data_list <- lapply(1:4, function(i) {
+  Q <- qr.Q(qr(matrix(rnorm(p^2), p)))
+  Q %*% shared + 0.3 * matrix(rnorm(p * n), p, n)
+})
+names(data_list) <- paste0("s", 1:4)
+adat <- AlignmentData(data_list)
+
+result_loso <- fit_alignment(adat, method = "procrustes", cv = "loso")
+get_cv_info(result_loso)
+```
+
+With 4 subjects, LOSO produces 4 folds. Each subject's aligned output was
+produced by a model that never saw that subject's data during training.
+
+### K-fold cross-validation
+
+When you have many subjects, LOSO becomes expensive. K-fold partitions
+subjects into *k* groups:
+
+```{r kfold}
+set.seed(2)
+data_list_large <- lapply(1:12, function(i) {
+  Q <- qr.Q(qr(matrix(rnorm(p^2), p)))
+  Q %*% shared + 0.3 * matrix(rnorm(p * n), p, n)
+})
+names(data_list_large) <- paste0("s", sprintf("%02d", 1:12))
+adat_large <- AlignmentData(data_list_large)
+
+result_kf <- fit_alignment(
+  adat_large,
+  method = "procrustes",
+  cv = "kfold",
+  cv_folds = 4
+)
+get_cv_info(result_kf)
+```
+
+### Creating fold specifications manually
+
+For full control, use `create_cv_folds()` and pass the result to
+`fit_alignment()`:
+
+```{r custom-folds}
+folds <- create_cv_folds(adat, method = "kfold", k = 2, seed = 99)
+folds$assignments
+
+result_custom <- fit_alignment(adat, method = "procrustes", cv_folds = folds)
+get_cv_info(result_custom)$n_folds
+```
+
+## Observation-axis cross-validation
+
+Subject-axis CV evaluates generalization to *new subjects*. But in many
+workflows, you need to evaluate generalization across *observations*
+(timepoints, runs, trials) while keeping subjects fixed. This is especially
+important when the correspondence signal (e.g., task betas) is estimated from
+the same observations you later evaluate---using the same data for both
+creates circular analysis.
+
+### Run-wise folds
+
+If your experiment has natural blocks (runs, sessions, conditions), each block
+can serve as one fold:
+
+```{r obs-run-folds}
+set.seed(3)
+n_obs <- 12
+runs <- rep(paste0("run", 1:3), each = 4)
+obs_labels <- paste0("t", seq_len(n_obs))
+
+shared2 <- matrix(rnorm(p * n_obs), p, n_obs)
+data_list2 <- lapply(1:3, function(i) {
+  Q <- qr.Q(qr(matrix(rnorm(p^2), p)))
+  Q %*% shared2 + 0.3 * matrix(rnorm(p * n_obs), p, n_obs)
+})
+names(data_list2) <- paste0("s", 1:3)
+adat2 <- AlignmentData(data_list2, obs_labels = obs_labels)
+
+obs_folds <- create_obs_folds(runs, method = "run")
+obs_folds$n_folds
+obs_folds$fold_ids
+```
+
+### Blocked-time folds
+
+When there are no natural run boundaries, create contiguous temporal blocks:
+
+```{r obs-blocked}
+obs_folds_time <- create_obs_folds(n_obs, method = "blocked_time", k = 3)
+obs_folds_time$n_folds
+```
+
+### Guard TRs: preventing temporal leakage
+
+In fMRI data, adjacent timepoints are autocorrelated. Holding out timepoint
+*t* but training on *t-1* and *t+1* leaks information. Guard TRs exclude a
+buffer of timepoints around each held-out block:
+
+```{r guard-tr}
+obs_folds_guarded <- create_obs_folds(
+  20,
+  method = "blocked_time",
+  k = 4,
+  guard_tr = 2  # exclude 2 TRs before/after each test block
+)
+# Training set for fold 1 excludes the test block PLUS 2 adjacent TRs on each side
+```
+
+### Fitting with observation-axis folds
+
+Pass observation-axis fold specs directly to `fit_alignment()`:
+
+```{r obs-fit}
+cf <- run_obs_crossfit_from_data(
+  adat2,
+  obs_folds,
+  method = "procrustes",
+  reference = "s1",
+  anchor_policy = "common_or_error"
+)
+
+cf$anchor_common
+names(cf$aligned_test_by_fold)
+```
+
+## Anchor semantics: common vs. fold-specific references
+
+When the reference is **data-driven** (e.g., `"medoid"` or `"consensus"`),
+each CV fold selects its own reference from the training data. This means
+fold outputs may live in *different coordinate systems*---they are
+**fold-specific anchors**.
+
+### Detecting anchor type
+
+```{r anchor-detect}
+# Fixed reference -> always common anchor
+cf_fixed <- run_obs_crossfit_from_data(
+  adat2,
+  obs_folds,
+  method = "procrustes",
+  reference = "s1",
+  anchor_policy = "common_or_error"
+)
+cf_fixed$anchor_common
+```
+
+```{r anchor-medoid}
+# Data-driven reference -> may produce fold-specific anchors
+cf_med <- suppressWarnings(run_obs_crossfit_from_data(
+  adat2,
+  obs_folds,
+  method = "procrustes",
+  reference = "medoid",
+  anchor_policy = "fold_specific_ok"
+))
+cf_med$anchor_common
+```
+
+### Anchor policies
+
+| Policy | Behavior |
+|--------|----------|
+| `"common_or_error"` | Error if reference is data-driven (enforces a single anchor space) |
+| `"fold_specific_ok"` | Allow fold-specific anchors (mark `anchor_common = FALSE`) |
+| `"map_to_template"` | Map fold-specific anchors to an external template via Procrustes |
+
+### When anchor matters
+
+- **`anchor_common = TRUE`**: safe to concatenate or average across folds.
+- **`anchor_common = FALSE`**: each fold's output lives in a different space. Do
+  not aggregate directly. Either use a fixed reference or map to a template.
+
+## Leakage detection
+
+neuralign tracks which subjects were used to train a model and warns when you
+accidentally evaluate on training data.
+
+### Automatic warning in apply_alignment()
+
+```{r leakage-warning}
+# Fit on all subjects
+model <- get_model(fit_alignment(adat, method = "procrustes"))
+
+# Apply to training subjects -> triggers leakage warning
+new_result <- apply_alignment(model, adat, warn_leakage = TRUE)
+```
+
+### Risk assessment
+
+For a comprehensive leakage audit, use `assess_leakage_risk()`:
+
+```{r leakage-assess}
+risk <- assess_leakage_risk(
+  result_loso,
+  apply_subjects = adat@subjects
+)
+risk$overall_risk
+risk$issues
+risk$recommendations
+```
+
+### Observation-level leakage
+
+`check_obs_leakage()` detects overlapping observation indices in observation-axis
+CV setups:
+
+```{r obs-leakage, eval=FALSE}
+check_obs_leakage(
+  train_obs = list(s1 = 1:10, s2 = 1:10),
+  test_obs = list(s1 = 8:15, s2 = 8:15),  # overlaps with train!
+  action = "error"
+)
+```
+
+## Putting it together: a safe evaluation workflow
+
+```{r safe-workflow}
+set.seed(42)
+
+# 1. Create data
+adat_eval <- AlignmentData(data_list)
+
+# 2. Fit with LOSO cross-validation
+result <- fit_alignment(adat_eval, method = "procrustes", cv = "loso")
+
+# 3. Check CV metadata
+cv_info <- get_cv_info(result)
+cat("CV method:", cv_info$method, "\n")
+cat("Folds:", cv_info$n_folds, "\n")
+
+# 4. Assess quality (aligned data is already cross-validated)
+quality <- alignment_quality(result, original = adat_eval, metrics = "correlation")
+cat("Aligned correlation:", quality$mean_pairwise_correlation, "\n")
+cat("Original correlation:", quality$original_mean_correlation, "\n")
+cat("Improvement:", quality$correlation_improvement, "\n")
+```
+
+## Summary of CV functions
+
+| Function | Purpose |
+|----------|---------|
+| `create_cv_folds()` | Create subject-axis fold specifications (LOSO, k-fold, stratified) |
+| `create_obs_folds()` | Create observation-axis fold specifications (run-wise, blocked-time) |
+| `fit_alignment(..., cv = "loso")` | Fit with built-in subject-axis CV |
+| `run_obs_crossfit_from_data()` | Observation-axis crossfit from AlignmentData |
+| `run_obs_crossfit_alignment()` | Observation-axis crossfit from pre-split fold data |
+| `validate_cv_setup()` | Validate fold structure (disjointness, reference safety) |
+| `check_obs_leakage()` | Detect overlapping train/test observations |
+| `assess_leakage_risk()` | Holistic leakage risk assessment |
+| `has_common_anchor()` | Check whether CV result has a single anchor space |
+| `validate_common_anchor()` | Error/warn if anchor is fold-specific |

@@ -1,0 +1,482 @@
+---
+title: "Feature Blocks, Subspaces, and Multi-Stage Pipelines"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Feature Blocks, Subspaces, and Multi-Stage Pipelines}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Overview
+
+This vignette covers three advanced capabilities of neuralign:
+
+1. **Feature blocks** --- composing multiple correspondence signals into a
+   single alignment input, with harmonization and weighting.
+2. **Subspace operations** --- working in the identified subspace when
+   correspondence features are rank-deficient.
+3. **Multi-stage pipelines** --- composing sequential alignment models into a
+   single transform.
+
+```{r setup}
+library(neuralign)
+```
+
+## Part 1: Feature blocks
+
+### The problem
+
+Alignment methods need a correspondence signal: a set of measurements shared
+across subjects that defines "what should match." In practice, you often have
+*multiple* signals---task activation betas from different conditions, anatomical
+features, connectivity fingerprints---each with different reliability,
+coverage, and independence properties.
+
+Feature blocks provide a structured way to:
+
+- represent each signal as a named, weighted block,
+- harmonize blocks across subjects (handling missing features),
+- stack blocks into a single matrix for alignment.
+
+### Creating blocks
+
+```{r create-blocks}
+set.seed(1)
+
+# Task activation betas (3 conditions x 8 observations)
+task_block <- alignment_feature_block(
+  x = matrix(rnorm(24), 3, 8),
+  name = "task_beta",
+  weight = 1,
+  feature_names = c("face", "scene", "object"),
+  meta = list(
+    source_type = "supervised",
+    requires_independence = TRUE
+  )
+)
+
+# Anatomical features (2 features x 8 observations)
+anat_block <- alignment_feature_block(
+  x = matrix(rnorm(16), 2, 8),
+  name = "anat",
+  weight = 0.5,
+  feature_names = c("thickness", "curvature"),
+  meta = list(
+    source_type = "prior",
+    requires_independence = FALSE
+  )
+)
+
+str(task_block, max.level = 1)
+```
+
+**Weight semantics:** `stack_feature_blocks()` scales each block by
+`sqrt(weight)`. This means weights behave naturally in sum-of-squares
+objectives (Procrustes, etc.). If your legacy pipeline applied a linear
+weight `w`, the equivalent neuralign weight is `w^2`.
+
+### Harmonizing across subjects
+
+When subjects have different feature vocabularies (e.g., different brain
+regions survive quality control), `harmonize_feature_blocks()` reconciles
+them:
+
+```{r harmonize-blocks}
+set.seed(2)
+
+blocks_by_subject <- list(
+  s1 = list(
+    task = alignment_feature_block(
+      matrix(rnorm(24), 3, 8), "task",
+      feature_names = c("face", "scene", "object")
+    ),
+    anat = alignment_feature_block(
+      matrix(rnorm(16), 2, 8), "anat",
+      feature_names = c("thickness", "curvature")
+    )
+  ),
+  s2 = list(
+    task = alignment_feature_block(
+      matrix(rnorm(24), 3, 8), "task",
+      feature_names = c("object", "face", "scene")  # different order
+    ),
+    anat = alignment_feature_block(
+      matrix(rnorm(16), 2, 8), "anat",
+      feature_names = c("curvature", "thickness")  # different order
+    )
+  )
+)
+
+harmonized <- harmonize_feature_blocks(blocks_by_subject, min_features = 2)
+# Features are now in consistent order across subjects
+```
+
+**Intersection mode** (default): keeps only features present in all subjects.
+This is the conservative default.
+
+### Stacking blocks
+
+After harmonization, stack blocks into a single matrix per subject:
+
+```{r stack-blocks}
+F_s1 <- stack_feature_blocks(harmonized$s1)
+F_s2 <- stack_feature_blocks(harmonized$s2)
+
+dim(F_s1)  # (n_task + n_anat) x n_obs, with sqrt(weight) scaling
+rownames(F_s1)  # prefixed: "task:face", "task:scene", ..., "anat:thickness", ...
+```
+
+### The build_alignment_features() pipeline
+
+For production use, `build_alignment_features()` combines harmonization,
+stacking, coverage tracking, and identifiability checking in one call:
+
+```{r build-features}
+features <- build_alignment_features(
+  blocks_by_subject,
+  harmonize = "intersection",
+  min_features = 2,
+  check_identifiability = TRUE,
+  convention = "right"
+)
+
+names(features)
+features$per_block
+features$identifiability
+```
+
+### Union-fill mode
+
+When features are sparse across subjects, intersection may drop too many
+features. Union-fill mode keeps the full vocabulary and fills missing entries
+with zeros:
+
+```{r union-fill}
+blocks_sparse <- list(
+  s1 = list(
+    task = alignment_feature_block(
+      matrix(rnorm(24), 3, 8), "task",
+      feature_names = c("face", "scene", "object")
+    )
+  ),
+  s2 = list(
+    task = alignment_feature_block(
+      matrix(rnorm(16), 2, 8), "task",
+      feature_names = c("scene", "tool")  # only 'scene' overlaps
+    )
+  )
+)
+
+features_union <- build_alignment_features(
+  blocks_sparse,
+  harmonize = "union_fill",
+  fill = 0,
+  warn_sparse_below = 0.5
+)
+
+# s2 now has zero-filled rows for "face" and "object"
+dim(features_union$matrices$s1)
+dim(features_union$matrices$s2)
+features_union$coverage
+```
+
+### Independence tracking
+
+Blocks that are estimated from the data (e.g., task betas) should be flagged
+with `meta$requires_independence = TRUE`. When building features, neuralign
+warns if independence is not maintained:
+
+```{r independence-check}
+b <- alignment_feature_block(
+  matrix(rnorm(12), 3, 4), "task",
+  meta = list(requires_independence = TRUE)
+)
+
+# This warns because obs_crossfit = FALSE (default)
+suppressWarnings(
+  build_alignment_features(
+    list(s1 = list(task = b), s2 = list(task = b)),
+    check_independence = TRUE,
+    obs_crossfit = FALSE
+  )
+)
+```
+
+Set `obs_crossfit = TRUE` to suppress the warning when you have properly
+cross-fit your correspondence signals.
+
+## Part 2: Identifiability and subspaces
+
+### The identifiability problem
+
+When your correspondence signal has fewer effective dimensions than the
+transform space, only part of the transformation is **identified**---the rest
+is unconstrained and may overfit.
+
+Example: if you have 5 correspondence features (task conditions) but 100
+voxels, only a 5-dimensional subspace of the 100-dimensional transformation
+space is constrained by the data.
+
+### Diagnosing identifiability
+
+```{r identifiability}
+set.seed(3)
+
+# Small correspondence signal (3 features x 10 observations)
+# in a 10-dimensional transform space
+blocks_low_rank <- list(
+  s1 = list(
+    task = alignment_feature_block(
+      matrix(rnorm(30), 3, 10), "task",
+      feature_names = c("f1", "f2", "f3")
+    )
+  )
+)
+
+diag <- feature_block_diagnostics(
+  blocks_low_rank$s1,
+  convention = "right",
+  include_singular_values = TRUE
+)
+
+diag$stacked
+```
+
+The `fraction_identified_rank` tells you what proportion of the transform
+space is constrained. Values below 0.5 suggest significant rank deficiency.
+
+### Computing the identified subspace
+
+`identified_subspace_basis()` returns the orthonormal basis spanning the
+identified dimensions:
+
+```{r subspace-basis}
+set.seed(4)
+n <- 20  # ambient dimension
+k <- 5   # correspondence dimension
+
+# A rank-5 correspondence matrix in 20D
+X <- matrix(rnorm(k * 10), k, 10)
+embedding <- matrix(rnorm(n * k), n, k)
+correspondence <- embedding %*% X  # 20 x 10, rank 5
+
+sub <- identified_subspace_basis(correspondence, convention = "left")
+sub$numeric_rank
+sub$transform_dim
+dim(sub$basis)  # 20 x 5 orthonormal basis
+```
+
+### Projecting to the subspace
+
+Project data or transforms onto the identified subspace for stable inference:
+
+```{r project-subspace}
+# Full-space vector
+v <- rnorm(n)
+
+# Project to identified subspace
+v_proj <- project_to_subspace(v, sub$basis, side = "left")
+length(v_proj)  # still n-dimensional, but lies in the subspace
+```
+
+### Subspace coordinates
+
+Convert to reduced-dimensional coordinates:
+
+```{r subspace-coords}
+z <- subspace_coordinates(v, sub$basis, side = "left")
+length(z)  # k-dimensional
+```
+
+### Restricting operators to the subspace
+
+If `Q` is a full-space operator, its restriction to the identified subspace
+captures only the identifiable part:
+
+```{r restrict-operator}
+Q_full <- qr.Q(qr(matrix(rnorm(n^2), n, n)))  # 20x20 orthogonal
+Q_restricted <- restrict_operator_to_subspace(Q_full, sub$basis)
+dim(Q_restricted)  # 5x5
+```
+
+### Lifting back to full space
+
+Convert a subspace operator back to the ambient space:
+
+```{r lift-operator}
+Q_lifted <- lift_operator_from_subspace(Q_restricted, sub$basis, fill = "identity")
+dim(Q_lifted)  # 20x20
+
+# Acts like Q_full in the subspace, like identity in the complement
+z_test <- rnorm(sub$numeric_rank)
+x_in_subspace <- sub$basis %*% z_test
+max(abs(Q_lifted %*% x_in_subspace - Q_full %*% x_in_subspace))
+```
+
+## Part 3: Multi-stage pipelines
+
+### Composing alignment models
+
+Real-world pipelines often involve multiple alignment stages:
+
+1. **Anatomical alignment** (e.g., spatial normalization to MNI space)
+2. **Functional alignment** (e.g., Procrustes on task activations)
+3. **Fine-tuning** (e.g., optimal transport refinement)
+
+neuralign can compose these into a single model:
+
+```{r compose-models}
+set.seed(5)
+p <- 10
+n_obs <- 20
+
+shared <- matrix(rnorm(p * n_obs), p, n_obs)
+
+data_list <- lapply(1:3, function(i) {
+  Q <- qr.Q(qr(matrix(rnorm(p^2), p)))
+  Q %*% shared + 0.3 * matrix(rnorm(p * n_obs), p, n_obs)
+})
+names(data_list) <- paste0("s", 1:3)
+
+# Stage 1: Procrustes with medoid reference
+result1 <- fit_alignment(
+  AlignmentData(data_list),
+  method = "procrustes",
+  reference = "medoid"
+)
+
+# Stage 2: Procrustes again with consensus (on already-aligned data)
+aligned1 <- get_aligned(result1)
+result2 <- fit_alignment(
+  AlignmentData(aligned1),
+  method = "procrustes",
+  reference = "consensus"
+)
+
+# Compose: apply stage 1 first, then stage 2
+model1 <- get_model(result1)
+model2 <- get_model(result2)
+```
+
+### Checking composition compatibility
+
+Before composing, verify that the models are compatible:
+
+```{r check-compose}
+compat <- check_composition(model1, model2)
+compat$compatible
+```
+
+### Creating the composed model
+
+```{r do-compose}
+composed <- compose_alignment(model1, model2)
+composed
+```
+
+The composed model contains a single transform per subject that is the
+product of the two stages: `T_composed = T2 %*% T1`.
+
+### Operator composition
+
+You can also use the `%*%` operator:
+
+```{r compose-operator, eval=FALSE}
+composed <- model2 %*% model1  # model1 applied first, then model2
+```
+
+### Applying the composed model
+
+```{r apply-composed}
+new_data <- AlignmentData(list(
+  s4 = matrix(rnorm(p * n_obs), p, n_obs)
+))
+
+# Apply the full pipeline in one step
+result_composed <- apply_alignment(composed, new_data)
+names(get_aligned(result_composed))
+```
+
+## Part 4: Block alignment report
+
+The `block_alignment_report()` function ties everything together: harmonization,
+identifiability diagnostics, and quality metrics in a single report.
+
+```{r block-report}
+set.seed(6)
+
+blocks_by_subject <- list(
+  s1 = list(
+    task = alignment_feature_block(
+      matrix(rnorm(40), 4, 10), "task",
+      feature_names = paste0("f", 1:4), weight = 1
+    ),
+    anat = alignment_feature_block(
+      matrix(rnorm(20), 2, 10), "anat",
+      feature_names = c("thick", "curv"), weight = 0.5
+    )
+  ),
+  s2 = list(
+    task = alignment_feature_block(
+      matrix(rnorm(40), 4, 10), "task",
+      feature_names = paste0("f", 1:4), weight = 1
+    ),
+    anat = alignment_feature_block(
+      matrix(rnorm(20), 2, 10), "anat",
+      feature_names = c("thick", "curv"), weight = 0.5
+    )
+  )
+)
+
+report <- block_alignment_report(blocks_by_subject, convention = "right")
+report
+```
+
+When you also have aligned data, include it for quality metrics:
+
+```{r block-report-quality}
+# Build features and align
+features <- build_alignment_features(blocks_by_subject)
+result <- fit_alignment(
+  AlignmentData(features$matrices),
+  method = "procrustes"
+)
+
+report_with_quality <- block_alignment_report(
+  blocks_by_subject,
+  aligned = result,
+  quality_metrics = c("correlation")
+)
+report_with_quality
+```
+
+## Summary
+
+| Component | Key Functions |
+|-----------|---------------|
+| **Feature blocks** | `alignment_feature_block()`, `harmonize_feature_blocks()`, `stack_feature_blocks()`, `build_alignment_features()` |
+| **Identifiability** | `feature_block_diagnostics()`, `identified_subspace_basis()` |
+| **Subspace operations** | `project_to_subspace()`, `subspace_coordinates()`, `restrict_operator_to_subspace()`, `lift_operator_from_subspace()` |
+| **Model composition** | `compose_alignment()`, `check_composition()` |
+| **Diagnostics** | `block_alignment_report()` |
+
+### When to use what
+
+- **Few, reliable correspondence features**: Use feature blocks with
+  intersection harmonization. Check identifiability; if low, consider
+  restricting to the identified subspace.
+- **Sparse, heterogeneous features**: Use union-fill harmonization. Track
+  coverage per subject.
+- **Multiple alignment stages**: Compose models rather than running them
+  independently. This enables single-step application to new data and correct
+  provenance tracking.
+- **Rank-deficient correspondence**: Use subspace operations to restrict
+  inference to identified dimensions. This prevents overfitting to
+  unconstrained transform directions.
