@@ -307,6 +307,14 @@ harmonize_feature_blocks <- function(blocks_by_subject, min_features = 2L) {
 #'   observation-axis crossfit workflow (suppresses independence warnings).
 #' @param check_independence Logical; if TRUE (default), warn when any block has
 #'   `meta$requires_independence=TRUE` and `obs_crossfit=FALSE`.
+#' @param check_identifiability Logical; if TRUE (default), compute stacked
+#'   numeric/effective rank per subject and warn when the stacked matrix does
+#'   not fully identify the transform (numeric_rank < transform_dim).
+#' @param convention Convention for interpreting the transform dimension in the
+#'   identifiability check: `"right"` means transforms act on columns; `"left"`
+#'   means transforms act on rows.
+#' @param rank_tol Relative tolerance for numeric rank computation as a fraction
+#'   of the largest singular value.
 #' @param fill Fill value used for `"union_fill"` (default 0).
 #' @param union_order Ordering for union construction when `harmonize="union_fill"`
 #'   and no explicit union is provided: `"first_seen"` or `"sorted"`.
@@ -320,6 +328,8 @@ harmonize_feature_blocks <- function(blocks_by_subject, min_features = 2L) {
 #'   \item{matrices}{Named list of per-subject stacked matrices.}
 #'   \item{blocks}{Harmonized per-subject block lists used to build matrices.}
 #'   \item{per_block}{Data frame summarizing retained blocks and feature counts.}
+#'   \item{identifiability}{Data frame summarizing stacked transform dimension
+#'     and numeric/effective rank per subject (NULL if `check_identifiability=FALSE`).}
 #'   \item{dropped_blocks}{Character vector of dropped block names.}
 #'   \item{warnings}{Character vector of warning messages encountered.}
 #' }
@@ -331,12 +341,16 @@ build_alignment_features <- function(blocks_by_subject,
                                      block_weights = NULL,
                                      obs_crossfit = FALSE,
                                      check_independence = TRUE,
+                                     check_identifiability = TRUE,
+                                     convention = c("right", "left"),
+                                     rank_tol = sqrt(.Machine$double.eps),
                                      fill = 0,
                                      union_order = c("first_seen", "sorted"),
                                      warn_sparse_below = 0.5,
                                      emit_warnings = TRUE) {
   harmonize <- match.arg(harmonize)
   union_order <- match.arg(union_order)
+  convention <- match.arg(convention)
 
   min_features <- as.integer(min_features)
   if (!is.finite(min_features) || min_features < 1L) {
@@ -351,6 +365,12 @@ build_alignment_features <- function(blocks_by_subject,
 
   check_independence <- isTRUE(check_independence)
   obs_crossfit <- isTRUE(obs_crossfit)
+  check_identifiability <- isTRUE(check_identifiability)
+  if (check_identifiability) {
+    if (!.is_scalar_number(rank_tol) || rank_tol <= 0 || rank_tol >= 1) {
+      stop("'rank_tol' must be a single number in (0, 1)", call. = FALSE)
+    }
+  }
 
   warnings <- character(0)
   capture_warnings <- function(expr) {
@@ -455,6 +475,18 @@ build_alignment_features <- function(blocks_by_subject,
   })
   names(mats_by_subj) <- subjects
 
+  dims <- vapply(mats_by_subj, function(m) paste0(nrow(m), "x", ncol(m)), character(1))
+  if (length(unique(dims)) != 1L) {
+    pieces <- paste0(names(dims), "=", dims)
+    stop(
+      sprintf(
+        "Subjects have differing stacked matrix dimensions: %s",
+        paste(pieces, collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
+
   block_names <- names(blocks_h[[1L]])
   requires_independence <- feature_block_requires_independence(blocks_h)
   requires_independence <- requires_independence[block_names]
@@ -486,10 +518,63 @@ build_alignment_features <- function(blocks_by_subject,
     ))
   }
 
+  identifiability <- NULL
+  if (check_identifiability) {
+    nrow_by_subj <- vapply(subjects, function(subj) nrow(mats_by_subj[[subj]]), integer(1))
+    ncol_by_subj <- vapply(subjects, function(subj) ncol(mats_by_subj[[subj]]), integer(1))
+    transform_dim <- if (convention == "left") nrow_by_subj else ncol_by_subj
+
+    numeric_rank <- integer(length(subjects))
+    effective_rank <- numeric(length(subjects))
+    for (i in seq_along(subjects)) {
+      d <- .matrix_singular_values(mats_by_subj[[subjects[[i]]]])
+      numeric_rank[[i]] <- .numeric_rank_from_singular_values(d, tol = rank_tol)
+      effective_rank[[i]] <- .effective_rank_from_singular_values(d)
+    }
+
+    identifiability <- data.frame(
+      subject = subjects,
+      nrow = nrow_by_subj,
+      ncol = ncol_by_subj,
+      transform_dim = as.integer(transform_dim),
+      numeric_rank = as.integer(numeric_rank),
+      effective_rank = as.numeric(effective_rank),
+      stringsAsFactors = FALSE
+    )
+    identifiability$fraction_identified_rank <- ifelse(
+      identifiability$transform_dim > 0L,
+      identifiability$numeric_rank / identifiability$transform_dim,
+      NA_real_
+    )
+    identifiability$fraction_identified_effective <- ifelse(
+      identifiability$transform_dim > 0L,
+      identifiability$effective_rank / identifiability$transform_dim,
+      NA_real_
+    )
+    identifiability$convention <- convention
+
+    if (any(identifiability$numeric_rank < identifiability$transform_dim, na.rm = TRUE)) {
+      bad <- identifiability[identifiability$numeric_rank < identifiability$transform_dim, , drop = FALSE]
+      pieces <- paste0(bad$subject, " (", bad$numeric_rank, "/", bad$transform_dim, ")")
+      capture_warnings(warning(
+        paste0(
+          "Under-identified transform: numeric_rank < transform_dim (convention='",
+          convention,
+          "') for ",
+          paste(pieces, collapse = ", "),
+          ". Downstream inference should be restricted to the identified subspace; ",
+          "use feature_block_diagnostics() to inspect singular values."
+        ),
+        call. = FALSE
+      ))
+    }
+  }
+
   list(
     matrices = mats_by_subj,
     blocks = blocks_h,
     per_block = per_block,
+    identifiability = identifiability,
     dropped_blocks = dropped_blocks,
     warnings = unique(warnings)
   )

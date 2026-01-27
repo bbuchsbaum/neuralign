@@ -11,6 +11,9 @@ build_alignment_features(
   block_weights = NULL,
   obs_crossfit = FALSE,
   check_independence = TRUE,
+  check_identifiability = TRUE,
+  convention = c("right", "left"),
+  rank_tol = sqrt(.Machine$double.eps),
   fill = 0,
   union_order = c("first_seen", "sorted"),
   warn_sparse_below = 0.5,
@@ -41,6 +44,17 @@ observation-axis crossfit workflow (suppresses independence warnings).}
 \item{check_independence}{Logical; if TRUE (default), warn when any block has
 \code{meta$requires_independence=TRUE} and \code{obs_crossfit=FALSE}.}
 
+\item{check_identifiability}{Logical; if TRUE (default), compute stacked
+numeric/effective rank per subject and warn when the stacked matrix does
+not fully identify the transform (numeric_rank < transform_dim).}
+
+\item{convention}{Convention for interpreting the transform dimension in the
+identifiability check: \code{"right"} means transforms act on columns; \code{"left"}
+means transforms act on rows.}
+
+\item{rank_tol}{Relative tolerance for numeric rank computation as a fraction
+of the largest singular value.}
+
 \item{fill}{Fill value used for \code{"union_fill"} (default 0).}
 
 \item{union_order}{Ordering for union construction when \code{harmonize="union_fill"}
@@ -58,6 +72,8 @@ A list with elements:
 \item{matrices}{Named list of per-subject stacked matrices.}
 \item{blocks}{Harmonized per-subject block lists used to build matrices.}
 \item{per_block}{Data frame summarizing retained blocks and feature counts.}
+\item{identifiability}{Data frame summarizing stacked transform dimension
+and numeric/effective rank per subject (NULL if \code{check_identifiability=FALSE}).}
 \item{dropped_blocks}{Character vector of dropped block names.}
 \item{warnings}{Character vector of warning messages encountered.}
 }

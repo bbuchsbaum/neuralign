@@ -359,3 +359,51 @@ test_that("build_alignment_features warns for requires_independence blocks unles
     NA
   )
 })
+
+test_that("build_alignment_features warns when stacked rank < transform_dim", {
+  s1 <- list(
+    a = alignment_feature_block(
+      matrix(c(1, 1, 1, 0, 0, 0), nrow = 2, byrow = TRUE),
+      name = "a",
+      feature_names = c("f1", "f2")
+    )
+  )
+  s2 <- list(
+    a = alignment_feature_block(
+      matrix(c(2, 2, 2, 0, 0, 0), nrow = 2, byrow = TRUE),
+      name = "a",
+      feature_names = c("f1", "f2")
+    )
+  )
+
+  expect_warning(
+    res <- build_alignment_features(
+      list(sub1 = s1, sub2 = s2),
+      harmonize = "intersection",
+      min_features = 2,
+      convention = "right"
+    ),
+    "Under-identified transform"
+  )
+  expect_true(all(res$identifiability$numeric_rank < res$identifiability$transform_dim))
+})
+
+test_that("build_alignment_features does not warn when stacked rank == transform_dim", {
+  s1 <- list(
+    a = alignment_feature_block(diag(3), name = "a", feature_names = c("f1", "f2", "f3"))
+  )
+  s2 <- list(
+    a = alignment_feature_block(diag(3), name = "a", feature_names = c("f1", "f2", "f3"))
+  )
+
+  expect_warning(
+    res <- build_alignment_features(
+      list(sub1 = s1, sub2 = s2),
+      harmonize = "intersection",
+      min_features = 3,
+      convention = "right"
+    ),
+    NA
+  )
+  expect_equal(res$identifiability$numeric_rank, res$identifiability$transform_dim)
+})
