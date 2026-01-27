@@ -35,10 +35,7 @@ test_that("fit_alignment threads obs_labels into AlignmentData coercion", {
   neuralign:::.register_procrustes()
 
   set.seed(321)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(50), 5, 10),
-    "sub-02" = matrix(rnorm(50), 5, 10)
-  )
+  data_list <- make_test_data_list(n_subjects = 2, n_features = 5, n_obs = 10)
   labs <- paste0("reg", seq_len(10))
 
   res <- fit_alignment(data_list, method = "procrustes", obs_labels = labs, reference = "sub-01")
@@ -56,11 +53,7 @@ test_that("fit_alignment with medoid reference works", {
   neuralign:::.register_procrustes()
 
   set.seed(456)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(100), 10, 10),
-    "sub-02" = matrix(rnorm(100), 10, 10),
-    "sub-03" = matrix(rnorm(100), 10, 10)
-  )
+  data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
   adat <- AlignmentData(data_list)
 
   result <- fit_alignment(adat, method = "procrustes", reference = "medoid")
@@ -73,11 +66,7 @@ test_that("fit_alignment with specific reference subject works", {
   neuralign:::.register_procrustes()
 
   set.seed(789)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(100), 10, 10),
-    "sub-02" = matrix(rnorm(100), 10, 10),
-    "sub-03" = matrix(rnorm(100), 10, 10)
-  )
+  data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
   adat <- AlignmentData(data_list)
 
   result <- fit_alignment(adat, method = "procrustes", reference = "sub-02")
@@ -102,11 +91,7 @@ test_that("fit_alignment produces transforms with correct dimensions", {
   neuralign:::.register_procrustes()
 
   n_features <- 15
-  data_list <- list(
-    "sub-01" = matrix(rnorm(n_features * 20), n_features, 20),
-    "sub-02" = matrix(rnorm(n_features * 20), n_features, 20),
-    "sub-03" = matrix(rnorm(n_features * 20), n_features, 20)
-  )
+  data_list <- make_test_data_list(n_subjects = 3, n_features = n_features, n_obs = 20)
   adat <- AlignmentData(data_list)
 
   result <- fit_alignment(adat, method = "procrustes")
@@ -123,12 +108,7 @@ test_that("fit_alignment with train_idx works", {
   neuralign:::.register_procrustes()
 
   set.seed(111)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(100), 10, 10),
-    "sub-02" = matrix(rnorm(100), 10, 10),
-    "sub-03" = matrix(rnorm(100), 10, 10),
-    "sub-04" = matrix(rnorm(100), 10, 10)
-  )
+  data_list <- make_test_data_list(n_subjects = 4, n_features = 10, n_obs = 10)
   adat <- AlignmentData(data_list)
 
   # Fit on first 3 subjects only
@@ -149,11 +129,7 @@ test_that("fit_alignment computes quality metrics", {
   neuralign:::.register_procrustes()
 
   set.seed(222)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(100), 10, 10),
-    "sub-02" = matrix(rnorm(100), 10, 10),
-    "sub-03" = matrix(rnorm(100), 10, 10)
-  )
+  data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
   adat <- AlignmentData(data_list)
 
   result <- fit_alignment(adat, method = "procrustes", compute_quality = TRUE)
@@ -171,11 +147,10 @@ test_that("fit_alignment errors when AlignmentData has different obs_labels", {
   set.seed(42)
   n_feat <- 10
   n_obs <- 5
-  data_list <- lapply(1:2, function(i) matrix(rnorm(n_feat * n_obs), n_feat, n_obs))
-  names(data_list) <- paste0("sub-0", 1:2)
+  data_list <- make_test_data_list(n_subjects = 2, n_features = n_feat, n_obs = n_obs)
 
   # Create AlignmentData with obs_labels already set
-  adat <- AlignmentData(data_list, obs_labels = paste0("obs", 1:n_obs))
+  adat <- AlignmentData(data_list, obs_labels = make_test_obs_labels(n_obs, prefix = "obs"))
 
   # Passing conflicting obs_labels should error
 
@@ -191,15 +166,14 @@ test_that("fit_alignment sets obs_labels when AlignmentData has none", {
   set.seed(42)
   n_feat <- 10
   n_obs <- 5
-  data_list <- lapply(1:2, function(i) matrix(rnorm(n_feat * n_obs), n_feat, n_obs))
-  names(data_list) <- paste0("sub-0", 1:2)
+  data_list <- make_test_data_list(n_subjects = 2, n_features = n_feat, n_obs = n_obs)
 
   # Create AlignmentData without obs_labels
   adat <- AlignmentData(data_list)
   expect_null(adat@obs_labels)
 
   # Pass obs_labels via fit_alignment; should succeed and set them
-  labs <- paste0("obs", 1:n_obs)
+  labs <- make_test_obs_labels(n_obs, prefix = "obs")
   result <- fit_alignment(adat, method = "procrustes", obs_labels = labs, reference = "sub-01")
   expect_s4_class(result, "AlignmentResult")
 })

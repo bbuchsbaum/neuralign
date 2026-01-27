@@ -2,11 +2,7 @@ test_that("alignment_quality computes correlation metrics", {
   neuralign:::.register_procrustes()
 
   set.seed(500)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(100), 10, 10),
-    "sub-02" = matrix(rnorm(100), 10, 10),
-    "sub-03" = matrix(rnorm(100), 10, 10)
-  )
+  data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
   adat <- AlignmentData(data_list)
 
   result <- fit_alignment(adat, method = "procrustes")
@@ -53,7 +49,7 @@ test_that("alignment_quality with isc metrics works", {
 test_that("alignment_quality with reference computes reconstruction", {
   set.seed(502)
 
-  reference <- matrix(rnorm(100), 10, 10)
+  reference <- make_test_matrix(n_features = 10, n_obs = 10)
   aligned <- list(
     "sub-01" = reference + matrix(rnorm(100, sd = 0.1), 10, 10),
     "sub-02" = reference + matrix(rnorm(100, sd = 0.1), 10, 10)
@@ -74,15 +70,11 @@ test_that("alignment_quality computes improvement over original", {
   set.seed(503)
 
   # Create original data with different patterns
-  original_list <- list(
-    "sub-01" = matrix(rnorm(100), 10, 10),
-    "sub-02" = matrix(rnorm(100), 10, 10),
-    "sub-03" = matrix(rnorm(100), 10, 10)
-  )
+  original_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
   original <- AlignmentData(original_list)
 
   # Create aligned data with shared pattern (should have higher correlation)
-  shared <- matrix(rnorm(100), 10, 10)
+  shared <- make_test_matrix(n_features = 10, n_obs = 10)
   aligned_list <- list(
     "sub-01" = shared + matrix(rnorm(100, sd = 0.1), 10, 10),
     "sub-02" = shared + matrix(rnorm(100, sd = 0.1), 10, 10),
@@ -119,10 +111,7 @@ test_that("alignment_quality works with AlignmentResult", {
   neuralign:::.register_procrustes()
 
   set.seed(504)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(100), 10, 10),
-    "sub-02" = matrix(rnorm(100), 10, 10)
-  )
+  data_list <- make_test_data_list(n_subjects = 2, n_features = 10, n_obs = 10)
   adat <- AlignmentData(data_list)
 
   result <- fit_alignment(adat, method = "procrustes")
@@ -173,15 +162,11 @@ test_that("alignment_quality computes improvement from AlignmentData original (l
   set.seed(600)
 
   # Original data: random, low correlation
-  original_list <- list(
-    "sub-01" = matrix(rnorm(50), 10, 5),
-    "sub-02" = matrix(rnorm(50), 10, 5),
-    "sub-03" = matrix(rnorm(50), 10, 5)
-  )
+  original_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 5)
   original <- AlignmentData(original_list)
 
   # Aligned data: share a common pattern, higher correlation
-  shared <- matrix(rnorm(50), 10, 5)
+  shared <- make_test_matrix(n_features = 10, n_obs = 5)
   aligned <- list(
     "sub-01" = shared + matrix(rnorm(50, sd = 0.1), 10, 5),
     "sub-02" = shared + matrix(rnorm(50, sd = 0.1), 10, 5),
@@ -202,11 +187,7 @@ test_that("variance metrics with 3 subjects (lines 153-159)", {
   skip_if_not_installed("abind")
 
   set.seed(601)
-  aligned <- list(
-    "sub-01" = matrix(rnorm(50), 10, 5),
-    "sub-02" = matrix(rnorm(50), 10, 5),
-    "sub-03" = matrix(rnorm(50), 10, 5)
-  )
+  aligned <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 5)
 
   quality <- alignment_quality(aligned, metrics = "variance")
 
@@ -227,7 +208,7 @@ test_that("ISC metrics with 2+ subjects return expected fields (lines 199-231)",
   set.seed(602)
 
   # Shared signal + noise so ISC is measurable
-  signal <- matrix(rnorm(50), 10, 5)
+  signal <- make_test_matrix(n_features = 10, n_obs = 5)
   aligned <- list(
     "sub-01" = signal + matrix(rnorm(50, sd = 0.3), 10, 5),
     "sub-02" = signal + matrix(rnorm(50, sd = 0.3), 10, 5),

@@ -52,10 +52,7 @@ test_that("GW fit function requires manifoldalign", {
   skip_if(requireNamespace("manifoldalign", quietly = TRUE),
           "manifoldalign is available")
 
-  data_list <- list(
-    "sub-01" = matrix(rnorm(20), 10, 2),
-    "sub-02" = matrix(rnorm(20), 10, 2)
-  )
+  data_list <- make_test_data_list(n_subjects = 2, n_features = 10, n_obs = 2)
   adat <- AlignmentData(data_list)
 
   expect_error(
@@ -68,10 +65,7 @@ test_that("FPGW fit function requires manifoldalign", {
   skip_if(requireNamespace("manifoldalign", quietly = TRUE),
           "manifoldalign is available")
 
-  data_list <- list(
-    "sub-01" = matrix(rnorm(20), 10, 2),
-    "sub-02" = matrix(rnorm(20), 10, 2)
-  )
+  data_list <- make_test_data_list(n_subjects = 2, n_features = 10, n_obs = 2)
   adat <- AlignmentData(data_list)
 
   expect_error(
@@ -109,11 +103,7 @@ test_that("GW aligner works with manifoldalign", {
   skip_if_not_installed("manifoldalign")
 
   set.seed(42)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(50), 10, 5),
-    "sub-02" = matrix(rnorm(50), 10, 5),
-    "sub-03" = matrix(rnorm(50), 10, 5)
-  )
+  data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 5)
   adat <- AlignmentData(data_list)
 
   # Test fit
@@ -139,10 +129,7 @@ test_that("GW registration via fit_alignment works", {
   skip_if_not_installed("manifoldalign")
 
   set.seed(42)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(30), 10, 3),
-    "sub-02" = matrix(rnorm(30), 10, 3)
-  )
+  data_list <- make_test_data_list(n_subjects = 2, n_features = 10, n_obs = 3)
   adat <- AlignmentData(data_list)
 
   result <- fit_alignment(

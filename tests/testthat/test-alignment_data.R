@@ -1,9 +1,5 @@
 test_that("AlignmentData creation works", {
-  data_list <- list(
-    "sub-01" = matrix(rnorm(100), 10, 10),
-    "sub-02" = matrix(rnorm(100), 10, 10),
-    "sub-03" = matrix(rnorm(100), 10, 10)
-  )
+  data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
 
   adat <- AlignmentData(data_list)
 

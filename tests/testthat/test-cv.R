@@ -93,11 +93,7 @@ test_that("fit_alignment with cv = loso works", {
   neuralign:::.register_procrustes()
 
   set.seed(999)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(100), 10, 10),
-    "sub-02" = matrix(rnorm(100), 10, 10),
-    "sub-03" = matrix(rnorm(100), 10, 10)
-  )
+  data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
   adat <- AlignmentData(data_list)
 
   result <- fit_alignment(adat, method = "procrustes", cv = "loso")
@@ -111,12 +107,7 @@ test_that("fit_alignment with cv = kfold works", {
   neuralign:::.register_procrustes()
 
   set.seed(998)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(100), 10, 10),
-    "sub-02" = matrix(rnorm(100), 10, 10),
-    "sub-03" = matrix(rnorm(100), 10, 10),
-    "sub-04" = matrix(rnorm(100), 10, 10)
-  )
+  data_list <- make_test_data_list(n_subjects = 4, n_features = 10, n_obs = 10)
   adat <- AlignmentData(data_list)
 
   result <- fit_alignment(adat, method = "procrustes", cv = "kfold", cv_folds = 2)
@@ -129,10 +120,7 @@ test_that("is_cv_result correctly identifies CV results", {
   neuralign:::.register_procrustes()
 
   set.seed(997)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(100), 10, 10),
-    "sub-02" = matrix(rnorm(100), 10, 10)
-  )
+  data_list <- make_test_data_list(n_subjects = 2, n_features = 10, n_obs = 10)
   adat <- AlignmentData(data_list)
 
   result_no_cv <- fit_alignment(adat, method = "procrustes", cv = "none")
@@ -146,11 +134,7 @@ test_that("get_fold_assignments returns fold info", {
   neuralign:::.register_procrustes()
 
   set.seed(996)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(100), 10, 10),
-    "sub-02" = matrix(rnorm(100), 10, 10),
-    "sub-03" = matrix(rnorm(100), 10, 10)
-  )
+  data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
   adat <- AlignmentData(data_list)
 
   result <- fit_alignment(adat, method = "procrustes", cv = "loso")
@@ -202,11 +186,7 @@ test_that("run_cv_alignment works with loso string", {
   neuralign:::.register_procrustes()
 
   set.seed(42)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(50), 10, 5),
-    "sub-02" = matrix(rnorm(50), 10, 5),
-    "sub-03" = matrix(rnorm(50), 10, 5)
-  )
+  data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 5)
   adat <- AlignmentData(data_list)
 
   cv_result <- run_cv_alignment(adat, method = "procrustes", cv_folds = "loso")
@@ -221,12 +201,7 @@ test_that("run_cv_alignment works with precomputed folds", {
   neuralign:::.register_procrustes()
 
   set.seed(42)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(50), 10, 5),
-    "sub-02" = matrix(rnorm(50), 10, 5),
-    "sub-03" = matrix(rnorm(50), 10, 5),
-    "sub-04" = matrix(rnorm(50), 10, 5)
-  )
+  data_list <- make_test_data_list(n_subjects = 4, n_features = 10, n_obs = 5)
   adat <- AlignmentData(data_list)
 
   # Precompute folds
@@ -242,10 +217,7 @@ test_that("run_cv_alignment accepts list input", {
   neuralign:::.register_procrustes()
 
   set.seed(42)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(50), 10, 5),
-    "sub-02" = matrix(rnorm(50), 10, 5)
-  )
+  data_list <- make_test_data_list(n_subjects = 2, n_features = 10, n_obs = 5)
 
   # Pass list directly, not AlignmentData
   cv_result <- run_cv_alignment(data_list, method = "procrustes", cv_folds = "loso")
@@ -257,10 +229,7 @@ test_that("get_fold_assignments returns NULL for non-CV result", {
   neuralign:::.register_procrustes()
 
   set.seed(42)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(25), 5, 5),
-    "sub-02" = matrix(rnorm(25), 5, 5)
-  )
+  data_list <- make_test_data_list(n_subjects = 2, n_features = 5, n_obs = 5)
   adat <- AlignmentData(data_list)
 
   result <- fit_alignment(adat, method = "procrustes", cv = "none")
@@ -278,11 +247,10 @@ test_that("run_cv_alignment errors when obs_labels conflict with AlignmentData",
   set.seed(42)
   n_feat <- 10
   n_obs <- 5
-  data_list <- lapply(1:3, function(i) matrix(rnorm(n_feat * n_obs), n_feat, n_obs))
-  names(data_list) <- paste0("sub-0", 1:3)
+  data_list <- make_test_data_list(n_subjects = 3, n_features = n_feat, n_obs = n_obs)
 
   # Create AlignmentData with obs_labels already set
-  adat <- AlignmentData(data_list, obs_labels = paste0("obs_", 1:n_obs))
+  adat <- AlignmentData(data_list, obs_labels = make_test_obs_labels(n_obs))
 
   # Pass conflicting obs_labels to run_cv_alignment
   expect_error(
@@ -298,14 +266,13 @@ test_that("run_cv_alignment sets obs_labels when AlignmentData has none", {
   set.seed(42)
   n_feat <- 10
   n_obs <- 5
-  data_list <- lapply(1:3, function(i) matrix(rnorm(n_feat * n_obs), n_feat, n_obs))
-  names(data_list) <- paste0("sub-0", 1:3)
+  data_list <- make_test_data_list(n_subjects = 3, n_features = n_feat, n_obs = n_obs)
 
   # Create AlignmentData without obs_labels
   adat <- AlignmentData(data_list)
   expect_null(adat@obs_labels)
 
-  new_labels <- paste0("obs_", 1:n_obs)
+  new_labels <- make_test_obs_labels(n_obs)
 
   # Should not error; obs_labels get set on the internal copy
   cv_result <- run_cv_alignment(adat, method = "procrustes", cv_folds = "loso",
@@ -321,8 +288,7 @@ test_that("run_cv_alignment with data-driven reference yields fold-specific anch
   set.seed(42)
   n_feat <- 10
   n_obs <- 5
-  data_list <- lapply(1:4, function(i) matrix(rnorm(n_feat * n_obs), n_feat, n_obs))
-  names(data_list) <- paste0("sub-0", 1:4)
+  data_list <- make_test_data_list(n_subjects = 4, n_features = n_feat, n_obs = n_obs)
   adat <- AlignmentData(data_list)
 
   # Default reference = "medoid" is data-driven
@@ -343,12 +309,11 @@ test_that("run_cv_alignment with template matrix reference yields common anchor"
   set.seed(42)
   n_feat <- 10
   n_obs <- 5
-  data_list <- lapply(1:4, function(i) matrix(rnorm(n_feat * n_obs), n_feat, n_obs))
-  names(data_list) <- paste0("sub-0", 1:4)
+  data_list <- make_test_data_list(n_subjects = 4, n_features = n_feat, n_obs = n_obs)
   adat <- AlignmentData(data_list)
 
   # Use a template matrix as reference (external anchor)
-  template <- matrix(rnorm(n_feat * n_obs), n_feat, n_obs)
+  template <- make_test_matrix(n_features = n_feat, n_obs = n_obs)
   cv_result <- run_cv_alignment(adat, method = "procrustes", cv_folds = "loso",
                                 reference = template)
 
@@ -515,8 +480,7 @@ test_that("run_cv_alignment with fixed subject reference yields common anchor", 
   neuralign:::.register_procrustes()
 
   set.seed(42)
-  data_list <- lapply(1:3, function(i) matrix(rnorm(50), 10, 5))
-  names(data_list) <- paste0("sub-0", 1:3)
+  data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 5)
   adat <- AlignmentData(data_list)
 
   expect_warning(
@@ -544,8 +508,7 @@ test_that("run_cv_alignment with kfold string works", {
   neuralign:::.register_procrustes()
 
   set.seed(42)
-  data_list <- lapply(1:6, function(i) matrix(rnorm(50), 10, 5))
-  names(data_list) <- paste0("sub-0", 1:6)
+  data_list <- make_test_data_list(n_subjects = 6, n_features = 10, n_obs = 5)
   adat <- AlignmentData(data_list)
 
   cv_result <- run_cv_alignment(
@@ -560,9 +523,8 @@ test_that("run_cv_alignment sets matching obs_labels on AlignmentData", {
   neuralign:::.register_procrustes()
 
   set.seed(42)
-  data_list <- lapply(1:3, function(i) matrix(rnorm(30), 10, 3))
-  names(data_list) <- paste0("sub-0", 1:3)
-  labs <- paste0("obs_", 1:3)
+  data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 3)
+  labs <- make_test_obs_labels(3)
   adat <- AlignmentData(data_list, obs_labels = labs)
 
   # Same labels -> should not error

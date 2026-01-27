@@ -2,11 +2,7 @@ test_that("has_common_anchor detects fold-specific anchors under CV", {
   neuralign:::.register_procrustes()
 
   set.seed(123)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(100), 10, 10),
-    "sub-02" = matrix(rnorm(100), 10, 10),
-    "sub-03" = matrix(rnorm(100), 10, 10)
-  )
+  data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
   adat <- AlignmentData(data_list)
 
   res_cv <- fit_alignment(adat, method = "procrustes", cv = "loso")
@@ -20,14 +16,10 @@ test_that("template reference yields a common anchor under CV", {
   neuralign:::.register_procrustes()
 
   set.seed(124)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(100), 10, 10),
-    "sub-02" = matrix(rnorm(100), 10, 10),
-    "sub-03" = matrix(rnorm(100), 10, 10)
-  )
+  data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
   adat <- AlignmentData(data_list)
 
-  template <- matrix(rnorm(100), 10, 10)
+  template <- make_test_matrix(n_features = 10, n_obs = 10)
   res_cv <- fit_alignment(adat, method = "procrustes", cv = "kfold", cv_folds = 3, reference = template)
 
   expect_true(has_common_anchor(res_cv))
@@ -38,11 +30,7 @@ test_that("validate_common_anchor can error on fold-specific CV results", {
   neuralign:::.register_procrustes()
 
   set.seed(125)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(100), 10, 10),
-    "sub-02" = matrix(rnorm(100), 10, 10),
-    "sub-03" = matrix(rnorm(100), 10, 10)
-  )
+  data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
   adat <- AlignmentData(data_list)
 
   res_cv <- fit_alignment(adat, method = "procrustes", cv = "loso")
@@ -56,12 +44,7 @@ test_that("fit_alignment accepts explicit fold specs", {
   neuralign:::.register_procrustes()
 
   set.seed(127)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(100), 10, 10),
-    "sub-02" = matrix(rnorm(100), 10, 10),
-    "sub-03" = matrix(rnorm(100), 10, 10),
-    "sub-04" = matrix(rnorm(100), 10, 10)
-  )
+  data_list <- make_test_data_list(n_subjects = 4, n_features = 10, n_obs = 10)
   adat <- AlignmentData(data_list)
 
   folds <- create_cv_folds(adat, method = "kfold", k = 2, seed = 1)
@@ -77,16 +60,12 @@ test_that("apply_alignment refuses to fit new subjects for fold-specific anchor 
   neuralign:::.register_procrustes()
 
   set.seed(126)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(100), 10, 10),
-    "sub-02" = matrix(rnorm(100), 10, 10),
-    "sub-03" = matrix(rnorm(100), 10, 10)
-  )
+  data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
   adat <- AlignmentData(data_list)
 
   res_cv <- fit_alignment(adat, method = "procrustes", cv = "loso")
 
-  new_subject <- AlignmentData(list("sub-04" = matrix(rnorm(100), 10, 10)))
+  new_subject <- make_test_alignment_data(n_subjects = 1, n_features = 10, n_obs = 10, subject_ids = "sub-04")
   expect_error(
     apply_alignment(res_cv, new_subject),
     "fold-specific anchors"

@@ -1,8 +1,8 @@
 test_that("set_guidance/get_guidance store per-subject guidance channels", {
   set.seed(1)
   adat <- AlignmentData(list(
-    s1 = matrix(rnorm(30), 10, 3),
-    s2 = matrix(rnorm(36), 12, 3)
+    s1 = make_test_matrix(n_features = 10, n_obs = 3),
+    s2 = make_test_matrix(n_features = 12, n_obs = 3)
   ))
 
   g <- list(

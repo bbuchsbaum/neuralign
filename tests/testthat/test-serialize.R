@@ -2,10 +2,7 @@ test_that("save_alignment and load_alignment work", {
   neuralign:::.register_procrustes()
 
   set.seed(888)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(100), 10, 10),
-    "sub-02" = matrix(rnorm(100), 10, 10)
-  )
+  data_list <- make_test_data_list(n_subjects = 2, n_features = 10, n_obs = 10)
   adat <- AlignmentData(data_list)
 
   result <- fit_alignment(adat, method = "procrustes")
@@ -63,10 +60,7 @@ test_that("save_alignment can include aligned data", {
   neuralign:::.register_procrustes()
 
   set.seed(887)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(100), 10, 10),
-    "sub-02" = matrix(rnorm(100), 10, 10)
-  )
+  data_list <- make_test_data_list(n_subjects = 2, n_features = 10, n_obs = 10)
   adat <- AlignmentData(data_list)
 
   result <- fit_alignment(adat, method = "procrustes")
@@ -154,10 +148,7 @@ test_that("round-trip save/load preserves transforms exactly", {
   neuralign:::.register_procrustes()
 
   set.seed(886)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(100), 10, 10),
-    "sub-02" = matrix(rnorm(100), 10, 10)
-  )
+  data_list <- make_test_data_list(n_subjects = 2, n_features = 10, n_obs = 10)
   adat <- AlignmentData(data_list)
 
   result <- fit_alignment(adat, method = "procrustes")

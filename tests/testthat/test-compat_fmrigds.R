@@ -142,10 +142,10 @@ test_that("full fmrigds round-trip works", {
   .load_pkg_quietly_or_skip("fmrigds")
 
   # Create alignment model
-  transforms <- list(
-    "sub-01" = diag(10),
-    "sub-02" = matrix(rnorm(100), 10, 10)
-  )
+	  transforms <- list(
+	    "sub-01" = diag(10),
+	    "sub-02" = make_test_matrix(n_features = 10, n_obs = 10)
+	  )
   model <- AlignmentModel(
     transforms = transforms,
     reference = "consensus",

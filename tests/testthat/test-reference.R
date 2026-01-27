@@ -3,7 +3,7 @@ test_that("select_reference with medoid works", {
 
   # Create data where sub-02 is clearly the medoid
   # sub-02 is similar to both, while sub-01 and sub-03 are different from each other
-  base <- matrix(rnorm(100), 10, 10)
+  base <- make_test_matrix(n_features = 10, n_obs = 10)
   data_list <- list(
     "sub-01" = base + matrix(rnorm(100, sd = 2), 10, 10),
     "sub-02" = base + matrix(rnorm(100, sd = 0.1), 10, 10),
@@ -20,11 +20,7 @@ test_that("select_reference with medoid works", {
 
 test_that("select_reference with centroid works", {
   set.seed(101)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(100), 10, 10),
-    "sub-02" = matrix(rnorm(100), 10, 10),
-    "sub-03" = matrix(rnorm(100), 10, 10)
-  )
+  data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
   adat <- AlignmentData(data_list)
 
   ref <- select_reference(adat, method = "centroid")
@@ -122,11 +118,7 @@ test_that("get_reference_data works with external matrix", {
 
 test_that("distance metrics produce valid results", {
   set.seed(102)
-  data_list <- list(
-    "sub-01" = matrix(rnorm(100), 10, 10),
-    "sub-02" = matrix(rnorm(100), 10, 10),
-    "sub-03" = matrix(rnorm(100), 10, 10)
-  )
+  data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
   adat <- AlignmentData(data_list)
 
   # Should work with different distance metrics
@@ -141,11 +133,7 @@ test_that("distance metrics produce valid results", {
 
 test_that("select_reference coerces plain list to AlignmentData (line 51)", {
   set.seed(200)
-  plain_list <- list(
-    "sub-01" = matrix(rnorm(50), 10, 5),
-    "sub-02" = matrix(rnorm(50), 10, 5),
-    "sub-03" = matrix(rnorm(50), 10, 5)
-  )
+  plain_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 5)
 
   ref <- select_reference(plain_list, method = "first")
   expect_equal(ref, "sub-01")

@@ -9,10 +9,7 @@ test_that(".is_matrixish identifies matrix types", {
 })
 
 test_that(".validate_operator_transforms accepts valid transforms", {
-  data_list <- list(
-    "sub-01" = matrix(rnorm(20), 10, 2),
-    "sub-02" = matrix(rnorm(20), 10, 2)
-  )
+  data_list <- make_test_data_list(n_subjects = 2, n_features = 10, n_obs = 2)
 
   transforms <- list(
     "sub-01" = diag(10),  # 10x10 for 10-feature data
@@ -93,9 +90,7 @@ test_that(".validate_operator_transforms catches dimension mismatches", {
 })
 
 test_that(".validate_operator_transforms works with sparse matrices", {
-  data_list <- list(
-    "sub-01" = matrix(rnorm(20), 10, 2)
-  )
+  data_list <- make_test_data_list(n_subjects = 1, n_features = 10, n_obs = 2)
 
   transforms <- list(
     "sub-01" = Matrix::Diagonal(10)  # Sparse identity
