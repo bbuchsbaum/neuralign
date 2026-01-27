@@ -46,12 +46,8 @@ as_map_family <- function(model, name = NULL) {
         call. = FALSE
       )
     }
-    model <- get_model(model)
   }
-
-  if (!inherits(model, "AlignmentModel")) {
-    stop("'model' must be an AlignmentModel", call. = FALSE)
-  }
+  model <- .ensure_model(model, what = "model")
 
   # Build name from method if not provided
   if (is.null(name)) {

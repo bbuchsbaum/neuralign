@@ -33,20 +33,8 @@
 #'
 #' @export
 compose_alignment <- function(model1, model2) {
-  # Extract models from results if needed
-  if (inherits(model1, "AlignmentResult")) {
-    model1 <- get_model(model1)
-  }
-  if (inherits(model2, "AlignmentResult")) {
-    model2 <- get_model(model2)
-  }
-
-  if (!inherits(model1, "AlignmentModel")) {
-    stop("'model1' must be an AlignmentModel", call. = FALSE)
-  }
-  if (!inherits(model2, "AlignmentModel")) {
-    stop("'model2' must be an AlignmentModel", call. = FALSE)
-  }
+  model1 <- .ensure_model(model1, what = "model1")
+  model2 <- .ensure_model(model2, what = "model2")
 
   caps1 <- aligner_capabilities(model1@method)
   if (!is.null(caps1) && !identical(caps1$returns %||% "operator", "operator")) {
@@ -217,13 +205,8 @@ setMethod("%*%", c("AlignmentModel", "matrix"),
 #'
 #' @export
 check_composition <- function(model1, model2) {
-  # Extract from results if needed
-  if (inherits(model1, "AlignmentResult")) {
-    model1 <- get_model(model1)
-  }
-  if (inherits(model2, "AlignmentResult")) {
-    model2 <- get_model(model2)
-  }
+  model1 <- .ensure_model(model1, what = "model1")
+  model2 <- .ensure_model(model2, what = "model2")
 
   # Check common subjects
   common <- intersect(names(model1@transforms), names(model2@transforms))

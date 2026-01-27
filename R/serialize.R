@@ -152,9 +152,7 @@ export_alignment <- function(model,
                              format = c("csv", "json", "mat")) {
   format <- match.arg(format)
 
-  if (inherits(model, "AlignmentResult")) {
-    model <- get_model(model)
-  }
+  model <- .ensure_model(model, what = "model")
 
   files <- character(0)
 

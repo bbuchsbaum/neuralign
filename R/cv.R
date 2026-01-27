@@ -455,9 +455,9 @@ run_cv_alignment <- function(data,
   subjects <- data@subjects
   warned_reference <- FALSE
 
-  fixed_subject_reference <- is.character(reference) &&
-    length(reference) == 1L &&
-    reference %in% subjects
+  reference_kind <- .reference_kind(reference)
+  fixed_subject_reference <- identical(reference_kind, "fixed_subject") &&
+    is.character(reference) && length(reference) == 1L && reference %in% subjects
 
   # If using a fixed-subject reference, ensure it is always available in the
   # training set to define the anchor space, and mark it as unevaluated if it

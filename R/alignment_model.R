@@ -377,6 +377,17 @@ setMethod("[", c("AlignmentModel", "ANY"),
 setMethod("length", "AlignmentModel", function(x) length(x@transforms))
 
 
+.ensure_model <- function(x, what = "x") {
+  if (inherits(x, "AlignmentResult")) {
+    x <- get_model(x)
+  }
+  if (!inherits(x, "AlignmentModel")) {
+    stop(sprintf("'%s' must be an AlignmentModel or AlignmentResult", what), call. = FALSE)
+  }
+  x
+}
+
+
 #' NULL-coalescing operator
 #' @param a First argument
 #' @param b Second argument (returned if a is NULL)

@@ -101,13 +101,7 @@ alignment_quality <- function(result,
     y <- as.matrix(aligned[[p[2]]])
 
     # Mean row-wise correlation
-    n_features <- nrow(x)
-    row_cors <- vapply(
-      seq_len(n_features),
-      function(i) cor(x[i, ], y[i, ]),
-      numeric(1)
-    )
-    mean(row_cors, na.rm = TRUE)
+    mean(.row_wise_correlation(x, y), na.rm = TRUE)
   })
 
   names(cors) <- apply(pairs, 2, paste, collapse = "-")
@@ -119,6 +113,37 @@ alignment_quality <- function(result,
     max_pairwise_correlation = max(cors, na.rm = TRUE),
     pairwise_correlations = cors
   )
+}
+
+
+.row_wise_correlation <- function(x, y) {
+  x <- as.matrix(x)
+  y <- as.matrix(y)
+
+  if (!identical(dim(x), dim(y))) {
+    stop(
+      sprintf(
+        "Row-wise correlation requires identical dims; x is %d x %d but y is %d x %d",
+        nrow(x), ncol(x), nrow(y), ncol(y)
+      ),
+      call. = FALSE
+    )
+  }
+
+  if (ncol(x) < 2L) {
+    return(rep(NA_real_, nrow(x)))
+  }
+
+  mx <- rowMeans(x)
+  my <- rowMeans(y)
+  xc <- x - mx
+  yc <- y - my
+
+  num <- rowSums(xc * yc)
+  den <- sqrt(rowSums(xc^2) * rowSums(yc^2))
+  out <- num / den
+  out[!is.finite(out)] <- NA_real_
+  out
 }
 
 
@@ -140,15 +165,7 @@ alignment_quality <- function(result,
 
   # For each subject, compute correlation with reference
   recon_cors <- vapply(aligned, function(x) {
-    x <- as.matrix(x)
-    n_features <- nrow(x)
-
-    row_cors <- vapply(
-      seq_len(n_features),
-      function(i) cor(x[i, ], reference[i, ]),
-      numeric(1)
-    )
-    mean(row_cors, na.rm = TRUE)
+    mean(.row_wise_correlation(x, reference), na.rm = TRUE)
   }, numeric(1))
 
   # Also compute reconstruction error
@@ -240,7 +257,7 @@ alignment_quality <- function(result,
   for (i in seq_len(n)) {
     # Mean of all others
     others <- data_list[-i]
-    mean_others <- Reduce(`+`, others) / length(others)
+    mean_others <- compute_centroid(others)
 
     # Correlate each feature
     for (j in seq_len(n_features)) {

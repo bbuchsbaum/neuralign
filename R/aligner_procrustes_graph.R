@@ -44,56 +44,6 @@ NULL
   Q
 }
 
-.as_obs_labels_list <- function(data) {
-  labs <- data@obs_labels
-  subjects <- data@subjects
-  data_list <- get_data_list(data)
-
-  if (is.null(labs)) {
-    stop(
-      "procrustes_graph requires obs_labels (atomic shared labels or a per-subject named list)",
-      call. = FALSE
-    )
-  }
-
-  if (is.atomic(labs) || is.factor(labs)) {
-    labs <- as.character(labs)
-    out <- rep(list(labs), length(subjects))
-    names(out) <- subjects
-    return(out)
-  }
-
-  if (is.list(labs)) {
-    if (is.null(names(labs))) {
-      stop("obs_labels list must be named by subject", call. = FALSE)
-    }
-    missing <- setdiff(subjects, names(labs))
-    if (length(missing) > 0) {
-      stop(
-        sprintf("obs_labels list is missing subjects: %s", paste(missing, collapse = ", ")),
-        call. = FALSE
-      )
-    }
-    out <- lapply(subjects, function(s) as.character(labs[[s]]))
-    names(out) <- subjects
-
-    # Basic sanity: length must match ncol for each subject
-    for (s in subjects) {
-      x <- data_list[[s]]
-      if (!.is_matrixish(x)) x <- as.matrix(x)
-      if (length(out[[s]]) != ncol(x)) {
-        stop(
-          sprintf("obs_labels length mismatch for subject '%s'", s),
-          call. = FALSE
-        )
-      }
-    }
-    return(out)
-  }
-
-  stop("obs_labels must be NULL, an atomic vector, or a named list", call. = FALSE)
-}
-
 .build_overlap_adjacency <- function(obs_labels_by_subject, min_overlap) {
   subjects <- names(obs_labels_by_subject)
   n <- length(subjects)
@@ -210,7 +160,7 @@ NULL
       }
     }
     if (length(cols) > 0L) {
-      template[, k] <- Reduce(`+`, cols) / length(cols)
+      template[, k] <- compute_centroid(cols)
     }
   }
 
@@ -232,15 +182,18 @@ NULL
     stop("'min_overlap' must be a positive integer", call. = FALSE)
   }
 
-  if (is.null(train_idx)) train_idx <- seq_along(data@subjects)
-
   # Fit on training subjects only to support subject-axis CV without leakage.
-  train_data <- data[train_idx]
-  subjects <- train_data@subjects
-  data_list <- get_data_list(train_data)
+  pre <- .aligner_preamble(data, train_idx = train_idx)
+  train_data <- pre$train_data
+  subjects <- pre$train_subjects
+  data_list <- pre$data_list
   d <- nrow(as.matrix(data_list[[1L]]))
 
-  obs_labels_by_subject <- .as_obs_labels_list(train_data)
+  obs_labels_by_subject <- .require_obs_labels_by_subject(
+    train_data,
+    method = "procrustes_graph",
+    check_length = TRUE
+  )
   graph <- .build_overlap_adjacency(obs_labels_by_subject, min_overlap = min_overlap)
   adj <- graph$adj
   overlap <- graph$overlap
@@ -342,7 +295,11 @@ NULL
   transforms <- transforms_train
   heldout_subjects <- setdiff(data@subjects, subjects)
   if (length(heldout_subjects) > 0) {
-    all_labels <- .as_obs_labels_list(data)
+    all_labels <- .require_obs_labels_by_subject(
+      data,
+      method = "procrustes_graph",
+      check_length = TRUE
+    )
     for (subj in heldout_subjects) {
       X_new <- as.matrix(get_subject_data(data, subj))
       labs_new <- all_labels[[subj]]
@@ -418,7 +375,11 @@ NULL
 
   subj <- new_data@subjects[[1L]]
   X_new <- as.matrix(get_subject_data(new_data, subj))
-  labs_new <- .as_obs_labels_list(new_data)[[subj]]
+  labs_new <- .require_obs_labels_by_subject(
+    new_data,
+    method = "procrustes_graph",
+    check_length = TRUE
+  )[[subj]]
 
   res <- procrustes_rotation(
     source = X_new,

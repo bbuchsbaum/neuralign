@@ -133,9 +133,7 @@ block_alignment_report <- function(blocks_by_subject,
       frob <- sqrt(sum((xb - rb)^2))
 
       # Mean row-wise correlation with reference; rows with zero variance become NA.
-      row_cors <- suppressWarnings(vapply(seq_len(nrow(xb)), function(j) {
-        stats::cor(xb[j, ], rb[j, ])
-      }, numeric(1)))
+      row_cors <- .row_wise_correlation(xb, rb)
 
       data.frame(
         subject = subj,

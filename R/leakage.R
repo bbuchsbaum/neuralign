@@ -151,12 +151,8 @@ validate_cv_setup <- function(cv_folds, reference = "medoid") {
 #'
 #' @export
 assess_leakage_risk <- function(model, test_subjects = NULL) {
-  if (inherits(model, "AlignmentResult")) {
-    cv_info <- get_cv_info(model)
-    model <- get_model(model)
-  } else {
-    cv_info <- list()
-  }
+  cv_info <- if (inherits(model, "AlignmentResult")) get_cv_info(model) else list()
+  model <- .ensure_model(model, what = "model")
 
   risk <- list(
     overall_risk = "low",

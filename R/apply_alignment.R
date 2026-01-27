@@ -41,14 +41,7 @@ apply_alignment <- function(model,
                             fit_new = TRUE,
                             warn_leakage = TRUE,
                             ...) {
-  # Extract model from result if needed
-  if (inherits(model, "AlignmentResult")) {
-    model <- get_model(model)
-  }
-
-  if (!inherits(model, "AlignmentModel")) {
-    stop("'model' must be an AlignmentModel or AlignmentResult", call. = FALSE)
-  }
+  model <- .ensure_model(model, what = "model")
 
   caps <- aligner_capabilities(model@method)
   if (!is.null(caps) && !identical(caps$returns %||% "operator", "operator")) {
@@ -412,14 +405,10 @@ lift_aligned <- function(x,
   to <- match.arg(to)
   inverse <- match.arg(inverse)
 
-  if (inherits(x, "AlignmentResult")) {
-    model <- get_model(x)
-    if (is.null(aligned)) aligned <- get_aligned(x)
-  } else if (inherits(x, "AlignmentModel")) {
-    model <- x
-  } else {
-    stop("'x' must be an AlignmentResult or AlignmentModel", call. = FALSE)
+  if (inherits(x, "AlignmentResult") && is.null(aligned)) {
+    aligned <- get_aligned(x)
   }
+  model <- .ensure_model(x, what = "x")
 
   if (is.null(aligned)) {
     stop(

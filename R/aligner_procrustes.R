@@ -31,14 +31,9 @@ NULL
                             tol = 1e-6,
                             max_iter = 100,
                             ...) {
-  # Handle train_idx
-  if (is.null(train_idx)) {
-    train_idx <- seq_along(data@subjects)
-  }
-
-  train_data <- data[train_idx]
-  train_subjects <- train_data@subjects
-  data_list <- get_data_list(train_data)
+  pre <- .aligner_preamble(data, train_idx = train_idx)
+  train_data <- pre$train_data
+  data_list <- pre$data_list
 
   # Use built-in implementation. (manifoldalign's GPA API has changed over time,
   # and neuralign avoids relying on unexported or unstable symbols.)
@@ -391,7 +386,7 @@ procrustes_distance <- function(x,
   subjects <- names(data_list)
 
   # Initialize with mean
-  consensus <- Reduce(`+`, data_list) / n_subjects
+  consensus <- compute_centroid(data_list)
 
   transforms <- vector("list", n_subjects)
   names(transforms) <- subjects
@@ -411,7 +406,7 @@ procrustes_distance <- function(x,
     }
 
     # Update consensus
-    consensus <- Reduce(`+`, aligned) / n_subjects
+    consensus <- compute_centroid(aligned)
 
     # Check convergence
     diff <- norm(consensus - old_consensus, "F") / norm(old_consensus, "F")

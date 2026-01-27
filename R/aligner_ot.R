@@ -29,104 +29,21 @@ NULL
                     max_iter = 100,
                     tol = 1e-6,
                     ...) {
-  if (!requireNamespace("manifoldalign", quietly = TRUE)) {
-    stop("Package 'manifoldalign' required for GW alignment", call. = FALSE)
-  }
-
   dots <- list(...)
-
-  # Handle train_idx
-  if (is.null(train_idx)) {
-    train_idx <- seq_along(data@subjects)
-  }
-
-  train_data <- data[train_idx]
-  train_subjects <- train_data@subjects
-  data_list <- get_data_list(train_data)
-
-  # Resolve reference
-  if (is.character(reference) && reference %in% c("medoid", "centroid")) {
-    reference <- select_reference(train_data, method = reference)
-  }
-
-  # Determine reference matrix + name (for provenance)
-  reference_data <- NULL
-  reference_name <- reference
-  if (is.character(reference) && reference != "barycenter") {
-    reference_data <- get_subject_data(train_data, reference)
-  } else if (.is_matrixish(reference)) {
-    reference_data <- as.matrix(reference)
-    reference_name <- "template"
-  } else {
-    reference_data <- .compute_gw_barycenter(data_list, epsilon, max_iter, tol)
-    reference_name <- "barycenter"
-  }
-
-  # Build a minimal hyperdesign (list of domains with $x) for manifoldalign.
-  # In neuralign, each subject matrix is (features x observations).
-  # For fMRI alignment use-cases, treat rows (features/voxels) as samples and
-  # columns (maps/contrasts) as features, which matches manifoldalign's expectations.
-  domain_names <- names(data_list)
-  domains <- lapply(data_list, function(X) list(x = X))
-  names(domains) <- domain_names
-
-  # Ensure reference is present as a domain
-  ref_idx <- match(reference, domain_names)
-  if (is.na(ref_idx)) {
-    domains[[reference_name]] <- list(x = reference_data)
-    ref_idx <- length(domains)
-  }
-
-  hd <- structure(domains, class = "hyperdesign")
 
   gw_args <- utils::modifyList(
     list(epsilon = epsilon, max_iter = max_iter, tol = tol),
     dots
   )
-  gw <- do.call(manifoldalign::gromov_wasserstein, c(list(data = hd), gw_args))
-
-  # Extract a transport plan for each subject -> reference and convert to operator.
-  n_domains <- length(domains)
-  transforms <- list()
-  for (i in seq_along(domain_names)) {
-    subj <- domain_names[[i]]
-    Xi <- data_list[[subj]]
-    if (i == ref_idx) {
-      transforms[[subj]] <- diag(nrow(Xi))
-      next
-    }
-    P <- .extract_pair_plan(gw$transport_plans, i, ref_idx, n_domains)
-    # Ensure coupling is (source=subj x target=ref)
-    P_subj_ref <- if (i < ref_idx) P else t(P)
-    transforms[[subj]] <- .coupling_to_operator(P_subj_ref)
-  }
-
-  # Add transforms for held-out subjects (fit to reference only)
-  all_subjects <- data@subjects
-  heldout <- setdiff(all_subjects, names(transforms))
-  if (length(heldout) > 0) {
-    for (subj in heldout) {
-      subj_data <- get_subject_data(data, subj)
-      hd_new <- structure(list(
-        subj = list(x = subj_data),
-        ref = list(x = reference_data)
-      ), class = "hyperdesign")
-      gw_new <- do.call(manifoldalign::gromov_wasserstein, c(list(data = hd_new), gw_args))
-      P_subj_ref <- gw_new$transport_plans[[1L]]
-      transforms[[subj]] <- .coupling_to_operator(P_subj_ref)
-    }
-  }
-
-  list(
-    transforms = transforms,
-    reference_data = reference_data,
-    space_from = train_data@space,
-    space_to = train_data@space,
-    method_state = list(
-      epsilon = epsilon,
-      reference = reference_name,
-      gw_args = gw_args
-    )
+  .ot_fit_common(
+    data = data,
+    reference = reference,
+    train_idx = train_idx,
+    solver_name = "gromov_wasserstein",
+    solver_args = gw_args,
+    method_label = "GW",
+    args_name = "gw_args",
+    method_state_extra = list(epsilon = gw_args$epsilon)
   )
 }
 
@@ -156,10 +73,112 @@ NULL
 
 #' Compute GW Barycenter
 #' @keywords internal
-.compute_gw_barycenter <- function(data_list, epsilon, max_iter, tol) {
+.compute_gw_barycenter <- function(data, epsilon, max_iter, tol) {
   # Fallback: use mean as approximate barycenter (requires matched feature dims).
   warning("GW barycenter not implemented; using arithmetic mean", call. = FALSE)
-  Reduce(`+`, data_list) / length(data_list)
+  compute_centroid(data)
+}
+
+
+.ot_fit_common <- function(data,
+                           reference,
+                           train_idx = NULL,
+                           solver_name,
+                           solver_args,
+                           method_label,
+                           args_name,
+                           method_state_extra = list()) {
+  .ma_require_manifoldalign(method_label)
+
+  pre <- .aligner_preamble(data, train_idx = train_idx)
+  train_data <- pre$train_data
+  data_list <- pre$data_list
+
+  if (.is_matrixish(reference)) {
+    reference_name <- "template"
+    reference_data <- as.matrix(reference)
+  } else if (is.character(reference) && length(reference) == 1L) {
+    if (reference %in% c("medoid", "centroid")) {
+      ref_subj <- select_reference(train_data, method = reference)
+      reference_name <- ref_subj
+      reference_data <- get_subject_data(train_data, ref_subj)
+    } else if (identical(reference, "barycenter")) {
+      reference_name <- "barycenter"
+      reference_data <- .compute_gw_barycenter(
+        train_data,
+        epsilon = solver_args$epsilon %||% NA_real_,
+        max_iter = solver_args$max_iter %||% NA_integer_,
+        tol = solver_args$tol %||% NA_real_
+      )
+    } else {
+      reference_name <- reference
+      reference_data <- get_subject_data(train_data, reference)
+    }
+  } else {
+    stop("Invalid reference specification", call. = FALSE)
+  }
+
+  # Build a minimal hyperdesign (list of domains with $x) for manifoldalign.
+  # In neuralign, each subject matrix is (features x observations). For voxel-level
+  # OT, treat rows (features) as samples and columns (observations/maps) as features.
+  domain_names <- names(data_list)
+  domains <- lapply(domain_names, function(nm) list(x = data_list[[nm]]))
+  names(domains) <- domain_names
+
+  # Ensure reference is present as a domain
+  ref_idx <- match(reference_name, domain_names)
+  if (is.na(ref_idx)) {
+    domains[[reference_name]] <- list(x = reference_data)
+    ref_idx <- length(domains)
+  }
+
+  hd <- structure(domains, class = "hyperdesign")
+
+  solver <- get(solver_name, envir = asNamespace("manifoldalign"))
+  ot <- do.call(solver, c(list(data = hd), solver_args))
+
+  # Extract a transport plan for each subject -> reference and convert to operator.
+  n_domains <- length(domains)
+  transforms <- list()
+  for (i in seq_along(domain_names)) {
+    subj <- domain_names[[i]]
+    Xi <- data_list[[subj]]
+    if (i == ref_idx) {
+      transforms[[subj]] <- diag(nrow(Xi))
+      next
+    }
+    P <- .extract_pair_plan(ot$transport_plans, i, ref_idx, n_domains)
+    # Ensure coupling is (source=subj x target=ref)
+    P_subj_ref <- if (i < ref_idx) P else t(P)
+    transforms[[subj]] <- .coupling_to_operator(P_subj_ref)
+  }
+
+  # Add transforms for held-out subjects (fit to reference only)
+  heldout <- setdiff(data@subjects, names(transforms))
+  if (length(heldout) > 0) {
+    for (subj in heldout) {
+      subj_data <- get_subject_data(data, subj)
+      hd_new <- structure(list(
+        subj = list(x = subj_data),
+        ref = list(x = reference_data)
+      ), class = "hyperdesign")
+      ot_new <- do.call(solver, c(list(data = hd_new), solver_args))
+      P_subj_ref <- ot_new$transport_plans[[1L]]
+      transforms[[subj]] <- .coupling_to_operator(P_subj_ref)
+    }
+  }
+
+  method_state <- method_state_extra
+  method_state$reference <- reference_name
+  method_state[[args_name]] <- solver_args
+
+  list(
+    transforms = transforms,
+    reference_data = reference_data,
+    space_from = train_data@space,
+    space_to = train_data@space,
+    method_state = method_state
+  )
 }
 
 
@@ -213,93 +232,23 @@ NULL
                       max_iter = 100,
                       tol = 1e-6,
                       ...) {
-  if (!requireNamespace("manifoldalign", quietly = TRUE)) {
-    stop("Package 'manifoldalign' required for FPGW alignment", call. = FALSE)
-  }
-
   dots <- list(...)
-
-  # Handle train_idx
-  if (is.null(train_idx)) {
-    train_idx <- seq_along(data@subjects)
-  }
-
-  train_data <- data[train_idx]
-  data_list <- get_data_list(train_data)
-
-  # Resolve reference
-  if (is.character(reference) && reference %in% c("medoid", "centroid")) {
-    reference <- select_reference(train_data, method = reference)
-  }
-
-  reference_data <- NULL
-  reference_name <- reference
-  if (is.character(reference) && reference != "barycenter") {
-    reference_data <- get_subject_data(train_data, reference)
-  } else if (.is_matrixish(reference)) {
-    reference_data <- as.matrix(reference)
-    reference_name <- "template"
-  } else {
-    reference_data <- Reduce(`+`, data_list) / length(data_list)
-    reference_name <- "barycenter"
-  }
-
-  domain_names <- names(data_list)
-  domains <- lapply(data_list, function(X) list(x = X))
-  names(domains) <- domain_names
-  ref_idx <- match(reference, domain_names)
-  if (is.na(ref_idx)) {
-    domains[[reference_name]] <- list(x = reference_data)
-    ref_idx <- length(domains)
-  }
-  hd <- structure(domains, class = "hyperdesign")
 
   fpgw_args <- utils::modifyList(
     list(omega1 = omega1, epsilon = epsilon, max_iter = max_iter, tol = tol),
     dots
   )
-  fpgw <- do.call(manifoldalign::fpgw, c(list(data = hd), fpgw_args))
-
-  n_domains <- length(domains)
-  transforms <- list()
-  for (i in seq_along(domain_names)) {
-    subj <- domain_names[[i]]
-    Xi <- data_list[[subj]]
-    if (i == ref_idx) {
-      transforms[[subj]] <- diag(nrow(Xi))
-      next
-    }
-    P <- .extract_pair_plan(fpgw$transport_plans, i, ref_idx, n_domains)
-    P_subj_ref <- if (i < ref_idx) P else t(P)
-    transforms[[subj]] <- .coupling_to_operator(P_subj_ref)
-  }
-
-  # Add transforms for held-out subjects (fit to reference only)
-  all_subjects <- data@subjects
-  heldout <- setdiff(all_subjects, names(transforms))
-  if (length(heldout) > 0) {
-    for (subj in heldout) {
-      subj_data <- get_subject_data(data, subj)
-      hd_new <- structure(list(
-        subj = list(x = subj_data),
-        ref = list(x = reference_data)
-      ), class = "hyperdesign")
-      fpgw_new <- do.call(manifoldalign::fpgw, c(list(data = hd_new), fpgw_args))
-      P_subj_ref <- fpgw_new$transport_plans[[1L]]
-      transforms[[subj]] <- .coupling_to_operator(P_subj_ref)
-    }
-  }
-
-  list(
-    transforms = transforms,
-    reference_data = reference_data,
-    space_from = train_data@space,
-    space_to = train_data@space,
-    method_state = list(
-      omega1 = omega1,
-      epsilon = epsilon,
-      reference = reference_name,
-      fpgw_args = fpgw_args
+  .ot_fit_common(
+    data = data,
+    reference = reference,
+    train_idx = train_idx,
+    solver_name = "fpgw",
+    solver_args = fpgw_args,
+    method_label = "FPGW",
+    args_name = "fpgw_args",
+    method_state_extra = list(
+      omega1 = fpgw_args$omega1,
+      epsilon = fpgw_args$epsilon
     )
   )
 }
@@ -322,7 +271,7 @@ NULL
   returns = "operator",  # Couplings converted to operators via .coupling_to_operator
   supports_new_subject = TRUE,
   supports_new_data = TRUE,
-  reference_types = c("subject", "template")
+  reference_types = c("subject", "barycenter", "template")
 )
 
 

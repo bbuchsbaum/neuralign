@@ -130,7 +130,7 @@ select_reference <- function(data,
     # Centroid: subject closest to the mean
     # First compute mean data
     data_list <- get_data_list(data)
-    mean_data <- Reduce(`+`, data_list) / n
+    mean_data <- compute_centroid(data_list)
 
     # Distance from each subject to mean
     dist_to_mean <- vapply(
@@ -246,6 +246,43 @@ select_reference <- function(data,
   stop("AlignmentData@obs_labels must be NULL, an atomic vector, or a (named) list", call. = FALSE)
 }
 
+
+.require_obs_labels_by_subject <- function(data, method = NULL, check_length = TRUE) {
+  labels_by_subject <- .resolve_obs_labels_by_subject(data)
+  if (is.null(labels_by_subject)) {
+    label_method <- method %||% "This method"
+    stop(
+      sprintf(
+        "%s requires AlignmentData@obs_labels (atomic shared labels or a per-subject named list)",
+        label_method
+      ),
+      call. = FALSE
+    )
+  }
+
+  if (isTRUE(check_length)) {
+    data_list <- get_data_list(data)
+    for (subj in data@subjects) {
+      x <- data_list[[subj]]
+      if (!.is_matrixish(x)) x <- as.matrix(x)
+      if (length(labels_by_subject[[subj]]) != ncol(x)) {
+        stop(
+          sprintf("obs_labels length mismatch for subject '%s'", subj),
+          call. = FALSE
+        )
+      }
+      if (anyNA(labels_by_subject[[subj]])) {
+        stop(
+          sprintf("obs_labels for subject '%s' contains NA values", subj),
+          call. = FALSE
+        )
+      }
+    }
+  }
+
+  labels_by_subject
+}
+
 .subset_to_overlap <- function(x, y, obs_labels_x = NULL, obs_labels_y = NULL, min_overlap = 2L) {
   x <- as.matrix(x)
   y <- as.matrix(y)
@@ -339,11 +376,14 @@ select_reference <- function(data,
 #'
 #' @export
 compute_centroid <- function(data) {
-  if (!inherits(data, "AlignmentData")) {
+  if (inherits(data, "AlignmentData")) {
+    data_list <- get_data_list(data)
+  } else if (is.list(data)) {
+    data_list <- data
+  } else {
     data <- as_alignment_data(data)
+    data_list <- get_data_list(data)
   }
-
-  data_list <- get_data_list(data)
   n <- length(data_list)
 
   if (n == 0) {

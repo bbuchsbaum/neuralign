@@ -520,7 +520,7 @@ fit_alignment <- function(data,
   }
 
   if (is.character(reference) && length(reference) == 1) {
-    if (reference %in% c("medoid", "centroid", "consensus")) {
+    if (reference %in% c("medoid", "centroid", "consensus", "barycenter")) {
       return("data_driven")
     }
     return("fixed_subject")
@@ -591,6 +591,30 @@ fit_alignment <- function(data,
   }
 
   invisible(TRUE)
+}
+
+
+#' Internal: Shared Aligner Preamble
+#'
+#' Many aligners implement the same boilerplate: default train_idx, subset the
+#' training data, and extract a data_list. This helper centralizes that logic.
+#'
+#' @param data AlignmentData.
+#' @param train_idx Optional integer indices of training subjects.
+#' @return List with train_idx, train_data, train_subjects, data_list.
+#' @keywords internal
+.aligner_preamble <- function(data, train_idx = NULL) {
+  if (is.null(train_idx)) {
+    train_idx <- seq_along(data@subjects)
+  }
+
+  train_data <- data[train_idx]
+  list(
+    train_idx = train_idx,
+    train_data = train_data,
+    train_subjects = train_data@subjects,
+    data_list = get_data_list(train_data)
+  )
 }
 
 
