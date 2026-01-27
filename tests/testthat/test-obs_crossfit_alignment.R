@@ -423,8 +423,93 @@ test_that(".normalize_obs_labels_for_folds errors on mismatched names", {
 })
 
 
-# NOTE: run_obs_crossfit_from_data was removed from the package;
-# tests for that function have been removed.
+test_that("run_obs_crossfit_from_data slices run folds and aligns held-out data", {
+  neuralign:::.register_procrustes()
+
+  set.seed(100)
+  d <- 4
+  runs <- c("r1", "r1", "r2", "r2", "r3", "r3")
+
+  Z <- matrix(rnorm(d * length(runs)), d, length(runs))
+  Q <- qr.Q(qr(matrix(rnorm(d * d), d, d)))
+  if (det(Q) < 0) Q[, 1] <- -Q[, 1]
+
+  adat <- AlignmentData(
+    list(s1 = Z, s2 = Q %*% Z),
+    obs_labels = paste0("t", seq_along(runs))
+  )
+
+  spec <- create_obs_folds(runs, method = "run", guard_tr = 0)
+  res <- run_obs_crossfit_from_data(
+    data = adat,
+    obs_folds = spec,
+    method = "procrustes",
+    reference = "s1",
+    anchor_policy = "common_or_error"
+  )
+
+  expect_s3_class(res, "ObsCrossfitAlignment")
+  expect_true(isTRUE(res$anchor_common))
+  expect_equal(res$fold_info$obs_folds$guard_tr, 0L)
+  expect_setequal(res$fold_info$obs_folds$fold_ids, spec$fold_ids)
+
+  for (fid in names(spec$folds)) {
+    aligned <- res$aligned_test_by_fold[[fid]]
+    expect_true(max(abs(aligned$s1 - aligned$s2)) < 1e-8)
+  }
+})
+
+test_that("run_obs_crossfit_from_data supports per-subject run ids with overlap (union policy)", {
+  neuralign:::.register_procrustes_graph()
+
+  set.seed(101)
+  d <- 2
+
+  obs_ids <- list(
+    s1 = c("A", "A", "B", "B", "C", "C"),
+    s2 = c("B", "B", "C", "C", "D", "D")
+  )
+  obs_labels <- list(
+    s1 = c("A-1", "A-2", "B-1", "B-2", "C-1", "C-2"),
+    s2 = c("B-1", "B-2", "C-1", "C-2", "D-1", "D-2")
+  )
+
+  all_labels <- c(obs_labels$s1, "D-1", "D-2")
+  Z <- matrix(rnorm(d * length(all_labels)), d, length(all_labels))
+  Q <- qr.Q(qr(matrix(rnorm(d * d), d, d)))
+  if (det(Q) < 0) Q[, 1] <- -Q[, 1]
+
+  X1 <- Z[, match(obs_labels$s1, all_labels), drop = FALSE]
+  X2 <- Q %*% Z[, match(obs_labels$s2, all_labels), drop = FALSE]
+
+  adat <- AlignmentData(
+    list(s1 = X1, s2 = X2),
+    obs_labels = obs_labels
+  )
+
+  spec <- create_obs_folds(obs_ids, method = "run", id_policy = "union", guard_tr = 0)
+  res <- run_obs_crossfit_from_data(
+    data = adat,
+    obs_folds = spec,
+    method = "procrustes_graph",
+    reference = "s1",
+    anchor_policy = "common_or_error"
+  )
+
+  expect_s3_class(res, "ObsCrossfitAlignment")
+  expect_equal(res$fold_info$obs_folds$id_policy, "union")
+  expect_setequal(res$fold_info$obs_folds$common_ids, c("B", "C"))
+
+  # Folds with missing runs yield empty test sets for some subjects.
+  expect_equal(ncol(res$aligned_test_by_fold$A$s2), 0L)
+  expect_equal(ncol(res$aligned_test_by_fold$D$s1), 0L)
+
+  # Overlapping folds should align correctly.
+  for (fid in c("B", "C")) {
+    aligned <- res$aligned_test_by_fold[[fid]]
+    expect_true(max(abs(aligned$s1 - aligned$s2)) < 1e-8)
+  }
+})
 
 
 # ---------- More obs crossfit tests ----------
