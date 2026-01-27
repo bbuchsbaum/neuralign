@@ -64,6 +64,28 @@ test_that("alignment_quality with reference computes reconstruction", {
   expect_true("mean_reference_correlation" %in% names(quality))
   # Should have high correlation with reference since noise is small
   expect_true(quality$mean_reference_correlation > 0.9)
+  expect_true("reconstruction_frobenius" %in% names(quality))
+  expect_true("mean_reconstruction_frobenius" %in% names(quality))
+})
+
+test_that("alignment_quality reconstruction includes Frobenius residuals", {
+  reference <- matrix(c(0, 1, 1, 0), 2, 2, byrow = TRUE)
+  aligned <- list("sub-01" = reference + matrix(1, 2, 2))
+
+  quality <- alignment_quality(
+    aligned,
+    metrics = "reconstruction",
+    reference = reference
+  )
+
+  expect_equal(unname(quality$reconstruction_errors[["sub-01"]]), 1, tolerance = 1e-12)
+  expect_equal(unname(quality$reconstruction_frobenius[["sub-01"]]), 2, tolerance = 1e-12)
+  expect_equal(unname(quality$mean_reconstruction_frobenius), 2, tolerance = 1e-12)
+
+  expect_error(
+    alignment_quality(aligned, metrics = "reconstruction", reference = matrix(0, 3, 3)),
+    "match reference dims"
+  )
 })
 
 test_that("alignment_quality computes improvement over original", {

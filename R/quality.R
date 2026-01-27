@@ -8,7 +8,8 @@
 #' @param metrics Character vector of metrics to compute:
 #'   \itemize{
 #'     \item "correlation" - Mean pairwise correlation
-#'     \item "reconstruction" - How well aligned data reconstructs original
+#'     \item "reconstruction" - Reconstruction vs reference (row-wise correlation,
+#'       RMSE, and Frobenius residual)
 #'     \item "variance" - Explained variance by alignment
 #'     \item "isc" - Inter-subject correlation (time-locked)
 #'   }
@@ -123,6 +124,17 @@ alignment_quality <- function(result,
 #' @keywords internal
 .compute_reconstruction_metrics <- function(aligned, reference) {
   reference <- as.matrix(reference)
+  ref_dim <- dim(reference)
+
+  for (subj in names(aligned)) {
+    x <- as.matrix(aligned[[subj]])
+    if (!identical(dim(x), ref_dim)) {
+      stop(sprintf(
+        "Reconstruction metrics require aligned matrices to match reference dims; '%s' is %d x %d but reference is %d x %d",
+        subj, nrow(x), ncol(x), ref_dim[[1]], ref_dim[[2]]
+      ), call. = FALSE)
+    }
+  }
 
   # For each subject, compute correlation with reference
   recon_cors <- sapply(aligned, function(x) {
@@ -141,11 +153,19 @@ alignment_quality <- function(result,
     sqrt(mean((x - reference)^2))
   })
 
+  # Frobenius-norm reconstruction residuals (sqrt(sum((x - ref)^2))).
+  recon_frobenius <- sapply(aligned, function(x) {
+    x <- as.matrix(x)
+    sqrt(sum((x - reference)^2))
+  })
+
   list(
     mean_reference_correlation = mean(recon_cors, na.rm = TRUE),
     reference_correlations = recon_cors,
     mean_reconstruction_error = mean(recon_errors, na.rm = TRUE),
-    reconstruction_errors = recon_errors
+    reconstruction_errors = recon_errors,
+    mean_reconstruction_frobenius = mean(recon_frobenius, na.rm = TRUE),
+    reconstruction_frobenius = recon_frobenius
   )
 }
 

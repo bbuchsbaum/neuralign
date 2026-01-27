@@ -20,7 +20,8 @@ for computing improvement metrics.}
 \item{metrics}{Character vector of metrics to compute:
 \itemize{
 \item "correlation" - Mean pairwise correlation
-\item "reconstruction" - How well aligned data reconstructs original
+\item "reconstruction" - Reconstruction vs reference (row-wise correlation,
+RMSE, and Frobenius residual)
 \item "variance" - Explained variance by alignment
 \item "isc" - Inter-subject correlation (time-locked)
 }}
