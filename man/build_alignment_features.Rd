@@ -81,6 +81,8 @@ A list with elements:
 \item{matrices}{Named list of per-subject stacked matrices.}
 \item{blocks}{Harmonized per-subject block lists used to build matrices.}
 \item{per_block}{Data frame summarizing retained blocks and feature counts.}
+\item{block_row_ranges}{Data frame giving stacked row ranges for each block
+(block, row_start, row_end, n_rows).}
 \item{coverage}{Data frame of per-subject block coverage counts
 (n_total/n_observed/fraction_observed) based on the harmonized feature
 vocabulary.}

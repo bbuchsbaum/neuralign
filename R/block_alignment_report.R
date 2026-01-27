@@ -21,6 +21,9 @@
 #'   when `aligned` is a plain list of matrices.
 #' @param quality_metrics Character vector of `alignment_quality()` metrics to
 #'   compute when `aligned` is provided.
+#' @param per_block_quality Logical; if TRUE, compute per-block reconstruction
+#'   metrics by slicing aligned and reference matrices using
+#'   `features$block_row_ranges`. Requires `aligned` and a matrix `reference`.
 #' @param ... Passed to `build_alignment_features()`.
 #'
 #' @return An object of class `"block_alignment_report"` with components:
@@ -28,6 +31,7 @@
 #'   \item{features}{Output of `build_alignment_features()`.}
 #'   \item{diagnostics}{Output of `feature_block_diagnostics()` on harmonized blocks.}
 #'   \item{quality}{Output of `alignment_quality()` (or NULL if `aligned` is NULL).}
+#'   \item{per_block_quality}{Optional per-block reconstruction summaries (or NULL).}
 #' }
 #'
 #' @export
@@ -36,6 +40,7 @@ block_alignment_report <- function(blocks_by_subject,
                                    original = NULL,
                                    reference = NULL,
                                    quality_metrics = c("correlation", "reconstruction"),
+                                   per_block_quality = FALSE,
                                    ...) {
   features <- build_alignment_features(blocks_by_subject, ...)
 
@@ -48,6 +53,7 @@ block_alignment_report <- function(blocks_by_subject,
   )
 
   quality <- NULL
+  per_block <- NULL
   if (!is.null(aligned)) {
     quality <- alignment_quality(
       result = aligned,
@@ -55,15 +61,101 @@ block_alignment_report <- function(blocks_by_subject,
       metrics = quality_metrics,
       reference = reference
     )
+
+    if (isTRUE(per_block_quality)) {
+      aligned_mats <- if (inherits(aligned, "AlignmentResult")) {
+        get_aligned(aligned)
+      } else if (is.list(aligned)) {
+        aligned
+      } else {
+        stop("'aligned' must be an AlignmentResult or list of matrices", call. = FALSE)
+      }
+
+      if (length(aligned_mats) == 0L) {
+        stop("No aligned matrices available for per-block quality metrics", call. = FALSE)
+      }
+      if (is.null(names(aligned_mats)) || any(!nzchar(names(aligned_mats)))) {
+        names(aligned_mats) <- paste0("sub-", sprintf("%02d", seq_along(aligned_mats)))
+      }
+
+      ref_mat <- reference
+      if (is.null(ref_mat) && inherits(aligned, "AlignmentResult")) {
+        ref_mat <- get_reference(get_model(aligned))
+      }
+      if (is.null(ref_mat) || !.is_matrixish(ref_mat)) {
+        stop("per_block_quality requires a matrix 'reference' (or a model with matrix reference_data)", call. = FALSE)
+      }
+      ref_mat <- as.matrix(ref_mat)
+
+      ranges <- features$block_row_ranges
+      if (!is.data.frame(ranges) || nrow(ranges) < 1L) {
+        stop("Internal error: features$block_row_ranges missing or invalid", call. = FALSE)
+      }
+
+      per_block <- .compute_per_block_quality(
+        aligned = aligned_mats,
+        reference = ref_mat,
+        ranges = ranges
+      )
+    }
   }
 
   out <- list(
     features = features,
     diagnostics = diagnostics,
-    quality = quality
+    quality = quality,
+    per_block_quality = per_block
   )
   class(out) <- "block_alignment_report"
   out
+}
+
+.compute_per_block_quality <- function(aligned, reference, ranges) {
+  ref_dim <- dim(reference)
+
+  by_subject <- do.call(rbind, lapply(names(aligned), function(subj) {
+    x <- aligned[[subj]]
+    if (!.is_matrixish(x)) x <- as.matrix(x)
+    if (!identical(dim(x), ref_dim)) {
+      stop(sprintf(
+        "Per-block quality requires aligned matrices to match reference dims; '%s' is %d x %d but reference is %d x %d",
+        subj, nrow(x), ncol(x), ref_dim[[1]], ref_dim[[2]]
+      ), call. = FALSE)
+    }
+
+    do.call(rbind, lapply(seq_len(nrow(ranges)), function(i) {
+      r0 <- ranges$row_start[[i]]
+      r1 <- ranges$row_end[[i]]
+      xb <- x[r0:r1, , drop = FALSE]
+      rb <- reference[r0:r1, , drop = FALSE]
+
+      rmse <- sqrt(mean((xb - rb)^2))
+      frob <- sqrt(sum((xb - rb)^2))
+
+      # Mean row-wise correlation with reference; rows with zero variance become NA.
+      row_cors <- suppressWarnings(vapply(seq_len(nrow(xb)), function(j) {
+        stats::cor(xb[j, ], rb[j, ])
+      }, numeric(1)))
+
+      data.frame(
+        subject = subj,
+        block = ranges$block[[i]],
+        rmse = as.numeric(rmse),
+        frobenius = as.numeric(frob),
+        reference_correlation = as.numeric(mean(row_cors, na.rm = TRUE)),
+        stringsAsFactors = FALSE
+      )
+    }))
+  }))
+
+  summary <- aggregate(
+    by_subject[, c("rmse", "frobenius", "reference_correlation")],
+    by = list(block = by_subject$block),
+    FUN = function(x) mean(x, na.rm = TRUE)
+  )
+  names(summary) <- c("block", "mean_rmse", "mean_frobenius", "mean_reference_correlation")
+
+  list(by_subject = by_subject, summary = summary)
 }
 
 #' @export
@@ -107,4 +199,3 @@ print.block_alignment_report <- function(x, ...) {
 
   invisible(x)
 }
-

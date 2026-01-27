@@ -543,6 +543,8 @@ harmonize_feature_blocks <- function(blocks_by_subject, min_features = 2L) {
 #'   \item{matrices}{Named list of per-subject stacked matrices.}
 #'   \item{blocks}{Harmonized per-subject block lists used to build matrices.}
 #'   \item{per_block}{Data frame summarizing retained blocks and feature counts.}
+#'   \item{block_row_ranges}{Data frame giving stacked row ranges for each block
+#'     (block, row_start, row_end, n_rows).}
 #'   \item{coverage}{Data frame of per-subject block coverage counts
 #'     (n_total/n_observed/fraction_observed) based on the harmonized feature
 #'     vocabulary.}
@@ -736,6 +738,16 @@ build_alignment_features <- function(blocks_by_subject,
     stringsAsFactors = FALSE
   )
 
+  row_end <- cumsum(per_block$n_features)
+  row_start <- c(1L, head(row_end, -1L) + 1L)
+  block_row_ranges <- data.frame(
+    block = per_block$block,
+    row_start = as.integer(row_start),
+    row_end = as.integer(row_end),
+    n_rows = as.integer(per_block$n_features),
+    stringsAsFactors = FALSE
+  )
+
   dropped_blocks <- setdiff(
     unique(unlist(lapply(blocks_by_subject, names))),
     block_names
@@ -847,6 +859,7 @@ build_alignment_features <- function(blocks_by_subject,
     matrices = mats_by_subj,
     blocks = blocks_h,
     per_block = per_block,
+    block_row_ranges = block_row_ranges,
     coverage = coverage,
     identifiability = identifiability,
     params = params,

@@ -10,6 +10,7 @@ block_alignment_report(
   original = NULL,
   reference = NULL,
   quality_metrics = c("correlation", "reconstruction"),
+  per_block_quality = FALSE,
   ...
 )
 }
@@ -29,6 +30,10 @@ when \code{aligned} is a plain list of matrices.}
 \item{quality_metrics}{Character vector of \code{alignment_quality()} metrics to
 compute when \code{aligned} is provided.}
 
+\item{per_block_quality}{Logical; if TRUE, compute per-block reconstruction
+metrics by slicing aligned and reference matrices using
+\code{features$block_row_ranges}. Requires \code{aligned} and a matrix \code{reference}.}
+
 \item{...}{Passed to \code{build_alignment_features()}.}
 }
 \value{
@@ -37,6 +42,7 @@ An object of class \code{"block_alignment_report"} with components:
 \item{features}{Output of \code{build_alignment_features()}.}
 \item{diagnostics}{Output of \code{feature_block_diagnostics()} on harmonized blocks.}
 \item{quality}{Output of \code{alignment_quality()} (or NULL if \code{aligned} is NULL).}
+\item{per_block_quality}{Optional per-block reconstruction summaries (or NULL).}
 }
 }
 \description{
