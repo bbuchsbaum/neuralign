@@ -200,3 +200,90 @@ test_that("kprocrustes reflection control forces det(transform) >= 0", {
   model <- get_model(res)
   expect_gte(det(model@transforms$s2), 0)
 })
+
+
+# ---------- Additional kprocrustes aligner tests ----------
+
+test_that("kprocrustes with consensus reference produces K-orthonormal reference", {
+  neuralign:::.register_kprocrustes()
+
+  set.seed(10)
+  q <- 6
+  r <- 3
+  effects <- paste0("e", seq_len(q))
+  K <- diag(q)
+  dimnames(K) <- list(effects, effects)
+
+  Uref <- k_orthonormalize(matrix(rnorm(q * r), q, r), K)
+  Xref <- t(Uref)
+  colnames(Xref) <- effects
+
+  # Create 3 rotated subjects
+  make_rotated <- function() {
+    R <- qr.Q(qr(matrix(rnorm(r * r), r, r)))
+    if (det(R) < 0) R[, 1] <- -R[, 1]
+    X <- t(R) %*% Xref
+    colnames(X) <- effects
+    X
+  }
+
+  adat <- AlignmentData(
+    list(s1 = Xref, s2 = make_rotated(), s3 = make_rotated()),
+    design = list(K = K, effects = effects)
+  )
+
+  res <- fit_alignment(adat, method = "kprocrustes", reference = "consensus")
+  model <- get_model(res)
+
+  # Reference should be r x q
+  expect_equal(dim(model@reference_data), c(r, q))
+  # All transforms should be r x r
+  for (subj in names(model@transforms)) {
+    expect_equal(dim(model@transforms[[subj]]), c(r, r))
+  }
+})
+
+test_that("kprocrustes with non-identity kernel", {
+  neuralign:::.register_kprocrustes()
+
+  set.seed(15)
+  q <- 5
+  r <- 2
+  effects <- paste0("e", seq_len(q))
+
+  # Non-identity PSD kernel
+  A <- matrix(rnorm(q * q), q, q)
+  K <- t(A) %*% A + diag(0.5, q)
+  dimnames(K) <- list(effects, effects)
+
+  Uref <- k_orthonormalize(matrix(rnorm(q * r), q, r), K)
+  Xref <- t(Uref)
+  colnames(Xref) <- effects
+
+  R2 <- qr.Q(qr(matrix(rnorm(r * r), r, r)))
+  if (det(R2) < 0) R2[, 1] <- -R2[, 1]
+  X2 <- t(R2) %*% Xref
+  colnames(X2) <- effects
+
+  adat <- AlignmentData(
+    list(s1 = Xref, s2 = X2),
+    design = list(K = K, effects = effects)
+  )
+
+  res <- fit_alignment(adat, method = "kprocrustes", reference = "s1")
+  model <- get_model(res)
+
+  # After alignment, transform applied to X2 should match reference
+  expect_equal(model@transforms$s2 %*% X2, model@reference_data, tolerance = 1e-5)
+})
+
+test_that("kprocrustes capabilities are correctly declared", {
+  neuralign:::.register_kprocrustes()
+
+  caps <- aligner_capabilities("kprocrustes")
+  expect_true(is.list(caps))
+  expect_true(isTRUE(caps$needs_design))
+  expect_true("subject" %in% caps$cv_axes)
+  expect_equal(caps$transform_type, "orthogonal")
+  expect_true(isTRUE(caps$returns_invertible))
+})

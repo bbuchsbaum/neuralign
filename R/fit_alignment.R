@@ -669,11 +669,24 @@ fit_alignment <- function(data,
     # This makes reference="medoid"/"centroid"/"consensus" behave correctly in obs-CV.
     ref_resolved_fold <- .resolve_reference(train_data, reference, seq_len(n_subjects))
     reference_by_fold[[fold_name]] <- as.character(ref_resolved_fold$reference_spec)
+    ref_for_fold <- ref_resolved_fold$reference
+
+    # If the reference is a template matrix, subset it to the fold's training
+    # observations so dimensions match and only training observations are used.
+    if (.is_matrixish(reference)) {
+      if (isTRUE(per_subject_folds)) {
+        stop(
+          "Template references are not supported for per-subject observation folds (provide shared folds or use obs_labels)",
+          call. = FALSE
+        )
+      }
+      ref_for_fold <- as.matrix(reference)[, train_obs, drop = FALSE]
+    }
 
     # Fit alignment on training observations (all subjects)
     fit_result <- aligner$fit_fn(
       data = train_data,
-      reference = ref_resolved_fold$reference,
+      reference = ref_for_fold,
       train_idx = seq_len(n_subjects),
       ...
     )

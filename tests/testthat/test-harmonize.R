@@ -115,3 +115,152 @@ test_that("harmonize_union_fill is idempotent on already-harmonized data", {
   )
   expect_equal(res2$pair_counts, pc_expected)
 })
+
+
+# ---------- Edge cases ----------
+
+test_that("harmonize_union_fill works with identical IDs (no-op)", {
+  x1 <- matrix(1:6, 3, 2, dimnames = list(c("a", "b", "c"), c("v1", "v2")))
+  x2 <- matrix(7:12, 3, 2, dimnames = list(c("a", "b", "c"), c("v1", "v2")))
+
+  res <- harmonize_union_fill(list(s1 = x1, s2 = x2), axis = "rows", fill = 0)
+
+  expect_equal(res$ids, c("a", "b", "c"))
+  expect_equal(unname(res$mats$s1), unname(x1))
+  expect_equal(unname(res$mats$s2), unname(x2))
+  # All observed
+  expect_true(all(res$obs_mask$s1))
+  expect_true(all(res$obs_mask$s2))
+  expect_equal(length(res$dropped), 0)
+})
+
+test_that("harmonize_union_fill with completely disjoint IDs fills everything", {
+  x1 <- matrix(1:4, 2, 2, dimnames = list(c("a", "b"), c("v1", "v2")))
+  x2 <- matrix(5:8, 2, 2, dimnames = list(c("c", "d"), c("v1", "v2")))
+
+  res <- harmonize_union_fill(list(s1 = x1, s2 = x2), axis = "rows", union_order = "sorted", fill = -1)
+
+  expect_equal(res$ids, c("a", "b", "c", "d"))
+  # s1 has "c","d" filled with -1
+  expect_equal(unname(res$mats$s1["c", ]), c(-1, -1))
+  expect_equal(unname(res$mats$s1["d", ]), c(-1, -1))
+  # s2 has "a","b" filled with -1
+  expect_equal(unname(res$mats$s2["a", ]), c(-1, -1))
+  expect_equal(unname(res$mats$s2["b", ]), c(-1, -1))
+
+  # Pair counts: "a"-"b" co-occur in s1 only, "c"-"d" in s2 only
+  expect_equal(res$pair_counts["a", "c"], 0L)
+  expect_equal(res$pair_counts["a", "b"], 1L)
+  expect_equal(res$pair_counts["c", "d"], 1L)
+})
+
+test_that("harmonize_union_fill with non-zero fill value", {
+  x1 <- matrix(1:4, 2, 2, dimnames = list(c("a", "b"), c("v1", "v2")))
+  x2 <- matrix(5:6, 1, 2, dimnames = list("c", c("v1", "v2")))
+
+  res <- harmonize_union_fill(
+    list(s1 = x1, s2 = x2),
+    axis = "rows",
+    fill = 99,
+    warn_sparse_below = 0
+  )
+
+  expect_equal(unname(res$mats$s2["a", ]), c(99, 99))
+  expect_equal(unname(res$mats$s2["b", ]), c(99, 99))
+  expect_equal(unname(res$mats$s1["c", ]), c(99, 99))
+})
+
+test_that("harmonize_union_fill with sparse Matrix inputs preserves sparsity", {
+  skip_if_not_installed("Matrix")
+
+  x1 <- Matrix::sparseMatrix(
+    i = c(1, 2), j = c(1, 2), x = c(10, 20),
+    dims = c(3, 2),
+    dimnames = list(c("a", "b", "c"), c("v1", "v2"))
+  )
+  x2 <- Matrix::sparseMatrix(
+    i = c(1), j = c(1), x = 30,
+    dims = c(2, 2),
+    dimnames = list(c("b", "d"), c("v1", "v2"))
+  )
+
+  res <- harmonize_union_fill(list(s1 = x1, s2 = x2), axis = "rows", fill = 0)
+
+  # With fill=0 and sparse inputs, output should be sparse
+  expect_true(inherits(res$mats$s1, "Matrix"))
+  expect_true(inherits(res$mats$s2, "Matrix"))
+  expect_equal(nrow(res$mats$s1), 4)  # union of a,b,c,d
+  expect_equal(as.matrix(res$mats$s2)[1, ], c(v1 = 0, v2 = 0))  # "a" not in s2
+})
+
+test_that("harmonize_union_fill errors on unnamed list", {
+  x1 <- matrix(1:4, 2, 2, dimnames = list(c("a", "b"), c("v1", "v2")))
+  expect_error(
+    harmonize_union_fill(list(x1), axis = "rows"),
+    "non-empty named list"
+  )
+})
+
+test_that("harmonize_union_fill errors on duplicate IDs within a subject", {
+  x1 <- matrix(1:4, 2, 2, dimnames = list(c("a", "a"), c("v1", "v2")))
+  expect_error(
+    harmonize_union_fill(list(s1 = x1), axis = "rows"),
+    "Duplicate ids"
+  )
+})
+
+test_that("harmonize_union_fill errors on invalid min_coverage", {
+  x1 <- matrix(1:4, 2, 2, dimnames = list(c("a", "b"), c("v1", "v2")))
+  expect_error(
+    harmonize_union_fill(list(s1 = x1), axis = "rows", min_coverage = -1),
+    "non-negative"
+  )
+})
+
+test_that("harmonize_union_fill errors on invalid warn_sparse_below", {
+  x1 <- matrix(1:4, 2, 2, dimnames = list(c("a", "b"), c("v1", "v2")))
+  expect_error(
+    harmonize_union_fill(list(s1 = x1), axis = "rows", warn_sparse_below = 2),
+    "\\[0, 1\\]"
+  )
+})
+
+test_that("harmonize_union_fill drops all subjects errors", {
+  x1 <- matrix(1:2, 1, 2, dimnames = list("a", c("v1", "v2")))
+  x2 <- matrix(3:4, 1, 2, dimnames = list("b", c("v1", "v2")))
+
+  # Each subject has 1 ID. min_coverage = 2 drops both.
+  expect_error(
+    harmonize_union_fill(list(s1 = x1, s2 = x2), axis = "rows", min_coverage = 2),
+    "All subjects were dropped"
+  )
+})
+
+test_that("harmonize_union_fill coverage data frame is correct", {
+  x1 <- matrix(1:6, 3, 2, dimnames = list(c("a", "b", "c"), c("v1", "v2")))
+  x2 <- matrix(1:4, 2, 2, dimnames = list(c("b", "d"), c("v1", "v2")))
+  x3 <- matrix(1:4, 2, 2, dimnames = list(c("a", "b"), c("v1", "v2")))
+
+  res <- harmonize_union_fill(list(s1 = x1, s2 = x2, s3 = x3), axis = "rows", union_order = "sorted")
+
+  cov <- res$coverage
+  expect_equal(cov$id, c("a", "b", "c", "d"))
+  # "a" in s1, s3 = 2; "b" in all = 3; "c" in s1 = 1; "d" in s2 = 1
+  expect_equal(cov$n_subjects, c(2L, 3L, 1L, 1L))
+})
+
+test_that("harmonize_union_fill errors on union_ids with duplicates", {
+  x1 <- matrix(1:4, 2, 2, dimnames = list(c("a", "b"), c("v1", "v2")))
+  expect_error(
+    harmonize_union_fill(list(s1 = x1), axis = "rows", union_ids = c("a", "a", "b")),
+    "duplicates"
+  )
+})
+
+test_that("harmonize_union_fill errors when union_ids misses observed IDs", {
+  x1 <- matrix(1:4, 2, 2, dimnames = list(c("a", "b"), c("v1", "v2")))
+  expect_error(
+    harmonize_union_fill(list(s1 = x1), axis = "rows", union_ids = c("a")),
+    "not present in .union_ids"
+  )
+})
