@@ -446,3 +446,57 @@ test_that(".compute_pairwise_distance returns NA when overlap fails", {
   )
   expect_true(is.na(d))
 })
+
+
+# ---------- select_reference edge cases ----------
+
+test_that("select_reference medoid handles NA pairwise distances gracefully", {
+  # When subjects have disjoint obs_labels, pairwise distances are NA.
+  # Medoid uses rowMeans with na.rm=TRUE, so the diagonal (0) survives.
+  adat <- AlignmentData(
+    list(
+      s1 = matrix(rnorm(6), 2, 3),
+      s2 = matrix(rnorm(6), 2, 3)
+    ),
+    obs_labels = list(
+      s1 = c("a1", "a2", "a3"),
+      s2 = c("b1", "b2", "b3")
+    )
+  )
+
+  # Should still return a subject (falls back to diagonal zeros)
+  ref <- select_reference(adat, method = "medoid")
+  expect_true(ref %in% c("s1", "s2"))
+})
+
+test_that(".compute_pairwise_distance with euclidean metric", {
+  set.seed(70)
+  x <- matrix(rnorm(10), 2, 5)
+  y <- matrix(rnorm(10), 2, 5)
+
+  d <- neuralign:::.compute_pairwise_distance(x, y, "euclidean")
+  expect_true(is.numeric(d))
+  expect_true(d >= 0)
+})
+
+test_that(".compute_pairwise_distance with frobenius metric", {
+  set.seed(71)
+  x <- matrix(rnorm(10), 2, 5)
+  y <- matrix(rnorm(10), 2, 5)
+
+  d <- neuralign:::.compute_pairwise_distance(x, y, "frobenius")
+  expect_true(is.numeric(d))
+  expect_true(d >= 0)
+  # Frobenius should equal sqrt of sum of squared differences
+  expected <- sqrt(sum((x - y)^2))
+  expect_equal(d, expected, tolerance = 1e-10)
+})
+
+test_that(".compute_pairwise_distance errors on unknown metric", {
+  x <- matrix(1, 2, 3)
+  y <- matrix(1, 2, 3)
+  expect_error(
+    neuralign:::.compute_pairwise_distance(x, y, "unknown_metric"),
+    "Unknown distance"
+  )
+})

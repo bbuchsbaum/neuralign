@@ -16,6 +16,7 @@ run_obs_crossfit_alignment(
   template_obs_labels = NULL,
   min_overlap = 2L,
   compute_quality = FALSE,
+  data_template = NULL,
   ...
 )
 }
@@ -57,6 +58,11 @@ template via \code{\link{procrustes_rotation}}.}
 
 \item{compute_quality}{Logical; if TRUE, compute quality metrics for each
 fold model on its training data.}
+
+\item{data_template}{Optional \code{\link{AlignmentData}}. When provided, its
+\code{space}, \code{design}, \code{geometry}, and \code{metadata} are copied
+into each per-fold training \code{\link{AlignmentData}} object, enabling
+design/geometry-dependent methods to work in observation-axis crossfit.}
 
 \item{...}{Additional arguments passed to \code{\link{fit_alignment}}.}
 }

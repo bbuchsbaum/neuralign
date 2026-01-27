@@ -18,8 +18,10 @@ Matrix \code{U} with the same number of columns as \code{W}.
 }
 \description{
 Produce a matrix \code{U} with K-orthonormal columns: \code{t(U) \%*\% K \%*\% U = I}.
-This is done by performing Euclidean QR on \verb{K^\{1/2\} W} and mapping back with
-\code{K^{-1/2}}.
+Uses Cholesky factorization of the Gram matrix \verb{t(W) K W} to preserve column
+order and sign determinism.
+Falls back to Euclidean QR on \verb{K^\{1/2\} W} (mapped back with \code{K^{-1/2}})
+when the Gram matrix is not positive definite.
 }
 \examples{
 set.seed(1)

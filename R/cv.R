@@ -257,7 +257,8 @@ create_obs_folds <- function(obs_ids,
         axis = "observation",
         folds = folds,
         n_folds = length(folds),
-        fold_ids = names(folds)
+        fold_ids = names(folds),
+        guard_tr = guard_tr
       ))
     }
     folds <- lapply(obs_list, function(v) .blocked_time_folds(length(v), k = k, guard_tr = guard_tr))
@@ -273,7 +274,8 @@ create_obs_folds <- function(obs_ids,
       axis = "observation",
       folds = out_folds,
       n_folds = length(out_folds),
-      fold_ids = fold_ids
+      fold_ids = fold_ids,
+      guard_tr = guard_tr
     ))
   }
 
@@ -298,7 +300,8 @@ create_obs_folds <- function(obs_ids,
       axis = "observation",
       folds = folds,
       n_folds = length(folds),
-      fold_ids = names(folds)
+      fold_ids = names(folds),
+      guard_tr = guard_tr
     ))
   }
 
@@ -359,13 +362,17 @@ create_obs_folds <- function(obs_ids,
     }
   }
 
+  common_ids <- Reduce(intersect, run_sets)
+
   list(
     method = "run",
     axis = "observation",
     folds = folds,
     n_folds = length(folds),
     fold_ids = names(folds),
-    id_policy = id_policy
+    guard_tr = guard_tr,
+    id_policy = id_policy,
+    common_ids = common_ids
   )
 }
 
@@ -433,6 +440,15 @@ run_cv_alignment <- function(data,
     fold <- cv_folds$folds[[fold_name]]
     train_idx <- fold$train
     test_idx <- fold$test
+
+    # Ensure fixed-subject reference is always in the training set
+    if (is.character(reference) && length(reference) == 1L &&
+        reference %in% subjects) {
+      ref_idx <- match(reference, subjects)
+      if (!ref_idx %in% train_idx) {
+        train_idx <- sort(c(train_idx, ref_idx))
+      }
+    }
 
     # Fit on training data
     result <- fit_alignment(

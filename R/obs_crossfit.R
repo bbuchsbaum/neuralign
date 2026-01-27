@@ -273,6 +273,10 @@ NULL
 #'   template via \code{\link{procrustes_rotation}}.
 #' @param compute_quality Logical; if TRUE, compute quality metrics for each
 #'   fold model on its training data.
+#' @param data_template Optional \code{\link{AlignmentData}}. When provided, its
+#'   \code{space}, \code{design}, \code{geometry}, and \code{metadata} are copied
+#'   into each per-fold training \code{\link{AlignmentData}} object, enabling
+#'   design/geometry-dependent methods to work in observation-axis crossfit.
 #' @param ... Additional arguments passed to \code{\link{fit_alignment}}.
 #'
 #' @return An object of class \code{"ObsCrossfitAlignment"} with fields:
@@ -299,11 +303,26 @@ run_obs_crossfit_alignment <- function(train_data_by_fold,
                                       template_obs_labels = NULL,
                                       min_overlap = 2L,
                                       compute_quality = FALSE,
+                                      data_template = NULL,
                                       ...) {
   anchor_policy <- match.arg(anchor_policy)
   min_overlap <- as.integer(min_overlap)
   if (!is.finite(min_overlap) || min_overlap < 1L) {
     stop("'min_overlap' must be a positive integer", call. = FALSE)
+  }
+
+  template_space <- NULL
+  template_design <- NULL
+  template_geometry <- NULL
+  template_metadata <- list()
+  if (!is.null(data_template)) {
+    if (!inherits(data_template, "AlignmentData")) {
+      stop("'data_template' must be an AlignmentData object (or NULL)", call. = FALSE)
+    }
+    template_space <- data_template@space
+    template_design <- data_template@design
+    template_geometry <- data_template@geometry
+    template_metadata <- data_template@metadata %||% list()
   }
 
   train_meta <- .validate_folded_data(train_data_by_fold, "train_data_by_fold")
@@ -391,7 +410,11 @@ run_obs_crossfit_alignment <- function(train_data_by_fold,
     train_fold <- train_data_by_fold[[fid]]
     train_adat <- AlignmentData(
       data = train_fold,
-      obs_labels = train_labels[[fid]]
+      obs_labels = train_labels[[fid]],
+      space = template_space,
+      design = template_design,
+      geometry = template_geometry,
+      metadata = template_metadata
     )
 
     # Fit fold model on training observations only.
@@ -496,4 +519,114 @@ run_obs_crossfit_alignment <- function(train_data_by_fold,
   )
   class(out) <- "ObsCrossfitAlignment"
   out
+}
+
+
+#' Run Observation-Axis Crossfit from AlignmentData
+#'
+#' Convenience wrapper that slices an \code{\link{AlignmentData}} object
+#' according to observation-axis fold specifications (from
+#' \code{\link{create_obs_folds}}) and feeds the per-fold train/test splits
+#' to \code{\link{run_obs_crossfit_alignment}}.
+#'
+#' @param data An \code{\link{AlignmentData}} object.
+#' @param obs_folds Fold specification from \code{\link{create_obs_folds}}.
+#' @param method Alignment method name.
+#' @param reference Reference specification.
+#' @param anchor_policy Anchor policy (see \code{\link{run_obs_crossfit_alignment}}).
+#' @param ... Additional arguments passed to \code{\link{run_obs_crossfit_alignment}}.
+#'
+#' @return An \code{"ObsCrossfitAlignment"} object (see
+#'   \code{\link{run_obs_crossfit_alignment}}).
+#'
+#' @export
+run_obs_crossfit_from_data <- function(data,
+                                       obs_folds,
+                                       method = "procrustes",
+                                       reference = "medoid",
+                                       anchor_policy = c(
+                                         "common_or_error",
+                                         "fold_specific_ok",
+                                         "map_to_template"
+                                       ),
+                                       ...) {
+  if (!inherits(data, "AlignmentData")) {
+    stop("'data' must be an AlignmentData object", call. = FALSE)
+  }
+  anchor_policy <- match.arg(anchor_policy)
+
+  subjects <- data@subjects
+  data_list <- get_data_list(data)
+  obs_labels <- .resolve_obs_labels_by_subject(data)
+
+  fold_ids <- obs_folds$fold_ids
+  folds <- obs_folds$folds
+
+  # Detect per-subject vs shared fold structure.
+  # Per-subject folds: folds[[fid]] is a named list of subjects, each with
+  #   train_idx/test_idx.
+  # Shared folds: folds[[fid]] has train_idx/test_idx directly.
+  first_fold <- folds[[1L]]
+  per_subject <- is.list(first_fold) &&
+    !is.null(names(first_fold)) &&
+    all(subjects %in% names(first_fold))
+
+  train_data_by_fold <- list()
+  test_data_by_fold <- list()
+  train_labels <- if (!is.null(obs_labels)) list() else NULL
+  test_labels <- if (!is.null(obs_labels)) list() else NULL
+
+  for (fid in fold_ids) {
+    fold <- folds[[fid]]
+    train_fold <- list()
+    test_fold <- list()
+    train_labs_fold <- list()
+    test_labs_fold <- list()
+
+    for (subj in subjects) {
+      X <- as.matrix(data_list[[subj]])
+
+      if (per_subject) {
+        train_idx <- fold[[subj]]$train_idx
+        test_idx <- fold[[subj]]$test_idx
+      } else {
+        train_idx <- fold$train_idx
+        test_idx <- fold$test_idx
+      }
+
+      train_fold[[subj]] <- X[, train_idx, drop = FALSE]
+      test_fold[[subj]] <- X[, test_idx, drop = FALSE]
+
+      if (!is.null(obs_labels)) {
+        labs <- obs_labels[[subj]]
+        train_labs_fold[[subj]] <- labs[train_idx]
+        test_labs_fold[[subj]] <- labs[test_idx]
+      }
+    }
+
+    train_data_by_fold[[fid]] <- train_fold
+    test_data_by_fold[[fid]] <- test_fold
+    if (!is.null(train_labels)) {
+      train_labels[[fid]] <- train_labs_fold
+      test_labels[[fid]] <- test_labs_fold
+    }
+  }
+
+  res <- run_obs_crossfit_alignment(
+    train_data_by_fold = train_data_by_fold,
+    test_data_by_fold = test_data_by_fold,
+    obs_labels_train = train_labels,
+    obs_labels_test = test_labels,
+    method = method,
+    reference = reference,
+    anchor_policy = anchor_policy,
+    data_template = data,
+    ...
+  )
+
+  # Enrich fold_info with obs_folds metadata.
+  obs_folds_info <- obs_folds[setdiff(names(obs_folds), "folds")]
+  res$fold_info$obs_folds <- obs_folds_info
+
+  res
 }

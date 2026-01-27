@@ -419,3 +419,91 @@ test_that("compose_alignment train_subjects is common subjects", {
   composed <- compose_alignment(model1, model2)
   expect_setequal(composed@train_subjects, c("sub-01", "sub-02"))
 })
+
+
+# ---------- compose_alignment non-operator capability error ----------
+
+test_that("compose_alignment errors when model1 has non-operator returns", {
+  neuralign:::.clear_registry()
+
+  # Register a method that claims it returns something other than "operator"
+  # We can't register "embedding" (rejected), so modify directly after registration
+  dummy_fit <- function(data, reference, ...) {
+    list(transforms = list(), reference_data = NULL)
+  }
+  register_aligner("op_method", dummy_fit)
+
+  # Manually override the returns capability for testing
+  reg_env <- get(".aligner_registry", envir = asNamespace("neuralign"))
+  entry <- reg_env[["op_method"]]
+  entry$capabilities$returns <- "some_other_type"
+  assign("op_method", entry, envir = reg_env)
+
+  model1 <- AlignmentModel(
+    transforms = list("s1" = diag(3)),
+    reference = "s1",
+    method = "op_method"
+  )
+  model2 <- AlignmentModel(
+    transforms = list("s1" = diag(3)),
+    reference = "s1",
+    method = "m2_unregistered"
+  )
+
+  expect_error(
+    compose_alignment(model1, model2),
+    "does not return operator transforms"
+  )
+
+  neuralign:::.clear_registry()
+})
+
+test_that("compose_alignment errors when model2 has non-operator returns", {
+  neuralign:::.clear_registry()
+
+  dummy_fit <- function(data, reference, ...) {
+    list(transforms = list(), reference_data = NULL)
+  }
+  register_aligner("op_method2", dummy_fit)
+
+  reg_env <- get(".aligner_registry", envir = asNamespace("neuralign"))
+  entry <- reg_env[["op_method2"]]
+  entry$capabilities$returns <- "some_other_type"
+  assign("op_method2", entry, envir = reg_env)
+
+  model1 <- AlignmentModel(
+    transforms = list("s1" = diag(3)),
+    reference = "s1",
+    method = "m1_unregistered"
+  )
+  model2 <- AlignmentModel(
+    transforms = list("s1" = diag(3)),
+    reference = "s1",
+    method = "op_method2"
+  )
+
+  expect_error(
+    compose_alignment(model1, model2),
+    "does not return operator transforms"
+  )
+
+  neuralign:::.clear_registry()
+})
+
+test_that("AlignmentModel %*% matrix errors on empty model", {
+  model <- new("AlignmentModel",
+    transforms = list(),
+    reference = NULL,
+    method = "test",
+    space_from = NULL,
+    space_to = NULL,
+    provenance = list(),
+    method_state = list(),
+    train_subjects = character(0)
+  )
+
+  expect_error(
+    model %*% matrix(1, 3, 3),
+    "no transforms"
+  )
+})

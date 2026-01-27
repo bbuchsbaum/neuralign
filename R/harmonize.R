@@ -80,11 +80,11 @@ harmonize_union_fill <- function(mats,
       if (axis == "rows") rownames(m) else colnames(m)
     })
   }
-  if (!is.list(ids) || length(ids) != length(mats)) {
+  if (!is.list(ids)) {
     stop("'ids' must be a list of the same length as 'mats' (or NULL)", call. = FALSE)
   }
 
-  # Align ids list names to mats, if present.
+  # Named list: check for missing subjects first (more informative than length error).
   if (!is.null(names(ids))) {
     missing <- setdiff(names(mats), names(ids))
     if (length(missing) > 0) {
@@ -92,6 +92,9 @@ harmonize_union_fill <- function(mats,
     }
     ids <- ids[names(mats)]
   } else {
+    if (length(ids) != length(mats)) {
+      stop("'ids' must be a list of the same length as 'mats' (or NULL)", call. = FALSE)
+    }
     names(ids) <- names(mats)
   }
 

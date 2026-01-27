@@ -682,3 +682,82 @@ test_that("fit_alignment validates reference against method reference_types", {
     "does not support reference type 'template'"
   )
 })
+
+
+# ---------- .reference_type_for_validation edge cases ----------
+
+test_that(".reference_type_for_validation classifies matrix as template", {
+  adat <- AlignmentData(list(s1 = matrix(1, 3, 3)))
+  ref_type <- neuralign:::.reference_type_for_validation(matrix(1, 3, 3), adat)
+  expect_equal(ref_type, "template")
+})
+
+test_that(".reference_type_for_validation classifies medoid/centroid as subject", {
+  adat <- AlignmentData(list(s1 = matrix(1, 3, 3)))
+  expect_equal(neuralign:::.reference_type_for_validation("medoid", adat), "subject")
+  expect_equal(neuralign:::.reference_type_for_validation("centroid", adat), "subject")
+})
+
+test_that(".reference_type_for_validation classifies consensus", {
+  adat <- AlignmentData(list(s1 = matrix(1, 3, 3)))
+  expect_equal(neuralign:::.reference_type_for_validation("consensus", adat), "consensus")
+})
+
+test_that(".reference_type_for_validation classifies barycenter", {
+  adat <- AlignmentData(list(s1 = matrix(1, 3, 3)))
+  expect_equal(neuralign:::.reference_type_for_validation("barycenter", adat), "barycenter")
+})
+
+test_that(".reference_type_for_validation classifies subject ID", {
+  adat <- AlignmentData(list(s1 = matrix(1, 3, 3), s2 = matrix(1, 3, 3)))
+  expect_equal(neuralign:::.reference_type_for_validation("s1", adat), "subject")
+  expect_equal(neuralign:::.reference_type_for_validation("s2", adat), "subject")
+})
+
+test_that(".reference_type_for_validation returns unknown for unrecognized string", {
+  adat <- AlignmentData(list(s1 = matrix(1, 3, 3)))
+  expect_equal(neuralign:::.reference_type_for_validation("bogus_ref", adat), "unknown")
+})
+
+test_that(".reference_type_for_validation returns unknown for non-character non-matrix", {
+  adat <- AlignmentData(list(s1 = matrix(1, 3, 3)))
+  expect_equal(neuralign:::.reference_type_for_validation(42, adat), "unknown")
+})
+
+
+# ---------- .validate_reference_for_aligner ----------
+
+test_that(".validate_reference_for_aligner passes when no reference_types constraint", {
+  caps <- list(reference_types = NULL)
+  adat <- AlignmentData(list(s1 = matrix(1, 3, 3)))
+  expect_invisible(
+    neuralign:::.validate_reference_for_aligner("s1", adat, "test", caps)
+  )
+})
+
+test_that(".validate_reference_for_aligner errors on unknown string reference", {
+  caps <- list(reference_types = c("subject"))
+  adat <- AlignmentData(list(s1 = matrix(1, 3, 3)))
+  expect_error(
+    neuralign:::.validate_reference_for_aligner("not_a_subject", adat, "test", caps),
+    "Unknown reference"
+  )
+})
+
+test_that(".validate_reference_for_aligner errors on non-character non-matrix reference", {
+  caps <- list(reference_types = c("subject"))
+  adat <- AlignmentData(list(s1 = matrix(1, 3, 3)))
+  expect_error(
+    neuralign:::.validate_reference_for_aligner(42, adat, "test", caps),
+    "Invalid reference specification"
+  )
+})
+
+test_that(".validate_reference_for_aligner errors when ref type not in supported set", {
+  caps <- list(reference_types = c("subject"))
+  adat <- AlignmentData(list(s1 = matrix(1, 3, 3)))
+  expect_error(
+    neuralign:::.validate_reference_for_aligner("consensus", adat, "test_method", caps),
+    "does not support reference type.*consensus"
+  )
+})
