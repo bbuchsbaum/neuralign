@@ -8,6 +8,7 @@ NULL
   # Register built-in aligners
   .register_procrustes()
   .register_procrustes_graph()
+  .register_kprocrustes()
 
   # Register OT aligners if manifoldalign is available
   if (requireNamespace("manifoldalign", quietly = TRUE)) {

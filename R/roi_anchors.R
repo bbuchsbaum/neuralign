@@ -235,35 +235,31 @@ roi_anchor_projectors <- function(roi_by_subject,
     stop("No anchors remain after harmonization", call. = FALSE)
   }
 
+  if (anchor_policy == "union") {
+    res <- harmonize_union_fill(
+      mats = proj,
+      axis = "rows",
+      union_ids = anchors_harmonized,
+      fill = 0,
+      min_coverage = 0L,
+      warn_sparse_below = 0
+    )
+    out <- res$mats
+    if (isTRUE(sparse)) {
+      out <- lapply(out, function(P) if (inherits(P, "Matrix")) P else Matrix::Matrix(P, sparse = TRUE))
+    } else {
+      out <- lapply(out, as.matrix)
+    }
+    names(out) <- names(proj)
+    return(out)
+  }
+
   out <- lapply(proj, function(P) {
     P <- if (inherits(P, "Matrix")) P else as.matrix(P)
     have <- rownames(P)
     if (anchor_policy == "intersection") {
       return(P[anchors_harmonized, , drop = FALSE])
     }
-    # union: expand with zeros for missing anchors
-    miss <- setdiff(anchors_harmonized, have)
-    if (length(miss) == 0) {
-      return(P[anchors_harmonized, , drop = FALSE])
-    }
-    if (isTRUE(sparse)) {
-      P0 <- Matrix::sparseMatrix(
-        i = integer(0), j = integer(0), x = numeric(0),
-        dims = c(length(anchors_harmonized), ncol(P)),
-        dimnames = list(anchors_harmonized, colnames(P)),
-        giveCsparse = TRUE
-      )
-      P0[match(have, anchors_harmonized), ] <- P
-      return(P0)
-    }
-
-    P0 <- matrix(0,
-      nrow = length(anchors_harmonized),
-      ncol = ncol(P),
-      dimnames = list(anchors_harmonized, colnames(P))
-    )
-    P0[match(have, anchors_harmonized), ] <- as.matrix(P)
-    P0
   })
   names(out) <- names(proj)
   out
