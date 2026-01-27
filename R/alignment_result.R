@@ -126,6 +126,13 @@ setMethod("show", "AlignmentResult", function(object) {
   }
 })
 
+.ensure_result <- function(x, what = "result") {
+  if (!inherits(x, "AlignmentResult")) {
+    stop(sprintf("'%s' must be an AlignmentResult object", what), call. = FALSE)
+  }
+  x
+}
+
 
 #' Get Aligned Data for a Subject
 #'
@@ -136,6 +143,8 @@ setMethod("show", "AlignmentResult", function(object) {
 #'
 #' @export
 get_aligned <- function(result, subject = NULL) {
+  result <- .ensure_result(result, what = "result")
+
   if (is.null(subject)) {
     return(result@aligned)
   }
@@ -155,7 +164,7 @@ get_aligned <- function(result, subject = NULL) {
 #'
 #' @export
 aligned_data <- function(result) {
-  result@aligned
+  get_aligned(result)
 }
 
 
@@ -168,6 +177,8 @@ aligned_data <- function(result) {
 #'
 #' @export
 get_quality <- function(result, metric = NULL) {
+  result <- .ensure_result(result, what = "result")
+
   if (is.null(metric)) {
     return(result@quality)
   }
@@ -187,6 +198,7 @@ get_quality <- function(result, metric = NULL) {
 #'
 #' @export
 get_model <- function(result) {
+  result <- .ensure_result(result, what = "result")
   result@model
 }
 
@@ -199,6 +211,7 @@ get_model <- function(result) {
 #'
 #' @export
 get_cv_info <- function(result) {
+  result <- .ensure_result(result, what = "result")
   result@cv_info
 }
 
@@ -215,6 +228,7 @@ get_cv_info <- function(result) {
 #'
 #' @export
 as_aligned_matrix <- function(result, by = c("subject", "observation")) {
+  result <- .ensure_result(result, what = "result")
   by <- match.arg(by)
 
   if (by == "subject") {

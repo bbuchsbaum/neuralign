@@ -244,6 +244,12 @@ setValidity("AlignmentData", function(object) {
   if (length(errors) == 0L) TRUE else errors
 })
 
+.ensure_alignment_data <- function(x, what = "object") {
+  if (!inherits(x, "AlignmentData")) {
+    stop(sprintf("'%s' must be an AlignmentData object", what), call. = FALSE)
+  }
+  x
+}
 
 #' Create an AlignmentData Object
 #'
@@ -445,14 +451,14 @@ as_alignment_data.AlignmentData <- function(x, ...) {
 #'
 #' @export
 get_subject_data <- function(object, subject) {
-  if (is.character(subject)) {
-    idx <- match(subject, object@subjects)
-    if (is.na(idx)) {
-      stop(sprintf("Unknown subject: %s", subject), call. = FALSE)
-    }
-  } else {
-    idx <- subject
+  object <- .ensure_alignment_data(object, what = "object")
+
+  subj_ids <- object@subjects
+  subj <- .resolve_subject_subset(subject, subj_ids, what = "subject")
+  if (length(subj) != 1L) {
+    stop("'subject' must select exactly one subject", call. = FALSE)
   }
+  idx <- match(subj, subj_ids)
   object@data[[idx]]
 }
 
@@ -465,6 +471,7 @@ get_subject_data <- function(object, subject) {
 #'
 #' @export
 get_data_list <- function(object) {
+  object <- .ensure_alignment_data(object, what = "object")
   object@data
 }
 
@@ -477,6 +484,7 @@ get_data_list <- function(object) {
 #'
 #' @export
 get_obs_labels <- function(object) {
+  object <- .ensure_alignment_data(object, what = "object")
   object@obs_labels
 }
 
