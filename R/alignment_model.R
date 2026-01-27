@@ -389,11 +389,3 @@ setMethod("length", "AlignmentModel", function(x) length(x@transforms))
   }
   x
 }
-
-
-#' NULL-coalescing operator
-#' @param a First argument
-#' @param b Second argument (returned if a is NULL)
-#' @return a if not NULL, otherwise b
-#' @noRd
-`%||%` <- function(a, b) if (is.null(a)) b else a

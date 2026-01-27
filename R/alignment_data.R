@@ -556,6 +556,74 @@ validate_alignment_data <- function(object, check_features = TRUE,
     if (is.null(object@obs_labels)) {
       stop("check_obs_labels=TRUE but object@obs_labels is NULL", call. = FALSE)
     }
+
+    labels <- object@obs_labels
+
+    if (is.atomic(labels) || is.factor(labels)) {
+      # Shared observation axis
+      n_obs <- dims_mat[1, 2]
+      if (length(labels) != n_obs) {
+        stop(sprintf(
+          "AlignmentData@obs_labels length mismatch: expected %d (n_obs), got %d",
+          as.integer(n_obs), length(labels)
+        ), call. = FALSE)
+      }
+      if (any(is.na(labels))) {
+        stop("AlignmentData@obs_labels must not contain NA", call. = FALSE)
+      }
+    } else if (is.list(labels)) {
+      subjects <- object@subjects
+
+      if (is.null(names(labels))) {
+        if (length(labels) != length(subjects)) {
+          stop(
+            "AlignmentData@obs_labels is a list without names; its length must match number of subjects",
+            call. = FALSE
+          )
+        }
+        names(labels) <- subjects
+      }
+
+      missing <- setdiff(subjects, names(labels))
+      if (length(missing) > 0) {
+        stop(
+          sprintf(
+            "AlignmentData@obs_labels list is missing subjects: %s",
+            paste(missing, collapse = ", ")
+          ),
+          call. = FALSE
+        )
+      }
+
+      for (subj in subjects) {
+        labs_i <- labels[[subj]]
+        if (!(is.atomic(labs_i) || is.factor(labs_i))) {
+          stop(
+            sprintf("AlignmentData@obs_labels[[%s]] must be an atomic vector or factor", subj),
+            call. = FALSE
+          )
+        }
+        if (any(is.na(labs_i))) {
+          stop(
+            sprintf("AlignmentData@obs_labels[[%s]] must not contain NA", subj),
+            call. = FALSE
+          )
+        }
+
+        n_obs_i <- dims_mat[match(subj, names(object@data)), 2]
+        if (length(labs_i) != n_obs_i) {
+          stop(sprintf(
+            "AlignmentData@obs_labels[[%s]] length mismatch: expected %d (n_obs), got %d",
+            subj, as.integer(n_obs_i), length(labs_i)
+          ), call. = FALSE)
+        }
+      }
+    } else {
+      stop(
+        "AlignmentData@obs_labels must be NULL, an atomic vector/factor, or a per-subject (named) list",
+        call. = FALSE
+      )
+    }
   }
 
   invisible(TRUE)
