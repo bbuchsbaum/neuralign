@@ -196,6 +196,7 @@ warns if independence is not maintained:
 ```{r independence-check}
 b <- alignment_feature_block(
   matrix(rnorm(12), 3, 4), "task",
+  feature_names = c("f1", "f2", "f3"),
   meta = list(requires_independence = TRUE)
 )
 
@@ -395,12 +396,13 @@ composed <- model2 %*% model1  # model1 applied first, then model2
 ### Applying the composed model
 
 ```{r apply-composed}
-new_data <- AlignmentData(list(
-  s4 = matrix(rnorm(p * n_obs), p, n_obs)
-))
+# New observations for existing subjects
+new_obs <- AlignmentData(lapply(data_list, function(m) {
+  matrix(rnorm(p * 5), p, 5)  # 5 new timepoints per subject
+}))
 
-# Apply the full pipeline in one step
-result_composed <- apply_alignment(composed, new_data)
+# Apply the full composed pipeline in one step
+result_composed <- apply_alignment(composed, new_obs)
 names(get_aligned(result_composed))
 ```
 
