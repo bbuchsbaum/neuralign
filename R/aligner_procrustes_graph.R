@@ -161,6 +161,62 @@ NULL
   G
 }
 
+.build_reference_template <- function(data_list, transforms, obs_labels_by_subject, reference) {
+  subjects <- names(data_list)
+  if (length(subjects) < 1L) {
+    stop("Cannot build reference template: no subjects", call. = FALSE)
+  }
+  if (is.null(reference) || !is.character(reference) || length(reference) != 1L || !reference %in% subjects) {
+    stop("Cannot build reference template: invalid reference subject", call. = FALSE)
+  }
+
+  ref_labels <- obs_labels_by_subject[[reference]]
+  if (is.null(ref_labels)) {
+    stop("Cannot build reference template: missing reference obs_labels", call. = FALSE)
+  }
+
+  # Stable union order: reference labels first, then append unseen labels in the
+  # order they appear for each subject.
+  template_labels <- as.character(ref_labels)
+  for (s in subjects) {
+    labs <- obs_labels_by_subject[[s]]
+    if (is.null(labs)) next
+    add <- setdiff(as.character(labs), template_labels)
+    if (length(add) > 0) {
+      template_labels <- c(template_labels, add)
+    }
+  }
+  template_labels <- unique(template_labels)
+
+  d <- nrow(as.matrix(data_list[[1L]]))
+  template <- matrix(NA_real_, d, length(template_labels), dimnames = list(NULL, template_labels))
+
+  aligned_by_subject <- lapply(subjects, function(s) {
+    Q <- transforms[[s]]
+    if (is.null(Q)) stop(sprintf("Missing transform for subject '%s'", s), call. = FALSE)
+    Q <- as.matrix(Q)
+    X <- as.matrix(data_list[[s]])
+    Q %*% X
+  })
+  names(aligned_by_subject) <- subjects
+
+  for (k in seq_along(template_labels)) {
+    lab <- template_labels[[k]]
+    cols <- vector("list", 0L)
+    for (s in subjects) {
+      idx <- match(lab, obs_labels_by_subject[[s]])
+      if (!is.na(idx)) {
+        cols[[length(cols) + 1L]] <- aligned_by_subject[[s]][, idx]
+      }
+    }
+    if (length(cols) > 0L) {
+      template[, k] <- Reduce(`+`, cols) / length(cols)
+    }
+  }
+
+  list(template_data = template, template_obs_labels = template_labels)
+}
+
 #' Procrustes Graph Fit Function
 #' @keywords internal
 .procrustes_graph_fit <- function(data,
@@ -261,33 +317,53 @@ NULL
   transforms_train <- lapply(G, function(Gi) G_ref %*% t(Gi))
   names(transforms_train) <- subjects
 
+  if (!isTRUE(reflection)) {
+    transforms_train <- lapply(transforms_train, function(Q) {
+      Q <- as.matrix(Q)
+      if (det(Q) < 0) {
+        .project_to_orthogonal(Q, reflection = FALSE)
+      } else {
+        Q
+      }
+    })
+  }
+
+  template <- .build_reference_template(
+    data_list = data_list,
+    transforms = transforms_train,
+    obs_labels_by_subject = obs_labels_by_subject,
+    reference = reference
+  )
+  template_data <- template$template_data
+  template_labels <- template$template_obs_labels
+
   # Fit transforms for any held-out subjects by aligning directly to the
-  # reference subject using label overlap.
+  # reference template using label overlap.
   transforms <- transforms_train
   heldout_subjects <- setdiff(data@subjects, subjects)
   if (length(heldout_subjects) > 0) {
     all_labels <- .as_obs_labels_list(data)
-    ref_labels <- obs_labels_by_subject[[reference]]
-    ref_data <- get_subject_data(train_data, reference)
     for (subj in heldout_subjects) {
       X_new <- as.matrix(get_subject_data(data, subj))
       labs_new <- all_labels[[subj]]
       res <- procrustes_rotation(
         source = X_new,
-        target = as.matrix(ref_data),
+        target = as.matrix(template_data),
         convention = "left",
         scale = FALSE,
         reflection = reflection,
         obs_labels_source = labs_new,
-        obs_labels_target = ref_labels,
+        obs_labels_target = template_labels,
         min_overlap = min_overlap
       )
       transforms[[subj]] <- res$Q
     }
   }
 
-  if (!isTRUE(reflection)) {
-    transforms <- lapply(transforms, function(Q) {
+  # Ensure proper rotations for any newly-fitted transforms (training transforms
+  # were already projected above).
+  if (!isTRUE(reflection) && length(heldout_subjects) > 0L) {
+    transforms[heldout_subjects] <- lapply(transforms[heldout_subjects], function(Q) {
       Q <- as.matrix(Q)
       if (det(Q) < 0) {
         .project_to_orthogonal(Q, reflection = FALSE)
@@ -299,12 +375,13 @@ NULL
 
   list(
     transforms = transforms,
-    reference_data = get_subject_data(data, reference),
+    reference_data = template_data,
     space_from = data@space,
     space_to = data@space,
     method_state = list(
       reference = reference,
       reference_obs_labels = obs_labels_by_subject[[reference]],
+      template_obs_labels = template_labels,
       min_overlap = min_overlap,
       weight = weight,
       reflection = reflection
@@ -329,7 +406,10 @@ NULL
   }
   min_overlap <- as.integer(ms$min_overlap %||% 2L)
   reflection <- isTRUE(ms$reflection %||% FALSE)
-  ref_labels <- ms$reference_obs_labels %||% NULL
+  target_labels <- ms$template_obs_labels %||% ms$reference_obs_labels %||% NULL
+  if (is.null(target_labels)) {
+    stop("procrustes_graph apply requires method_state$template_obs_labels or method_state$reference_obs_labels", call. = FALSE)
+  }
 
   ref_data <- fit_result$reference_data
   if (is.null(ref_data) || !.is_matrixish(ref_data)) {
@@ -347,7 +427,7 @@ NULL
     scale = FALSE,
     reflection = reflection,
     obs_labels_source = labs_new,
-    obs_labels_target = ref_labels,
+    obs_labels_target = target_labels,
     min_overlap = min_overlap
   )
 

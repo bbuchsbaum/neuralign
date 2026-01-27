@@ -214,6 +214,87 @@ test_that("procrustes_graph can fit a new subject via apply_alignment()", {
   expect_equal(Q3, A1 %*% t(A3), tolerance = 1e-6)
 })
 
+test_that("procrustes_graph can fit a new subject without reference overlap via apply_alignment()", {
+  set.seed(4)
+  .ensure_procrustes_graph_registered()
+
+  d <- 5
+  labels <- paste0("stim", 1:10)
+  Z <- matrix(rnorm(d * length(labels)), d, length(labels))
+
+  A1 <- random_rotation(d)
+  A2 <- random_rotation(d)
+  A3 <- random_rotation(d)
+
+  # Reference subject only sees stim1-5. Subject 2 provides stim6-10 to the
+  # template (via union-fill), so a new subject that sees only stim6-10 can
+  # still be aligned even with zero overlap to the reference.
+  adat <- AlignmentData(
+    data = list(
+      s1 = A1 %*% Z[, 1:5, drop = FALSE],
+      s2 = A2 %*% Z[, 1:10, drop = FALSE]
+    ),
+    obs_labels = list(
+      s1 = labels[1:5],
+      s2 = labels[1:10]
+    )
+  )
+
+  fit <- fit_alignment(
+    adat,
+    method = "procrustes_graph",
+    reference = "s1",
+    min_overlap = d,
+    compute_quality = FALSE
+  )
+
+  new_data <- AlignmentData(
+    data = list(s3 = A3 %*% Z[, 6:10, drop = FALSE]),
+    obs_labels = list(s3 = labels[6:10])
+  )
+
+  applied <- apply_alignment(fit, new_data)
+  Q3 <- get_transform(get_model(applied), "s3")
+  expect_equal(Q3, A1 %*% t(A3), tolerance = 1e-6)
+})
+
+test_that("procrustes_graph can fit held-out subjects with train_idx using union template", {
+  set.seed(4)
+  .ensure_procrustes_graph_registered()
+
+  d <- 5
+  labels <- paste0("stim", 1:10)
+  Z <- matrix(rnorm(d * length(labels)), d, length(labels))
+
+  A1 <- random_rotation(d)
+  A2 <- random_rotation(d)
+  A3 <- random_rotation(d)
+
+  adat <- AlignmentData(
+    data = list(
+      s1 = A1 %*% Z[, 1:5, drop = FALSE],
+      s2 = A2 %*% Z[, 1:10, drop = FALSE],
+      s3 = A3 %*% Z[, 6:10, drop = FALSE]
+    ),
+    obs_labels = list(
+      s1 = labels[1:5],
+      s2 = labels[1:10],
+      s3 = labels[6:10]
+    )
+  )
+
+  res <- fit_alignment(
+    adat,
+    method = "procrustes_graph",
+    reference = "s1",
+    train_idx = 1:2, # fit on s1+s2 only
+    min_overlap = d,
+    compute_quality = FALSE
+  )
+
+  expect_equal(res@model@transforms[["s3"]], A1 %*% t(A3), tolerance = 1e-6)
+})
+
 test_that("procrustes_graph apply_alignment errors when overlap is too small", {
   set.seed(5)
   .ensure_procrustes_graph_registered()
