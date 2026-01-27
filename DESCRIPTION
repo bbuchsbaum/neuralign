@@ -42,6 +42,7 @@ VignetteBuilder: knitr
 Collate:
     'alignment_data.R'
     'utils_infix.R'
+    'utils_subset.R'
     'guidance.R'
     'roi_anchors.R'
     'harmonize.R'

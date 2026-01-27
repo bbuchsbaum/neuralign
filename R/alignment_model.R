@@ -345,15 +345,7 @@ add_transform <- function(model, subject, transform) {
 setMethod("[", c("AlignmentModel", "ANY"),
   function(x, i) {
     subj_names <- names(x@transforms)
-
-    if (is.character(i)) {
-      if (!all(i %in% subj_names)) {
-        missing <- setdiff(i, subj_names)
-        stop(sprintf("Unknown subjects: %s", paste(missing, collapse = ", ")), call. = FALSE)
-      }
-    } else {
-      i <- subj_names[i]
-    }
+    i <- .resolve_subject_subset(i, subj_names, what = "subjects")
 
     new("AlignmentModel",
       transforms = x@transforms[i],

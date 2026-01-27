@@ -327,18 +327,8 @@ AlignmentData <- function(data,
 #' @export
 setMethod("[", c("AlignmentData", "ANY"),
   function(x, i) {
-    if (is.character(i)) {
-      # Convert subject IDs to indices
-      idx <- match(i, x@subjects)
-      if (any(is.na(idx))) {
-        missing <- i[is.na(idx)]
-        stop(
-          sprintf("Unknown subjects: %s", paste(missing, collapse = ", ")),
-          call. = FALSE
-        )
-      }
-      i <- idx
-    }
+    subj_sel <- .resolve_subject_subset(i, x@subjects, what = "subjects")
+    i <- match(subj_sel, x@subjects)
 
     AlignmentData(
       data = x@data[i],

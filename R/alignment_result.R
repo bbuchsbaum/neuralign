@@ -239,15 +239,7 @@ as_aligned_matrix <- function(result, by = c("subject", "observation")) {
 setMethod("[", c("AlignmentResult", "ANY"),
   function(x, i) {
     subj_names <- names(x@aligned)
-
-    if (is.character(i)) {
-      if (!all(i %in% subj_names)) {
-        missing <- setdiff(i, subj_names)
-        stop(sprintf("Unknown subjects: %s", paste(missing, collapse = ", ")), call. = FALSE)
-      }
-    } else {
-      i <- subj_names[i]
-    }
+    i <- .resolve_subject_subset(i, subj_names, what = "subjects")
 
     AlignmentResult(
       model = x@model[i],
