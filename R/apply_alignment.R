@@ -47,7 +47,7 @@ apply_alignment <- function(model,
   }
 
   if (!inherits(model, "AlignmentModel")) {
-    stop("'model' must be an AlignmentModel or AlignmentResult")
+    stop("'model' must be an AlignmentModel or AlignmentResult", call. = FALSE)
   }
 
   caps <- aligner_capabilities(model@method)
@@ -326,7 +326,7 @@ inverse_transform <- function(model,
   } else if (method == "ridge") {
     return(.ridge_inverse(transform, lambda = lambda))
   } else {
-    stop(sprintf("Unknown inverse method: %s", method))
+    stop(sprintf("Unknown inverse method: %s", method), call. = FALSE)
   }
 }
 

@@ -44,7 +44,7 @@ save_alignment <- function(model,
   } else if (inherits(model, "AlignmentModel")) {
     model
   } else {
-    stop("'model' must be an AlignmentModel or AlignmentResult")
+    stop("'model' must be an AlignmentModel or AlignmentResult", call. = FALSE)
   }
 
   # Ensure .rds extension
@@ -84,7 +84,7 @@ save_alignment <- function(model,
 #' @export
 load_alignment <- function(path, verify = TRUE) {
   if (!file.exists(path)) {
-    stop(sprintf("File not found: %s", path))
+    stop(sprintf("File not found: %s", path), call. = FALSE)
   }
 
   save_data <- readRDS(path)
@@ -95,11 +95,12 @@ load_alignment <- function(path, verify = TRUE) {
     if (inherits(save_data, "AlignmentModel") ||
         inherits(save_data, "AlignmentResult")) {
       warning("Loaded model was not saved with save_alignment; ",
-        "cannot verify integrity"
+        "cannot verify integrity",
+        call. = FALSE
       )
       return(save_data)
     }
-    stop("File does not contain an alignment model")
+    stop("File does not contain an alignment model", call. = FALSE)
   }
 
   obj <- save_data$object
@@ -108,7 +109,7 @@ load_alignment <- function(path, verify = TRUE) {
   if (verify && !is.null(save_data$hash)) {
     current_hash <- digest::digest(obj, algo = "md5")
     if (current_hash != save_data$hash) {
-      warning("Model integrity check failed; file may be corrupted")
+      warning("Model integrity check failed; file may be corrupted", call. = FALSE)
     }
   }
 
@@ -176,8 +177,8 @@ export_alignment <- function(model,
     meta_file <- file.path(dir, "_metadata.csv")
     meta <- data.frame(
       subject = names(model@transforms),
-      nrow = sapply(model@transforms, nrow),
-      ncol = sapply(model@transforms, ncol),
+      nrow = vapply(model@transforms, nrow, integer(1)),
+      ncol = vapply(model@transforms, ncol, integer(1)),
       stringsAsFactors = FALSE
     )
     utils::write.csv(meta, meta_file, row.names = FALSE)
@@ -211,7 +212,7 @@ export_alignment <- function(model,
 
   if (format == "mat") {
     if (!requireNamespace("R.matlab", quietly = TRUE)) {
-      stop("Package 'R.matlab' required for MATLAB export")
+      stop("Package 'R.matlab' required for MATLAB export", call. = FALSE)
     }
 
     mat_data <- list(
@@ -259,13 +260,13 @@ import_alignment <- function(path,
   if (format == "csv") {
     dir <- paste0(path, "_transforms")
     if (!dir.exists(dir)) {
-      stop(sprintf("Directory not found: %s", dir))
+      stop(sprintf("Directory not found: %s", dir), call. = FALSE)
     }
 
     # Read metadata
     meta_file <- file.path(dir, "_metadata.csv")
     if (!file.exists(meta_file)) {
-      stop("Metadata file not found")
+      stop("Metadata file not found", call. = FALSE)
     }
     meta <- utils::read.csv(meta_file, stringsAsFactors = FALSE)
 
@@ -275,7 +276,7 @@ import_alignment <- function(path,
       subj <- meta$subject[i]
       file <- file.path(dir, sprintf("%s.csv", subj))
       if (!file.exists(file)) {
-        warning(sprintf("Transform file not found for %s", subj))
+        warning(sprintf("Transform file not found for %s", subj), call. = FALSE)
         next
       }
       transforms[[subj]] <- as.matrix(utils::read.csv(file))
@@ -289,7 +290,7 @@ import_alignment <- function(path,
 
     file <- if (grepl("\\.json$", path)) path else paste0(path, ".json")
     if (!file.exists(file)) {
-      stop(sprintf("File not found: %s", file))
+      stop(sprintf("File not found: %s", file), call. = FALSE)
     }
 
     json_data <- jsonlite::fromJSON(file)
@@ -299,6 +300,27 @@ import_alignment <- function(path,
 
     if (!is.null(json_data$method)) {
       method <- json_data$method
+    }
+  }
+
+  # Validate imported transforms
+  if (length(transforms) == 0) {
+    stop("No transforms were imported", call. = FALSE)
+  }
+  for (subj in names(transforms)) {
+    mat <- transforms[[subj]]
+    if (!is.matrix(mat) && !inherits(mat, "Matrix")) {
+      stop(sprintf("Imported transform for subject '%s' is not a matrix", subj),
+        call. = FALSE)
+    }
+    if (!is.numeric(mat)) {
+      stop(sprintf("Imported transform for subject '%s' is not numeric", subj),
+        call. = FALSE)
+    }
+    if (any(!is.finite(mat))) {
+      warning(sprintf(
+        "Imported transform for subject '%s' contains non-finite values", subj
+      ), call. = FALSE)
     }
   }
 

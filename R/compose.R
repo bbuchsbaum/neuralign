@@ -42,10 +42,10 @@ compose_alignment <- function(model1, model2) {
   }
 
   if (!inherits(model1, "AlignmentModel")) {
-    stop("'model1' must be an AlignmentModel")
+    stop("'model1' must be an AlignmentModel", call. = FALSE)
   }
   if (!inherits(model2, "AlignmentModel")) {
-    stop("'model2' must be an AlignmentModel")
+    stop("'model2' must be an AlignmentModel", call. = FALSE)
   }
 
   caps1 <- aligner_capabilities(model1@method)
@@ -83,7 +83,7 @@ compose_alignment <- function(model1, model2) {
   common_subjects <- intersect(subjects1, subjects2)
 
   if (length(common_subjects) == 0) {
-    stop("Models have no subjects in common")
+    stop("Models have no subjects in common", call. = FALSE)
   }
 
   if (length(common_subjects) < length(subjects1) ||
@@ -186,7 +186,7 @@ setMethod("%*%", c("AlignmentModel", "matrix"),
   function(x, y) {
     # Assume single subject, apply first transform
     if (length(x@transforms) == 0) {
-      stop("Model has no transforms")
+      stop("Model has no transforms", call. = FALSE)
     }
 
     # Use first transform
@@ -224,27 +224,34 @@ check_composition <- function(model1, model2) {
     ))
   }
 
-  # Check dimensions for first common subject
-  subj <- common[1]
-  t1 <- model1@transforms[[subj]]
-  t2 <- model2@transforms[[subj]]
+  # Check dimensions for all common subjects
+  for (subj in common) {
+    t1 <- model1@transforms[[subj]]
+    t2 <- model2@transforms[[subj]]
 
-  if (!.is_matrixish(t1) || !.is_matrixish(t2)) {
-    return(list(
-      compatible = FALSE,
-      message = "Non-matrix transforms cannot be composed"
-    ))
+    if (!.is_matrixish(t1) || !.is_matrixish(t2)) {
+      return(list(
+        compatible = FALSE,
+        message = sprintf(
+          "Non-matrix transforms cannot be composed (subject '%s')", subj
+        )
+      ))
+    }
+
+    if (ncol(t2) != nrow(t1)) {
+      return(list(
+        compatible = FALSE,
+        message = sprintf(
+          "Dimension mismatch for subject '%s': model1 output (%d) != model2 input (%d)",
+          subj, nrow(t1), ncol(t2)
+        )
+      ))
+    }
   }
 
-  if (ncol(t2) != nrow(t1)) {
-    return(list(
-      compatible = FALSE,
-      message = sprintf(
-        "Dimension mismatch: model1 output (%d) != model2 input (%d)",
-        nrow(t1), ncol(t2)
-      )
-    ))
-  }
+  # Use first subject for summary dims
+  t1 <- model1@transforms[[common[1]]]
+  t2 <- model2@transforms[[common[1]]]
 
   list(
     compatible = TRUE,

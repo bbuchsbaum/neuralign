@@ -91,6 +91,18 @@ NULL
 #'
 #' @export
 validate_cv_setup <- function(cv_folds, reference = "medoid") {
+  # Check train/test disjointness for every fold
+  for (fold_name in names(cv_folds$folds)) {
+    fold <- cv_folds$folds[[fold_name]]
+    overlap <- intersect(fold$train, fold$test)
+    if (length(overlap) > 0) {
+      stop(sprintf(
+        "Fold '%s' has %d overlapping indices between train and test sets",
+        fold_name, length(overlap)
+      ), call. = FALSE)
+    }
+  }
+
   # Check that reference selection doesn't leak into test
   if (is.character(reference) && length(reference) == 1) {
     if (reference %in% c("medoid", "centroid", "consensus")) {

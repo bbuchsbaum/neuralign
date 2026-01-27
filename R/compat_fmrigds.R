@@ -33,7 +33,7 @@ NULL
 #' @export
 as_map_family <- function(model, name = NULL) {
   if (!requireNamespace("fmrigds", quietly = TRUE)) {
-    stop("Package 'fmrigds' required for as_map_family()")
+    stop("Package 'fmrigds' required for as_map_family()", call. = FALSE)
   }
 
   if (inherits(model, "AlignmentResult")) {
@@ -50,7 +50,7 @@ as_map_family <- function(model, name = NULL) {
   }
 
   if (!inherits(model, "AlignmentModel")) {
-    stop("'model' must be an AlignmentModel")
+    stop("'model' must be an AlignmentModel", call. = FALSE)
   }
 
   # Build name from method if not provided
@@ -132,7 +132,7 @@ from_map_family <- function(map_family, method = "fmrigds_imported") {
 #' @export
 apply_to_gds <- function(model, gds_data, ...) {
   if (!requireNamespace("fmrigds", quietly = TRUE)) {
-    stop("Package 'fmrigds' required")
+    stop("Package 'fmrigds' required", call. = FALSE)
   }
 
   fam <- as_map_family(model)
@@ -154,7 +154,7 @@ apply_to_gds <- function(model, gds_data, ...) {
 #' @export
 alignment_data_from_gds <- function(gds_data, assay = "beta", ...) {
   if (!requireNamespace("fmrigds", quietly = TRUE)) {
-    stop("Package 'fmrigds' required")
+    stop("Package 'fmrigds' required", call. = FALSE)
   }
 
   subjects <- fmrigds::subjects(gds_data)

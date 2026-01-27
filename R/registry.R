@@ -210,7 +210,7 @@ register_aligner <- function(name,
                              api_version = NEURALIGN_ALIGNER_API_VERSION) {
   # Validate name
   if (!is.character(name) || length(name) != 1) {
-    stop("'name' must be a single character string")
+    stop("'name' must be a single character string", call. = FALSE)
   }
 
   # Validate aligner contract
@@ -438,7 +438,7 @@ unregister_aligner <- function(name) {
 .validate_aligner_requirements <- function(name, data) {
   caps <- aligner_capabilities(name)
   if (is.null(caps)) {
-    stop(sprintf("Unknown aligner: %s", name))
+    stop(sprintf("Unknown aligner: %s", name), call. = FALSE)
   }
 
   # Check geometry requirement
@@ -447,7 +447,7 @@ unregister_aligner <- function(name) {
       stop(sprintf(
         "Method '%s' requires geometry (adjacency matrix) in AlignmentData",
         name
-      ))
+      ), call. = FALSE)
     }
   }
 
@@ -457,7 +457,7 @@ unregister_aligner <- function(name) {
       stop(sprintf(
         "Method '%s' requires design (task structure) in AlignmentData",
         name
-      ))
+      ), call. = FALSE)
     }
   }
 

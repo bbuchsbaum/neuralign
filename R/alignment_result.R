@@ -56,11 +56,11 @@ AlignmentResult <- function(model,
                             quality = list(),
                             cv_info = list()) {
   if (!inherits(model, "AlignmentModel")) {
-    stop("'model' must be an AlignmentModel object")
+    stop("'model' must be an AlignmentModel object", call. = FALSE)
   }
 
   if (!is.list(aligned)) {
-    stop("'aligned' must be a list")
+    stop("'aligned' must be a list", call. = FALSE)
   }
 
   new("AlignmentResult",
@@ -141,7 +141,7 @@ get_aligned <- function(result, subject = NULL) {
   }
 
   if (!subject %in% names(result@aligned)) {
-    stop(sprintf("Subject '%s' not found in result", subject))
+    stop(sprintf("Subject '%s' not found in result", subject), call. = FALSE)
   }
   result@aligned[[subject]]
 }
@@ -173,7 +173,7 @@ get_quality <- function(result, metric = NULL) {
   }
 
   if (!metric %in% names(result@quality)) {
-    stop(sprintf("Metric '%s' not found", metric))
+    stop(sprintf("Metric '%s' not found", metric), call. = FALSE)
   }
   result@quality[[metric]]
 }
@@ -243,7 +243,7 @@ setMethod("[", c("AlignmentResult", "ANY"),
     if (is.character(i)) {
       if (!all(i %in% subj_names)) {
         missing <- setdiff(i, subj_names)
-        stop(sprintf("Unknown subjects: %s", paste(missing, collapse = ", ")))
+        stop(sprintf("Unknown subjects: %s", paste(missing, collapse = ", ")), call. = FALSE)
       }
     } else {
       i <- subj_names[i]

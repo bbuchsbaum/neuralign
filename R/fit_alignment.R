@@ -185,6 +185,15 @@ fit_alignment <- function(data,
   # Determine training subjects
   if (is.null(train_idx)) {
     train_idx <- seq_along(data@subjects)
+  } else {
+    n <- length(data@subjects)
+    if (length(train_idx) == 0L) {
+      stop("'train_idx' must not be empty", call. = FALSE)
+    }
+    if (any(train_idx < 1L | train_idx > n)) {
+      stop(sprintf("'train_idx' contains out-of-bounds indices (valid range: 1 to %d)", n),
+        call. = FALSE)
+    }
   }
   train_subjects <- data@subjects[train_idx]
 

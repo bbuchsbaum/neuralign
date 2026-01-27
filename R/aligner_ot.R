@@ -30,7 +30,7 @@ NULL
                     tol = 1e-6,
                     ...) {
   if (!requireNamespace("manifoldalign", quietly = TRUE)) {
-    stop("Package 'manifoldalign' required for GW alignment")
+    stop("Package 'manifoldalign' required for GW alignment", call. = FALSE)
   }
 
   dots <- list(...)
@@ -211,7 +211,7 @@ NULL
                       tol = 1e-6,
                       ...) {
   if (!requireNamespace("manifoldalign", quietly = TRUE)) {
-    stop("Package 'manifoldalign' required for FPGW alignment")
+    stop("Package 'manifoldalign' required for FPGW alignment", call. = FALSE)
   }
 
   dots <- list(...)

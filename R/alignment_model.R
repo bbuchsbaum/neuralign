@@ -91,13 +91,15 @@ AlignmentModel <- function(transforms,
                            method_state = list(),
                            train_subjects = character(0),
                            provenance = NULL) {
-  # Validate transforms
-  if (!is.list(transforms)) {
-    stop("'transforms' must be a named list of operators")
+  # Validate required parameters
+  if (missing(method) || is.null(method) || !is.character(method) || length(method) != 1L) {
+    stop("'method' must be a single character string", call. = FALSE)
   }
-
+  if (!is.list(transforms)) {
+    stop("'transforms' must be a named list of operators", call. = FALSE)
+  }
   if (is.null(names(transforms))) {
-    stop("'transforms' must be named with subject IDs")
+    stop("'transforms' must be named with subject IDs", call. = FALSE)
   }
 
   # Build provenance if not provided
@@ -243,7 +245,7 @@ spaces_compatible <- function(a, b) {
 #' @export
 get_transform <- function(model, subject) {
   if (!subject %in% names(model@transforms)) {
-    stop(sprintf("Subject '%s' not found in model", subject))
+    stop(sprintf("Subject '%s' not found in model", subject), call. = FALSE)
   }
   model@transforms[[subject]]
 }
@@ -344,7 +346,7 @@ setMethod("[", c("AlignmentModel", "ANY"),
     if (is.character(i)) {
       if (!all(i %in% subj_names)) {
         missing <- setdiff(i, subj_names)
-        stop(sprintf("Unknown subjects: %s", paste(missing, collapse = ", ")))
+        stop(sprintf("Unknown subjects: %s", paste(missing, collapse = ", ")), call. = FALSE)
       }
     } else {
       i <- subj_names[i]
