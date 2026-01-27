@@ -61,14 +61,17 @@ create_cv_folds <- function(data,
   } else if (is.character(data)) {
     subjects <- data
   } else {
-    stop("'data' must be AlignmentData, number of subjects, or subject vector")
+    stop(
+      "'data' must be AlignmentData, number of subjects, or subject vector",
+      call. = FALSE
+    )
   }
 
   n <- length(subjects)
 
   if (!is.null(seed)) {
     old_seed <- if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
-      get(".Random.seed", envir = .GlobalEnv)
+      get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
     } else {
       NULL
     }
@@ -133,11 +136,11 @@ create_cv_folds <- function(data,
 
   if (method == "stratified") {
     if (is.null(groups)) {
-      stop("'groups' required for stratified CV")
+      stop("'groups' required for stratified CV", call. = FALSE)
     }
 
     if (length(groups) != n) {
-      stop("'groups' must have same length as number of subjects")
+      stop("'groups' must have same length as number of subjects", call. = FALSE)
     }
 
     groups <- as.factor(groups)

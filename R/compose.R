@@ -113,7 +113,7 @@ compose_alignment <- function(model1, model2) {
       stop(sprintf(
         "Dimension mismatch for subject '%s': model2 expects %d, model1 provides %d",
         subj, ncol(t2), nrow(t1)
-      ))
+      ), call. = FALSE)
     }
 
     t2 %*% t1

@@ -102,9 +102,11 @@ alignment_quality <- function(result,
 
     # Mean row-wise correlation
     n_features <- nrow(x)
-    row_cors <- sapply(seq_len(n_features), function(i) {
-      cor(x[i, ], y[i, ])
-    })
+    row_cors <- vapply(
+      seq_len(n_features),
+      function(i) cor(x[i, ], y[i, ]),
+      numeric(1)
+    )
     mean(row_cors, na.rm = TRUE)
   })
 
@@ -137,27 +139,29 @@ alignment_quality <- function(result,
   }
 
   # For each subject, compute correlation with reference
-  recon_cors <- sapply(aligned, function(x) {
+  recon_cors <- vapply(aligned, function(x) {
     x <- as.matrix(x)
     n_features <- nrow(x)
 
-    row_cors <- sapply(seq_len(n_features), function(i) {
-      cor(x[i, ], reference[i, ])
-    })
+    row_cors <- vapply(
+      seq_len(n_features),
+      function(i) cor(x[i, ], reference[i, ]),
+      numeric(1)
+    )
     mean(row_cors, na.rm = TRUE)
-  })
+  }, numeric(1))
 
   # Also compute reconstruction error
-  recon_errors <- sapply(aligned, function(x) {
+  recon_errors <- vapply(aligned, function(x) {
     x <- as.matrix(x)
     sqrt(mean((x - reference)^2))
-  })
+  }, numeric(1))
 
   # Frobenius-norm reconstruction residuals (sqrt(sum((x - ref)^2))).
-  recon_frobenius <- sapply(aligned, function(x) {
+  recon_frobenius <- vapply(aligned, function(x) {
     x <- as.matrix(x)
     sqrt(sum((x - reference)^2))
-  })
+  }, numeric(1))
 
   list(
     mean_reference_correlation = mean(recon_cors, na.rm = TRUE),
@@ -201,9 +205,11 @@ alignment_quality <- function(result,
   between_var <- mean(apply(stacked, c(1, 2), var))
 
   # Within-subject variance (time series variance averaged)
-  within_var <- mean(sapply(seq_len(n_subjects), function(s) {
-    var(as.vector(stacked[, , s]))
-  }))
+  within_var <- mean(vapply(
+    seq_len(n_subjects),
+    function(s) var(as.vector(stacked[, , s])),
+    numeric(1)
+  ))
 
   list(
     total_variance = total_var,

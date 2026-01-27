@@ -204,7 +204,7 @@ fit_alignment <- function(data,
   train_subjects <- data@subjects[train_idx]
 
   # Resolve reference
-  ref_resolved <- .resolve_reference(data, reference, train_idx)
+  ref_resolved <- .resolve_reference_spec(data, reference, train_idx)
 
   # Call the fit function
   fit_result <- aligner$fit_fn(
@@ -324,7 +324,7 @@ fit_alignment <- function(data,
     test_subjects <- subjects[test_idx]
 
     # Resolve reference using only training subjects
-    ref_resolved <- .resolve_reference(data, reference, train_idx)
+    ref_resolved <- .resolve_reference_spec(data, reference, train_idx)
 
     # Fit on training subjects
     fit_result <- aligner$fit_fn(
@@ -399,7 +399,7 @@ fit_alignment <- function(data,
 
   if (anchor_common) {
     # For a fixed/external anchor, it's safe to store the corresponding reference_data.
-    ref_resolved <- .resolve_reference(data, reference, seq_len(n_subjects))
+    ref_resolved <- .resolve_reference_spec(data, reference, seq_len(n_subjects))
     fit_result_all <- aligner$fit_fn(
       data = data,
       reference = ref_resolved$reference,
@@ -596,7 +596,7 @@ fit_alignment <- function(data,
 
 #' Internal: Resolve Reference Specification
 #' @keywords internal
-.resolve_reference <- function(data, reference, train_idx) {
+.resolve_reference_spec <- function(data, reference, train_idx) {
   subjects <- data@subjects
   train_subjects <- subjects[train_idx]
 
@@ -776,7 +776,7 @@ fit_alignment <- function(data,
 
     # Resolve reference within this fold using only training observations.
     # This makes reference="medoid"/"centroid"/"consensus" behave correctly in obs-CV.
-    ref_resolved_fold <- .resolve_reference(train_data, reference, seq_len(n_subjects))
+    ref_resolved_fold <- .resolve_reference_spec(train_data, reference, seq_len(n_subjects))
     reference_by_fold[[fold_name]] <- as.character(ref_resolved_fold$reference_spec)
     ref_for_fold <- ref_resolved_fold$reference
 
@@ -824,7 +824,7 @@ fit_alignment <- function(data,
   }
 
   # Do full fit on all data for the model
-  ref_resolved <- .resolve_reference(data, reference, seq_len(n_subjects))
+  ref_resolved <- .resolve_reference_spec(data, reference, seq_len(n_subjects))
   fit_result_all <- aligner$fit_fn(
     data = data,
     reference = ref_resolved$reference,

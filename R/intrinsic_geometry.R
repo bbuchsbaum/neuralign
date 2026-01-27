@@ -110,7 +110,8 @@ laplacian_eigenmodes <- function(adj,
     }
 
     # Request extra modes to allow dropping near-zero components.
-    k_req <- min(n, k + 5L)
+    extra_modes <- 5L
+    k_req <- min(n, k + extra_modes)
     eig <- RSpectra::eigs_sym(L, k = k_req, which = "SM")
     vals <- eig$values
     vecs <- eig$vectors
@@ -118,7 +119,8 @@ laplacian_eigenmodes <- function(adj,
     vals <- vals[ord]
     vecs <- vecs[, ord, drop = FALSE]
   } else {
-    if (n > 4000L) {
+    eigen_warn_threshold <- 4000L
+    if (n > eigen_warn_threshold) {
       warning(
         sprintf(
           "Computing %dx%d eigen-decomposition with base eigen(); consider installing RSpectra for scalability",
@@ -237,4 +239,3 @@ set_intrinsic_geometry_guidance <- function(data,
 
   set_guidance(data, g, validate = validate)
 }
-

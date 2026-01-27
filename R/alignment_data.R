@@ -96,7 +96,7 @@ AlignmentData <- function(data,
                           design = NULL,
                           geometry = NULL,
                           obs_labels = NULL,
-  metadata = list()) {
+                          metadata = list()) {
   # Validate data is a list
 
   if (!is.list(data)) {
@@ -165,7 +165,10 @@ setMethod("[", c("AlignmentData", "ANY"),
       idx <- match(i, x@subjects)
       if (any(is.na(idx))) {
         missing <- i[is.na(idx)]
-        stop(sprintf("Unknown subjects: %s", paste(missing, collapse = ", ")))
+        stop(
+          sprintf("Unknown subjects: %s", paste(missing, collapse = ", ")),
+          call. = FALSE
+        )
       }
       i <- idx
     }
@@ -202,12 +205,15 @@ setMethod("show", "AlignmentData", function(object) {
   cat("AlignmentData object\n")
   cat(sprintf("  Subjects: %d\n", length(object@subjects)))
   if (length(object@subjects) > 0) {
-    if (length(object@subjects) <= 6) {
+    max_ids_inline <- 6L
+    n_ids_preview <- 3L
+
+    if (length(object@subjects) <= max_ids_inline) {
       cat(sprintf("    IDs: %s\n", paste(object@subjects, collapse = ", ")))
     } else {
       cat(sprintf("    IDs: %s, ... (%d more)\n",
-        paste(object@subjects[1:3], collapse = ", "),
-        length(object@subjects) - 3
+        paste(object@subjects[seq_len(n_ids_preview)], collapse = ", "),
+        length(object@subjects) - n_ids_preview
       ))
     }
 
@@ -285,7 +291,7 @@ get_subject_data <- function(object, subject) {
   if (is.character(subject)) {
     idx <- match(subject, object@subjects)
     if (is.na(idx)) {
-      stop(sprintf("Unknown subject: %s", subject))
+      stop(sprintf("Unknown subject: %s", subject), call. = FALSE)
     }
   } else {
     idx <- subject
@@ -371,7 +377,7 @@ validate_alignment_data <- function(object, check_features = TRUE,
       stop(sprintf(
         "Subjects have different numbers of features: %s",
         paste(unique(dims_mat[, 1]), collapse = ", ")
-      ))
+      ), call. = FALSE)
     }
   }
 
@@ -380,7 +386,7 @@ validate_alignment_data <- function(object, check_features = TRUE,
       stop(sprintf(
         "Subjects have different numbers of observations: %s",
         paste(unique(dims_mat[, 2]), collapse = ", ")
-      ))
+      ), call. = FALSE)
     }
   }
 

@@ -71,7 +71,7 @@ select_reference <- function(data,
   if (method == "random") {
     if (!is.null(seed)) {
       old_seed <- if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
-        get(".Random.seed", envir = .GlobalEnv)
+        get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
       } else {
         NULL
       }
