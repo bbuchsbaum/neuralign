@@ -52,6 +52,7 @@ Collate:
     'reference.R'
     'quality.R'
     'cv.R'
+    'obs_crossfit.R'
     'feature_blocks.R'
     'leakage.R'
     'serialize.R'

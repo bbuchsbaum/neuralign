@@ -1,0 +1,165 @@
+---
+title: "fMRI Alignment Profile (Recipes)"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{fMRI Alignment Profile (Recipes)}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+This vignette is an **optional recipe layer** for fMRI packages building on top of
+neuralign. It provides naming conventions and workflow guidance, but the neuralign
+core remains **domain-agnostic**: it operates on matrices + metadata and does not
+encode fMRI-specific feature extraction rules.
+
+```{r setup}
+library(neuralign)
+```
+
+## 1) fMRI profile: what it standardizes (and what it does not)
+
+**neuralign core owns:**
+
+- block representation (`alignment_feature_block()`),
+- harmonization/stacking (`harmonize_feature_blocks()`, `stack_feature_blocks()`),
+- alignment backends (`fit_alignment()`, `procrustes_rotation()`, `"procrustes_graph"`),
+- crossfit orchestration helpers (`run_obs_crossfit_alignment()`).
+
+**Client packages (fMRI-specific) own:**
+
+- how you compute task betas/contrasts/priors from native objects,
+- what to exclude (nuisance regressors, degenerate columns, etc.),
+- how you apply transforms to package-specific model state (e.g., components, maps),
+- how you split folds to avoid leakage for supervised signals.
+
+## 2) Block vocabulary (optional)
+
+These are *just strings*; neuralign does not interpret them. A common vocabulary helps
+interoperability and diagnostics:
+
+- `task_beta`: GLM betas for selected design columns.
+- `contrast_beta`: contrast betas (linear combinations of betas).
+- `roi_fingerprint`: ROI-level summaries of functional patterns used as correspondence.
+- `anat_feature`: coarse anatomy/geometry-derived correspondence features (guidance, not the target).
+- `connectivity_fingerprint`: optional connectivity summaries (if used as correspondence).
+
+## 3) Recommended `meta` tags (optional)
+
+Blocks can carry a `meta` list for provenance and safety annotations. Suggested keys:
+
+- `meta$source_type`: `"supervised"`, `"unsupervised"`, or `"prior"`
+- `meta$requires_independence`: `TRUE/FALSE` (i.e., must be cross-fit for unbiased evaluation)
+
+```{r meta-tags}
+b <- alignment_feature_block(
+  x = matrix(rnorm(12), 3, 4),
+  name = "task_beta",
+  weight = 1,
+  feature_names = c("reg1", "reg2", "reg3"),
+  meta = list(source_type = "supervised", requires_independence = TRUE)
+)
+b$meta
+```
+
+## 4) Basis alignment pattern (right-multiply view)
+
+Many fMRI workflows align an ambiguous basis (e.g., latent components). A convenient
+representation is a correspondence matrix `F_s` of shape:
+
+- rows: correspondence features (regressors, contrasts, ROI features, etc.)
+- columns: basis/components `K`
+
+Then estimate `O_s` such that `F_s %*% O_s ≈ F_ref`. neuralign supports this via
+`procrustes_rotation(convention="right")`.
+
+```{r basis-alignment}
+set.seed(1)
+P <- 6
+K <- 3
+
+O_true <- qr.Q(qr(matrix(rnorm(K * K), K, K)))
+if (det(O_true) < 0) O_true[, 1] <- -O_true[, 1]
+
+F_ref <- matrix(rnorm(P * K), P, K)
+F_s <- F_ref %*% t(O_true)
+
+rot <- procrustes_rotation(F_s, F_ref, convention = "right")
+max(abs(rot$Q - O_true))
+```
+
+## 5) Hybrid correspondence via feature blocks
+
+Blocks let you combine signals with explicit weights:
+
+```{r blocks-hybrid}
+set.seed(2)
+
+task <- alignment_feature_block(
+  x = matrix(rnorm(12), 3, 4),
+  name = "task_beta",
+  weight = 1,
+  feature_names = c("reg1", "reg2", "reg3"),
+  meta = list(source_type = "supervised", requires_independence = TRUE)
+)
+
+anat <- alignment_feature_block(
+  x = matrix(rnorm(8), 2, 4),
+  name = "anat_feature",
+  weight = 0.25,
+  feature_names = c("roi:V1", "roi:MT"),
+  meta = list(source_type = "prior", requires_independence = FALSE)
+)
+
+blocks <- harmonize_feature_blocks(list(
+  s1 = list(task_beta = task, anat_feature = anat),
+  s2 = list(task_beta = task, anat_feature = anat)
+))
+
+F1 <- stack_feature_blocks(blocks$s1)
+feature_block_diagnostics(blocks$s1, convention = "right")$stacked
+dim(F1)
+```
+
+## 6) Sparse overlap (subjects see different subsets)
+
+When there is no global intersection of correspondence features (e.g., different subsets
+of stimuli/conditions), but the overlap graph is connected, use `"procrustes_graph"` with
+per-subject `obs_labels` rather than forcing a global intersection.
+
+## 7) Observation-axis crossfit orchestration
+
+When supervised blocks require independence (e.g., task-derived betas), compute them per fold
+in the client package, then hand fold-wise matrices to neuralign:
+
+```{r obs-crossfit}
+set.seed(3)
+d <- 3
+labels <- paste0("run", 1:6)
+Z <- matrix(rnorm(d * length(labels)), d, length(labels))
+
+train <- list(
+  f1 = list(s1 = Z[, 1:3, drop = FALSE], s2 = Z[, 1:3, drop = FALSE]),
+  f2 = list(s1 = Z[, 4:6, drop = FALSE], s2 = Z[, 4:6, drop = FALSE])
+)
+test <- list(
+  f1 = list(s1 = Z[, 4:6, drop = FALSE], s2 = Z[, 4:6, drop = FALSE]),
+  f2 = list(s1 = Z[, 1:3, drop = FALSE], s2 = Z[, 1:3, drop = FALSE])
+)
+
+cf <- run_obs_crossfit_alignment(
+  train_data_by_fold = train,
+  test_data_by_fold = test,
+  method = "procrustes",
+  reference = "s1"
+)
+cf$anchor_common
+names(cf$aligned_test_by_fold)
+```
+

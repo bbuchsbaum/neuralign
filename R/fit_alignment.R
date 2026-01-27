@@ -35,6 +35,9 @@
 #' @param return_aligned Logical; if TRUE (default), apply transforms and store
 #'   aligned data in the result. Set to FALSE to return only the model (saves
 #'   memory in pipeline workflows where aligned data is not needed immediately).
+#' @param return_fold_transforms Logical; if TRUE and using observation-axis
+#'   fold specs (see \code{\link{create_obs_folds}}), retain per-fold transforms
+#'   in \code{result@cv_info$transforms_by_fold}. Default FALSE.
 #' @param ... Additional arguments passed to the method's fit function.
 #'
 #' @return An AlignmentResult object containing the fitted model and
@@ -73,6 +76,7 @@ fit_alignment <- function(data,
                           obs_labels = NULL,
                           compute_quality = TRUE,
                           return_aligned = TRUE,
+                          return_fold_transforms = FALSE,
                           ...) {
   cv <- match.arg(cv)
 
@@ -127,6 +131,7 @@ fit_alignment <- function(data,
         cv_folds = cv_folds,
         compute_quality = compute_quality,
         return_aligned = return_aligned,
+        return_fold_transforms = return_fold_transforms,
         ...
       )
     } else {
@@ -615,7 +620,9 @@ fit_alignment <- function(data,
 #'
 #' @keywords internal
 .fit_cv_obs_folds <- function(data, aligner, reference, cv_folds,
-                               compute_quality, return_aligned = TRUE, ...) {
+                               compute_quality, return_aligned = TRUE,
+                               return_fold_transforms = FALSE,
+                               ...) {
   subjects <- data@subjects
   n_subjects <- length(subjects)
   folds <- cv_folds$folds
@@ -636,7 +643,10 @@ fit_alignment <- function(data,
   per_subject_folds <- is.list(first_fold) && !is.null(names(first_fold)) &&
     is.null(first_fold$train_idx)
 
-  all_aligned_test <- list()  # subject -> list of aligned test columns
+  aligned_test_by_fold <- list() # subject -> fold -> aligned test
+  test_obs_by_fold <- list()     # subject -> fold -> test indices
+  transforms_by_fold <- if (isTRUE(return_fold_transforms)) list() else NULL
+  reference_by_fold <- setNames(rep(NA_character_, length(folds)), names(folds))
 
   for (fold_name in names(folds)) {
     fold <- folds[[fold_name]]
@@ -654,13 +664,22 @@ fit_alignment <- function(data,
     # Subset data to training observations
     train_data <- .subset_obs(data, train_obs)
 
+    # Resolve reference within this fold using only training observations.
+    # This makes reference="medoid"/"centroid"/"consensus" behave correctly in obs-CV.
+    ref_resolved_fold <- .resolve_reference(train_data, reference, seq_len(n_subjects))
+    reference_by_fold[[fold_name]] <- as.character(ref_resolved_fold$reference_spec)
+
     # Fit alignment on training observations (all subjects)
     fit_result <- aligner$fit_fn(
       data = train_data,
-      reference = reference,
+      reference = ref_resolved_fold$reference,
       train_idx = seq_len(n_subjects),
       ...
     )
+
+    if (isTRUE(return_fold_transforms)) {
+      transforms_by_fold[[fold_name]] <- fit_result$transforms
+    }
 
     # Apply transforms to held-out observations
     if (return_aligned) {
@@ -671,10 +690,12 @@ fit_alignment <- function(data,
         if (length(test_idx) == 0) next
         subj_test_data <- get_subject_data(data, subj)[, test_idx, drop = FALSE]
         aligned_test <- transform %*% subj_test_data
-        if (is.null(all_aligned_test[[subj]])) {
-          all_aligned_test[[subj]] <- list()
+        if (is.null(aligned_test_by_fold[[subj]])) {
+          aligned_test_by_fold[[subj]] <- list()
+          test_obs_by_fold[[subj]] <- list()
         }
-        all_aligned_test[[subj]][[fold_name]] <- aligned_test
+        aligned_test_by_fold[[subj]][[fold_name]] <- aligned_test
+        test_obs_by_fold[[subj]][[fold_name]] <- test_idx
       }
     }
   }
@@ -706,12 +727,54 @@ fit_alignment <- function(data,
     train_subjects = subjects
   )
 
-  # Concatenate aligned test data across folds (reassemble full observation set)
+  reference_kind <- .reference_kind(reference)
+  anchor_common <- reference_kind %in% c("fixed_subject", "template")
+
+  if (!anchor_common) {
+    warning(
+      paste0(
+        "Observation-axis CV with reference kind '", reference_kind, "' uses fold-specific anchors. ",
+        "Aligned outputs across folds may not be directly comparable unless you map them to a common anchor."
+      ),
+      call. = FALSE
+    )
+  }
+
+  # Reassemble aligned test data. If folds cover all observations (per subject),
+  # return a full features×observations matrix in original order; otherwise fall
+  # back to concatenating held-out segments.
   aligned <- list()
+  has_full_coverage <- FALSE
   if (return_aligned) {
+    # Determine whether test folds cover every observation exactly once.
+    has_full_coverage <- TRUE
     for (subj in subjects) {
-      fold_parts <- all_aligned_test[[subj]]
-      if (!is.null(fold_parts) && length(fold_parts) > 0) {
+      n_obs <- ncol(get_subject_data(data, subj))
+      idx <- unlist(test_obs_by_fold[[subj]] %||% list(), use.names = FALSE)
+      if (length(idx) == 0) {
+        has_full_coverage <- FALSE
+        break
+      }
+      if (length(idx) != length(unique(idx)) || !setequal(idx, seq_len(n_obs))) {
+        has_full_coverage <- FALSE
+        break
+      }
+    }
+
+    for (subj in subjects) {
+      fold_parts <- aligned_test_by_fold[[subj]]
+      if (is.null(fold_parts) || length(fold_parts) == 0) next
+
+      if (has_full_coverage) {
+        n_obs <- ncol(get_subject_data(data, subj))
+        n_feat <- nrow(fold_parts[[1L]])
+        out <- matrix(NA_real_, n_feat, n_obs)
+        for (fname in names(fold_parts)) {
+          out[, test_obs_by_fold[[subj]][[fname]]] <- fold_parts[[fname]]
+        }
+        aligned[[subj]] <- out
+      } else {
+        # Partial coverage: return only held-out segments (fold order).
         aligned[[subj]] <- do.call(cbind, fold_parts)
       }
     }
@@ -719,7 +782,18 @@ fit_alignment <- function(data,
 
   quality <- list()
   if (compute_quality && return_aligned && length(aligned) >= 2) {
-    quality <- .compute_basic_quality(data, aligned, model)
+    obs_labels_by_subject <- .resolve_obs_labels_by_subject(data)
+    if (!is.null(obs_labels_by_subject) && !isTRUE(has_full_coverage)) {
+      warning(
+        paste0(
+          "Skipping quality computation for observation-axis CV: folds do not cover all observations, ",
+          "so aligned matrices cannot be matched back to obs_labels safely."
+        ),
+        call. = FALSE
+      )
+    } else {
+      quality <- .compute_basic_quality(data, aligned, model)
+    }
   }
 
   cv_axis <- cv_folds$axis %||% "observation"
@@ -734,8 +808,10 @@ fit_alignment <- function(data,
       n_folds = n_folds,
       fold_ids = cv_folds$fold_ids %||% names(folds),
       folds = folds,
-      reference_kind = .reference_kind(reference),
-      anchor_common = TRUE
+      reference_kind = reference_kind,
+      anchor_common = anchor_common,
+      reference_by_fold = reference_by_fold,
+      transforms_by_fold = transforms_by_fold
     )
   )
 }

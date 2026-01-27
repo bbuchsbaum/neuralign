@@ -1,8 +1,19 @@
 # Tests for fmrigds compatibility functions
 
+.is_pkg_installed <- function(pkg) {
+  nzchar(system.file(package = pkg))
+}
+
+.load_pkg_quietly_or_skip <- function(pkg) {
+  if (!.is_pkg_installed(pkg)) {
+    skip(paste0("{", pkg, "} is not installed"))
+  }
+  suppressWarnings(requireNamespace(pkg, quietly = TRUE))
+  invisible(TRUE)
+}
+
 test_that("as_map_family requires fmrigds", {
-  skip_if(requireNamespace("fmrigds", quietly = TRUE),
-          "fmrigds is available")
+  skip_if(.is_pkg_installed("fmrigds"), "fmrigds is available")
 
   transforms <- list("sub-01" = diag(5))
   model <- AlignmentModel(
@@ -17,7 +28,7 @@ test_that("as_map_family requires fmrigds", {
 })
 
 test_that("as_map_family requires space_from and space_to", {
-  skip_if_not_installed("fmrigds")
+  .load_pkg_quietly_or_skip("fmrigds")
 
   transforms <- list("sub-01" = diag(5))
 
@@ -41,13 +52,13 @@ test_that("as_map_family requires space_from and space_to", {
 })
 
 test_that("as_map_family validates input type", {
-  skip_if_not_installed("fmrigds")
+  .load_pkg_quietly_or_skip("fmrigds")
 
   expect_error(as_map_family("not a model"), "must be an AlignmentModel")
 })
 
 test_that("as_map_family accepts AlignmentResult", {
-  skip_if_not_installed("fmrigds")
+  .load_pkg_quietly_or_skip("fmrigds")
 
   transforms <- list("sub-01" = diag(5))
   model <- AlignmentModel(
@@ -108,8 +119,7 @@ test_that("from_map_family validates input", {
 })
 
 test_that("apply_to_gds requires fmrigds", {
-  skip_if(requireNamespace("fmrigds", quietly = TRUE),
-          "fmrigds is available")
+  skip_if(.is_pkg_installed("fmrigds"), "fmrigds is available")
 
   transforms <- list("sub-01" = diag(5))
   model <- AlignmentModel(
@@ -122,8 +132,7 @@ test_that("apply_to_gds requires fmrigds", {
 })
 
 test_that("alignment_data_from_gds requires fmrigds", {
-  skip_if(requireNamespace("fmrigds", quietly = TRUE),
-          "fmrigds is available")
+  skip_if(.is_pkg_installed("fmrigds"), "fmrigds is available")
 
   expect_error(alignment_data_from_gds(NULL), "fmrigds")
 })
@@ -162,7 +171,7 @@ test_that("print.neuralign_map_family handles zero subjects", {
 
 # Integration tests with fmrigds
 test_that("full fmrigds round-trip works", {
-  skip_if_not_installed("fmrigds")
+  .load_pkg_quietly_or_skip("fmrigds")
 
   # Create alignment model
   transforms <- list(

@@ -14,6 +14,7 @@ fit_alignment(
   obs_labels = NULL,
   compute_quality = TRUE,
   return_aligned = TRUE,
+  return_fold_transforms = FALSE,
   ...
 )
 }
@@ -57,6 +58,10 @@ list, this is passed through to \code{\link{AlignmentData}} via
 \item{return_aligned}{Logical; if TRUE (default), apply transforms and store
 aligned data in the result. Set to FALSE to return only the model (saves
 memory in pipeline workflows where aligned data is not needed immediately).}
+
+\item{return_fold_transforms}{Logical; if TRUE and using observation-axis
+fold specs (see \code{\link{create_obs_folds}}), retain per-fold transforms
+in \code{result@cv_info$transforms_by_fold}. Default FALSE.}
 
 \item{...}{Additional arguments passed to the method's fit function.}
 }

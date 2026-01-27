@@ -31,10 +31,17 @@ NULL
 #' @param name Block name (character scalar).
 #' @param weight Non-negative scalar weight (applied as `sqrt(weight)` in stacking).
 #' @param feature_names Optional character vector naming the rows of `x`.
+#' @param meta Optional free-form list of metadata carried with the block.
+#'   neuralign does not interpret these fields, but downstream packages may use
+#'   them for provenance (e.g., \code{meta$source_type}, \code{meta$requires_independence}).
 #'
 #' @return An object of class `"alignment_feature_block"`.
 #' @export
-alignment_feature_block <- function(x, name, weight = 1, feature_names = NULL) {
+alignment_feature_block <- function(x,
+                                    name,
+                                    weight = 1,
+                                    feature_names = NULL,
+                                    meta = NULL) {
   if (!.is_matrixish(x)) {
     stop("'x' must be matrix-like", call. = FALSE)
   }
@@ -45,6 +52,9 @@ alignment_feature_block <- function(x, name, weight = 1, feature_names = NULL) {
   if (!.is_scalar_number(weight) || weight < 0) {
     stop("'weight' must be a single non-negative number", call. = FALSE)
   }
+  if (!is.null(meta) && !is.list(meta)) {
+    stop("'meta' must be NULL or a list", call. = FALSE)
+  }
 
   feature_names <- .validate_feature_names(feature_names, nrow(x), name)
 
@@ -53,7 +63,8 @@ alignment_feature_block <- function(x, name, weight = 1, feature_names = NULL) {
       x = x,
       name = name,
       weight = as.numeric(weight),
-      feature_names = feature_names
+      feature_names = feature_names,
+      meta = meta
     ),
     class = "alignment_feature_block"
   )

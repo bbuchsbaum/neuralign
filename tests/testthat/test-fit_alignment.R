@@ -608,7 +608,7 @@ test_that("fit_alignment routes observation-axis folds to .fit_cv_obs_folds", {
     )
   )
 
-  result <- fit_alignment(adat, method = "procrustes", reference = "consensus",
+  result <- fit_alignment(adat, method = "procrustes", reference = "sub-01",
                           cv_folds = obs_folds)
 
   expect_s4_class(result, "AlignmentResult")
@@ -656,7 +656,7 @@ test_that("observation-axis CV warns when method doesn't declare observation in 
   )
 
   expect_warning(
-    fit_alignment(adat, method = "subj_only_method", reference = "consensus",
+    fit_alignment(adat, method = "subj_only_method", reference = "sub-01",
                   cv_folds = obs_folds),
     "observation-axis CV may not be meaningful"
   )

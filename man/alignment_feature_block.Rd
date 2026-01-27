@@ -4,7 +4,7 @@
 \alias{alignment_feature_block}
 \title{Create an Alignment Feature Block}
 \usage{
-alignment_feature_block(x, name, weight = 1, feature_names = NULL)
+alignment_feature_block(x, name, weight = 1, feature_names = NULL, meta = NULL)
 }
 \arguments{
 \item{x}{Matrix of features for a block (features x observations).}
@@ -14,6 +14,10 @@ alignment_feature_block(x, name, weight = 1, feature_names = NULL)
 \item{weight}{Non-negative scalar weight (applied as \code{sqrt(weight)} in stacking).}
 
 \item{feature_names}{Optional character vector naming the rows of \code{x}.}
+
+\item{meta}{Optional free-form list of metadata carried with the block.
+neuralign does not interpret these fields, but downstream packages may use
+them for provenance (e.g., \code{meta$source_type}, \code{meta$requires_independence}).}
 }
 \value{
 An object of class \code{"alignment_feature_block"}.

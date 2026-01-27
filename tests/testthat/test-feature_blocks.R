@@ -1,13 +1,21 @@
 test_that("alignment_feature_block validates inputs", {
   x <- matrix(1, 3, 4)
-  b <- alignment_feature_block(x, name = "blk", weight = 2, feature_names = c("a", "b", "c"))
+  b <- alignment_feature_block(
+    x,
+    name = "blk",
+    weight = 2,
+    feature_names = c("a", "b", "c"),
+    meta = list(source_type = "supervised")
+  )
   expect_s3_class(b, "alignment_feature_block")
   expect_equal(b$name, "blk")
   expect_equal(b$weight, 2)
   expect_equal(b$feature_names, c("a", "b", "c"))
+  expect_equal(b$meta$source_type, "supervised")
   expect_error(alignment_feature_block(x, name = "", weight = 1))
   expect_error(alignment_feature_block(x, name = "blk", weight = -1))
   expect_error(alignment_feature_block(x, name = "blk", feature_names = c("a", "b")))
+  expect_error(alignment_feature_block(x, name = "blk", meta = 1))
 })
 
 test_that("stack_feature_blocks applies sqrt(weight) scaling and rbinds", {
@@ -45,6 +53,29 @@ test_that("harmonize_feature_blocks intersects feature names across subjects", {
   expect_equal(out$sub2$a$feature_names, c("f2", "f3"))
 })
 
+test_that("harmonize_feature_blocks preserves feature block meta", {
+  s1 <- list(
+    a = alignment_feature_block(
+      matrix(1, 3, 2),
+      name = "a",
+      feature_names = c("f1", "f2", "f3"),
+      meta = list(source_type = "supervised", requires_independence = TRUE)
+    )
+  )
+  s2 <- list(
+    a = alignment_feature_block(
+      matrix(2, 3, 2),
+      name = "a",
+      feature_names = c("f2", "f3", "f4"),
+      meta = list(source_type = "supervised", requires_independence = TRUE)
+    )
+  )
+
+  out <- harmonize_feature_blocks(list(sub1 = s1, sub2 = s2), min_features = 2)
+  expect_equal(out$sub1$a$meta$source_type, "supervised")
+  expect_true(isTRUE(out$sub1$a$meta$requires_independence))
+})
+
 test_that("harmonize_feature_blocks drops missing/low-overlap blocks", {
   s1 <- list(
     a = alignment_feature_block(matrix(1, 2, 2), name = "a", feature_names = c("f1", "f2")),
@@ -55,7 +86,13 @@ test_that("harmonize_feature_blocks drops missing/low-overlap blocks", {
   )
 
   out <- NULL
-  expect_warning(out <- harmonize_feature_blocks(list(sub1 = s1, sub2 = s2), min_features = 2))
+  expect_warning(
+    expect_warning(
+      out <- harmonize_feature_blocks(list(sub1 = s1, sub2 = s2), min_features = 2),
+      "Dropping blocks not present for all subjects"
+    ),
+    "Dropping block 'a'"
+  )
   expect_true(is.null(out$sub1$c))
   expect_true(is.null(out$sub2$c))
   # Block a only has 1 common feature (f2) -> dropped

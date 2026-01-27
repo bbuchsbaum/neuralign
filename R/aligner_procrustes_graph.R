@@ -176,15 +176,15 @@ NULL
     stop("'min_overlap' must be a positive integer", call. = FALSE)
   }
 
-  # We currently ignore train_idx for graph synchronization; this method is
-  # intended for full-data fits where the overlap graph defines the anchor.
   if (is.null(train_idx)) train_idx <- seq_along(data@subjects)
 
-  subjects <- data@subjects
-  data_list <- get_data_list(data)
+  # Fit on training subjects only to support subject-axis CV without leakage.
+  train_data <- data[train_idx]
+  subjects <- train_data@subjects
+  data_list <- get_data_list(train_data)
   d <- nrow(as.matrix(data_list[[1L]]))
 
-  obs_labels_by_subject <- .as_obs_labels_list(data)
+  obs_labels_by_subject <- .as_obs_labels_list(train_data)
   graph <- .build_overlap_adjacency(obs_labels_by_subject, min_overlap = min_overlap)
   adj <- graph$adj
   overlap <- graph$overlap
@@ -258,8 +258,33 @@ NULL
 
   # Gauge-fix so that reference subject has identity transform.
   G_ref <- G[[ref_idx]]
-  transforms <- lapply(G, function(Gi) G_ref %*% t(Gi))
-  names(transforms) <- subjects
+  transforms_train <- lapply(G, function(Gi) G_ref %*% t(Gi))
+  names(transforms_train) <- subjects
+
+  # Fit transforms for any held-out subjects by aligning directly to the
+  # reference subject using label overlap.
+  transforms <- transforms_train
+  heldout_subjects <- setdiff(data@subjects, subjects)
+  if (length(heldout_subjects) > 0) {
+    all_labels <- .as_obs_labels_list(data)
+    ref_labels <- obs_labels_by_subject[[reference]]
+    ref_data <- get_subject_data(train_data, reference)
+    for (subj in heldout_subjects) {
+      X_new <- as.matrix(get_subject_data(data, subj))
+      labs_new <- all_labels[[subj]]
+      res <- procrustes_rotation(
+        source = X_new,
+        target = as.matrix(ref_data),
+        convention = "left",
+        scale = FALSE,
+        reflection = reflection,
+        obs_labels_source = labs_new,
+        obs_labels_target = ref_labels,
+        min_overlap = min_overlap
+      )
+      transforms[[subj]] <- res$Q
+    }
+  }
 
   list(
     transforms = transforms,
@@ -268,17 +293,67 @@ NULL
     space_to = data@space,
     method_state = list(
       reference = reference,
+      reference_obs_labels = obs_labels_by_subject[[reference]],
       min_overlap = min_overlap,
-      weight = weight
+      weight = weight,
+      reflection = reflection
     )
+  )
+}
+
+#' Procrustes Graph Apply Function (New Subjects)
+#' @keywords internal
+.procrustes_graph_apply <- function(fit_result, new_data, ...) {
+  if (!inherits(new_data, "AlignmentData")) {
+    stop("'new_data' must be an AlignmentData object", call. = FALSE)
+  }
+  if (length(new_data@subjects) != 1L) {
+    stop("procrustes_graph apply supports a single new subject at a time", call. = FALSE)
+  }
+
+  ms <- fit_result$method_state %||% list()
+  ref_subj <- ms$reference %||% NULL
+  if (is.null(ref_subj) || !is.character(ref_subj) || length(ref_subj) != 1L) {
+    stop("procrustes_graph apply requires method_state$reference", call. = FALSE)
+  }
+  min_overlap <- as.integer(ms$min_overlap %||% 2L)
+  reflection <- isTRUE(ms$reflection %||% FALSE)
+  ref_labels <- ms$reference_obs_labels %||% NULL
+
+  ref_data <- fit_result$reference_data
+  if (is.null(ref_data) || !.is_matrixish(ref_data)) {
+    stop("procrustes_graph apply requires reference_data in fit_result", call. = FALSE)
+  }
+
+  subj <- new_data@subjects[[1L]]
+  X_new <- as.matrix(get_subject_data(new_data, subj))
+  labs_new <- .as_obs_labels_list(new_data)[[subj]]
+
+  res <- procrustes_rotation(
+    source = X_new,
+    target = as.matrix(ref_data),
+    convention = "left",
+    scale = FALSE,
+    reflection = reflection,
+    obs_labels_source = labs_new,
+    obs_labels_target = ref_labels,
+    min_overlap = min_overlap
+  )
+
+  list(
+    transforms = setNames(list(res$Q), subj),
+    reference_data = ref_data,
+    space_from = fit_result$space_from,
+    space_to = fit_result$space_to,
+    method_state = fit_result$method_state %||% list()
   )
 }
 
 #' Procrustes Graph Capabilities
 #' @keywords internal
 .procrustes_graph_capabilities <- list(
-  supports_cv = FALSE,
-  cv_axes = character(0),
+  supports_cv = TRUE,
+  cv_axes = c("subject", "observation"),
   needs_geometry = FALSE,
   needs_design = FALSE,
   requires_shared_features = TRUE,
@@ -287,7 +362,7 @@ NULL
   transform_type = "orthogonal",
   mass_preserving = TRUE,
   returns = "operator",
-  supports_new_subject = FALSE,
+  supports_new_subject = TRUE,
   supports_new_data = TRUE,
   reference_types = c("subject")
 )
@@ -298,7 +373,7 @@ NULL
   register_aligner(
     name = "procrustes_graph",
     fit_fn = .procrustes_graph_fit,
-    apply_fn = NULL,
+    apply_fn = .procrustes_graph_apply,
     capabilities = .procrustes_graph_capabilities,
     package = "neuralign",
     description = "Procrustes synchronization on an overlap graph",

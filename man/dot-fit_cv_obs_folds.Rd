@@ -11,6 +11,7 @@
   cv_folds,
   compute_quality,
   return_aligned = TRUE,
+  return_fold_transforms = FALSE,
   ...
 )
 }

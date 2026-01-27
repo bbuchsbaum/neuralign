@@ -245,7 +245,7 @@ Check what methods are registered:
 available_aligners(details = TRUE)
 ```
 
-Methods from external packages (manifoldalign, fmrireg.gnef, dkge) are auto-loaded when requested.
+Methods from external packages can be auto-loaded when requested (if installed and registered).
 
 ## Operator Composition
 
