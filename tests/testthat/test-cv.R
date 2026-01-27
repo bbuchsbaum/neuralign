@@ -519,13 +519,25 @@ test_that("run_cv_alignment with fixed subject reference yields common anchor", 
   names(data_list) <- paste0("sub-0", 1:3)
   adat <- AlignmentData(data_list)
 
-  cv_result <- run_cv_alignment(
-    adat, method = "procrustes", cv_folds = "loso",
-    reference = "sub-01"
+  expect_warning(
+    cv_result <- run_cv_alignment(
+      adat, method = "procrustes", cv_folds = "loso",
+      reference = "sub-01"
+    ),
+    "Reference subject 'sub-01' appears in a test fold"
   )
 
   expect_equal(cv_result$result@cv_info$reference_kind, "fixed_subject")
   expect_true(cv_result$result@cv_info$anchor_common)
+
+  # The fixed reference subject is not evaluated as held-out, but it is
+  # represented in the aligned output with identity transform.
+  expect_true("sub-01" %in% names(cv_result$result@model@transforms))
+  expect_equal(cv_result$result@model@transforms[["sub-01"]], diag(10))
+  expect_true("sub-01" %in% names(cv_result$result@aligned))
+
+  expect_true("sub-01" %in% names(cv_result$result@cv_info$folds))
+  expect_length(cv_result$result@cv_info$folds[["sub-01"]]$test, 0)
 })
 
 test_that("run_cv_alignment with kfold string works", {

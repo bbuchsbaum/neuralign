@@ -396,6 +396,14 @@ create_obs_folds <- function(obs_ids,
 #' Convenience function to run alignment with cross-validation and
 #' collect per-fold results.
 #'
+#' Note: when `reference` is a fixed subject ID, that subject must be available
+#' to define the anchor space. If the provided folds would otherwise place the
+#' reference subject in a test set (e.g., LOSO), `run_cv_alignment()` will keep
+#' the reference subject in the training set and will not evaluate it as a
+#' held-out subject (a warning is emitted). Use a data-driven reference (e.g.,
+#' `"medoid"`) or custom folds if you need symmetric hold-out across all
+#' subjects.
+#'
 #' @param data AlignmentData object.
 #' @param method Alignment method.
 #' @param cv_folds CV fold information from create_cv_folds, or a string
@@ -448,6 +456,11 @@ run_cv_alignment <- function(data,
   all_transforms <- list()
   all_aligned <- list()
   fold_results <- list()
+  warned_reference <- FALSE
+
+  fixed_subject_reference <- is.character(reference) &&
+    length(reference) == 1L &&
+    reference %in% subjects
 
   # Run each fold
   for (fold_name in names(cv_folds$folds)) {
@@ -455,14 +468,31 @@ run_cv_alignment <- function(data,
     train_idx <- fold$train
     test_idx <- fold$test
 
-    # Ensure fixed-subject reference is always in the training set
-    if (is.character(reference) && length(reference) == 1L &&
-        reference %in% subjects) {
+    # Fixed-subject reference must be available to define the anchor space.
+    # If the folds place the reference subject in a test set, we keep it in the
+    # training set but do not evaluate it as held-out (warn once).
+    if (fixed_subject_reference) {
       ref_idx <- match(reference, subjects)
+      if (ref_idx %in% test_idx) {
+        test_idx <- setdiff(test_idx, ref_idx)
+        if (!warned_reference) {
+          warning(
+            sprintf(
+              "Reference subject '%s' appears in a test fold; keeping it in training and skipping held-out evaluation for that subject.",
+              reference
+            ),
+            call. = FALSE
+          )
+          warned_reference <- TRUE
+        }
+      }
       if (!ref_idx %in% train_idx) {
         train_idx <- sort(c(train_idx, ref_idx))
       }
     }
+
+    cv_folds$folds[[fold_name]]$train <- train_idx
+    cv_folds$folds[[fold_name]]$test <- test_idx
 
     # Fit on training data
     result <- fit_alignment(
@@ -495,6 +525,12 @@ run_cv_alignment <- function(data,
     }
 
     fold_results[[fold_name]] <- result
+  }
+
+  if (fixed_subject_reference && !reference %in% names(all_transforms)) {
+    ref_data <- get_subject_data(data, reference)
+    all_transforms[[reference]] <- diag(nrow(ref_data))
+    all_aligned[[reference]] <- ref_data
   }
 
   # Build combined model
