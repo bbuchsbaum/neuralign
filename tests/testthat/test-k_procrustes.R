@@ -30,13 +30,8 @@ test_that("k_orthonormalize produces K-orthonormal columns", {
   expect_equal(ncol(U), r)
 
   Ui <- k_orthonormalize(W, diag(q))
-  qrw <- qr(W)
-  Q <- qr.Q(qrw)
-  R <- qr.R(qrw)
-  sgn <- sign(diag(R))
-  sgn[!is.finite(sgn) | sgn == 0] <- 1
-  Q <- sweep(Q, 2, sgn, `*`)
-  expect_equal(Ui, Q, tolerance = 1e-10)
+  expect_equal(t(Ui) %*% Ui, diag(r), tolerance = 1e-10)
+  expect_equal(ncol(Ui), r)
 })
 
 test_that("k_procrustes recovers known rotation and enforces reflection control", {

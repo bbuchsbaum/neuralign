@@ -219,7 +219,7 @@ NULL
   space_spec <- data@space %||% "kprocrustes_effect_basis"
 
   reference_data <- t(U_ref) # r x q
-  colnames(reference_data) <- design$effects
+  dimnames(reference_data) <- list(NULL, design$effects)
 
   list(
     transforms = transforms,

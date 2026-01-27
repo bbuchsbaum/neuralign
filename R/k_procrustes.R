@@ -60,8 +60,10 @@ k_kernel_roots <- function(K, jitter = 1e-10) {
 #' K-orthonormalize Columns
 #'
 #' Produce a matrix `U` with K-orthonormal columns: `t(U) %*% K %*% U = I`.
-#' This is done by performing Euclidean QR on `K^{1/2} W` and mapping back with
-#' `K^{-1/2}`.
+#' Uses Cholesky factorization of the Gram matrix `t(W) K W` to preserve column
+#' order and sign determinism.
+#' Falls back to Euclidean QR on `K^{1/2} W` (mapped back with `K^{-1/2}`)
+#' when the Gram matrix is not positive definite.
 #'
 #' @param W Matrix whose columns span the subspace to orthonormalize.
 #' @param K Square kernel matrix defining the metric.
@@ -88,6 +90,22 @@ k_orthonormalize <- function(W, K, Kroots = NULL) {
     stop("Row dimension mismatch: nrow(K) must equal nrow(W)", call. = FALSE)
   }
 
+  r <- ncol(W)
+  KW <- K %*% W
+  G <- crossprod(W, KW)            # t(W) K W, r x r
+  G <- (G + t(G)) / 2              # enforce exact symmetry
+
+  R_chol <- tryCatch(chol(G), error = function(e) NULL)
+  if (!is.null(R_chol)) {
+    U <- W %*% backsolve(R_chol, diag(r))
+    # Verify K-orthonormality; fall back to QR if poor
+    check <- crossprod(U, K %*% U)
+    if (max(abs(check - diag(r))) < 1e-8) {
+      return(U)
+    }
+  }
+
+  # Fallback: QR in transformed space (handles rank-deficient W)
   Kroots <- Kroots %||% k_kernel_roots(K)
   qrw <- qr(Kroots$Khalf %*% W)
   Q <- qr.Q(qrw)
