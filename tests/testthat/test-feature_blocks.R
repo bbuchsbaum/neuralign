@@ -226,3 +226,91 @@ test_that("feature_block_diagnostics errors on bad tol", {
   expect_error(feature_block_diagnostics(list(b), tol = 0), "\\(0, 1\\)")
   expect_error(feature_block_diagnostics(list(b), tol = 1), "\\(0, 1\\)")
 })
+
+test_that("build_alignment_features harmonize=intersection stacks harmonized blocks", {
+  s1 <- list(
+    a = alignment_feature_block(
+      matrix(1:6, 3, 2),
+      name = "a",
+      feature_names = c("f1", "f2", "f3")
+    ),
+    b = alignment_feature_block(
+      matrix(c(10, 20, 30, 40), 2, 2),
+      name = "b",
+      feature_names = c("g1", "g2")
+    )
+  )
+  s2 <- list(
+    a = alignment_feature_block(
+      matrix(101:106, 3, 2),
+      name = "a",
+      feature_names = c("f2", "f3", "f4")
+    ),
+    b = alignment_feature_block(
+      matrix(c(50, 60, 70, 80), 2, 2),
+      name = "b",
+      feature_names = c("g1", "g2")
+    )
+  )
+
+  res <- build_alignment_features(list(sub1 = s1, sub2 = s2), harmonize = "intersection", min_features = 2)
+  expect_true(all(c("matrices", "blocks", "per_block", "dropped_blocks", "warnings") %in% names(res)))
+  expect_equal(names(res$matrices), c("sub1", "sub2"))
+  expect_equal(rownames(res$matrices$sub1), c("a:f2", "a:f3", "b:g1", "b:g2"))
+  expect_equal(unname(res$matrices$sub1[1:2, , drop = FALSE]), s1$a$x[2:3, , drop = FALSE])
+  expect_equal(unname(res$matrices$sub2[1:2, , drop = FALSE]), s2$a$x[1:2, , drop = FALSE])
+})
+
+test_that("build_alignment_features harmonize=union_fill uses union vocabulary with fill=0", {
+  s1 <- list(
+    a = alignment_feature_block(
+      matrix(1:6, 3, 2),
+      name = "a",
+      feature_names = c("f1", "f2", "f3")
+    ),
+    b = alignment_feature_block(
+      matrix(c(10, 20, 30, 40), 2, 2),
+      name = "b",
+      feature_names = c("g1", "g2")
+    )
+  )
+  s2 <- list(
+    a = alignment_feature_block(
+      matrix(101:106, 3, 2),
+      name = "a",
+      feature_names = c("f2", "f3", "f4")
+    ),
+    b = alignment_feature_block(
+      matrix(c(50, 60, 70, 80), 2, 2),
+      name = "b",
+      feature_names = c("g1", "g2")
+    )
+  )
+
+  res <- build_alignment_features(
+    list(sub1 = s1, sub2 = s2),
+    harmonize = "union_fill",
+    fill = 0,
+    min_features = 2,
+    union_order = "first_seen"
+  )
+  expect_equal(rownames(res$matrices$sub1), c("a:f1", "a:f2", "a:f3", "a:f4", "b:g1", "b:g2"))
+  expect_equal(unname(res$matrices$sub2["a:f1", , drop = FALSE]), matrix(0, 1, 2))
+  expect_equal(unname(res$matrices$sub1["a:f4", , drop = FALSE]), matrix(0, 1, 2))
+})
+
+test_that("build_alignment_features errors when blocks have incompatible column counts", {
+  s1 <- list(
+    a = alignment_feature_block(matrix(1, 2, 3), name = "a", feature_names = c("f1", "f2")),
+    b = alignment_feature_block(matrix(1, 1, 2), name = "b", feature_names = "g1")
+  )
+  s2 <- list(
+    a = alignment_feature_block(matrix(1, 2, 3), name = "a", feature_names = c("f1", "f2")),
+    b = alignment_feature_block(matrix(1, 1, 2), name = "b", feature_names = "g1")
+  )
+
+  expect_error(
+    build_alignment_features(list(sub1 = s1, sub2 = s2), harmonize = "intersection", min_features = 1),
+    "differing column counts"
+  )
+})

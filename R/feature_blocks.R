@@ -88,6 +88,37 @@ alignment_feature_block <- function(x,
     !is.null(x$weight)
 }
 
+.validate_blocks_by_subject <- function(blocks_by_subject) {
+  if (!is.list(blocks_by_subject) || length(blocks_by_subject) < 1L) {
+    stop("'blocks_by_subject' must be a non-empty named list", call. = FALSE)
+  }
+  if (is.null(names(blocks_by_subject)) || any(!nzchar(names(blocks_by_subject)))) {
+    stop("'blocks_by_subject' must be a named list keyed by subject", call. = FALSE)
+  }
+
+  subj_blocks <- lapply(blocks_by_subject, function(bl) {
+    if (!is.list(bl) || length(bl) < 1L) {
+      stop("Each subject must provide a non-empty list of blocks", call. = FALSE)
+    }
+    if (is.null(names(bl))) {
+      stop("Each subject's block list must be named by block name", call. = FALSE)
+    }
+    if (!all(vapply(bl, .is_feature_block, logical(1)))) {
+      stop("All blocks must be alignment_feature_block objects", call. = FALSE)
+    }
+    bl
+  })
+
+  common_block_names <- Reduce(intersect, lapply(subj_blocks, names))
+  dropped_missing <- setdiff(unique(unlist(lapply(subj_blocks, names))), common_block_names)
+
+  list(
+    subjects = names(blocks_by_subject),
+    common_block_names = common_block_names,
+    dropped_missing = dropped_missing
+  )
+}
+
 #' Stack Feature Blocks
 #'
 #' Vertically stack (rbind) multiple feature blocks after scaling each by
@@ -235,6 +266,207 @@ harmonize_feature_blocks <- function(blocks_by_subject, min_features = 2L) {
   }
 
   out
+}
+
+.validate_stackable_blocks <- function(blocks, subject) {
+  ncols <- vapply(blocks, function(b) ncol(as.matrix(b$x)), integer(1))
+  if (length(unique(ncols)) > 1L) {
+    stop(
+      sprintf(
+        "Subject '%s' has blocks with differing column counts: %s",
+        subject,
+        paste(sprintf("%s=%d", names(ncols), ncols), collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
+  invisible(TRUE)
+}
+
+#' Build Alignment Matrices from Feature Blocks
+#'
+#' Construct per-subject alignment matrices by harmonizing and stacking feature
+#' blocks. This is useful for block-driven alignment workflows where different
+#' correspondence signals (blocks) are combined into a single matrix per
+#' subject.
+#'
+#' @param blocks_by_subject Named list keyed by subject, where each entry is a
+#'   named list of `"alignment_feature_block"` objects.
+#' @param harmonize Harmonization strategy for feature names within each block:
+#'   `"intersection"` keeps only features common to all subjects (via
+#'   `harmonize_feature_blocks()`); `"union_fill"` harmonizes to the union of
+#'   feature names within each block, filling missing rows with `fill`.
+#'   Blocks missing from any subject are dropped in both modes.
+#' @param min_features Minimum number of features required to keep a block. For
+#'   `"intersection"`, this is the size of the common intersection. For
+#'   `"union_fill"`, blocks are dropped when any subject contributes fewer than
+#'   `min_features` observed features.
+#' @param block_weights Optional named numeric vector of additional multipliers
+#'   per block name (as in `stack_feature_blocks()`).
+#' @param fill Fill value used for `"union_fill"` (default 0).
+#' @param union_order Ordering for union construction when `harmonize="union_fill"`
+#'   and no explicit union is provided: `"first_seen"` or `"sorted"`.
+#' @param warn_sparse_below Warn when a subject observes fewer than this
+#'   fraction of union features within a block (only used for `"union_fill"`).
+#' @param emit_warnings Logical; if FALSE, suppress warnings emitted during
+#'   harmonization while still returning them in the output.
+#'
+#' @return A list with elements:
+#' \describe{
+#'   \item{matrices}{Named list of per-subject stacked matrices.}
+#'   \item{blocks}{Harmonized per-subject block lists used to build matrices.}
+#'   \item{per_block}{Data frame summarizing retained blocks and feature counts.}
+#'   \item{dropped_blocks}{Character vector of dropped block names.}
+#'   \item{warnings}{Character vector of warning messages encountered.}
+#' }
+#'
+#' @export
+build_alignment_features <- function(blocks_by_subject,
+                                     harmonize = c("intersection", "union_fill"),
+                                     min_features = 2L,
+                                     block_weights = NULL,
+                                     fill = 0,
+                                     union_order = c("first_seen", "sorted"),
+                                     warn_sparse_below = 0.5,
+                                     emit_warnings = TRUE) {
+  harmonize <- match.arg(harmonize)
+  union_order <- match.arg(union_order)
+
+  min_features <- as.integer(min_features)
+  if (!is.finite(min_features) || min_features < 1L) {
+    stop("'min_features' must be a positive integer", call. = FALSE)
+  }
+
+  if (!is.null(block_weights)) {
+    if (!is.numeric(block_weights) || is.null(names(block_weights))) {
+      stop("'block_weights' must be a named numeric vector", call. = FALSE)
+    }
+  }
+
+  warnings <- character(0)
+  capture_warnings <- function(expr) {
+    withCallingHandlers(
+      expr,
+      warning = function(w) {
+        warnings <<- c(warnings, conditionMessage(w))
+        if (!isTRUE(emit_warnings)) {
+          invokeRestart("muffleWarning")
+        }
+      }
+    )
+  }
+
+  if (harmonize == "intersection") {
+    blocks_h <- capture_warnings(harmonize_feature_blocks(blocks_by_subject, min_features = min_features))
+    if (length(blocks_h) < 1L || length(blocks_h[[1L]]) < 1L) {
+      stop("No feature blocks remain after harmonization", call. = FALSE)
+    }
+  } else {
+    meta <- .validate_blocks_by_subject(blocks_by_subject)
+    subjects <- meta$subjects
+    common_block_names <- meta$common_block_names
+    dropped_missing <- meta$dropped_missing
+
+    if (length(dropped_missing) > 0) {
+      capture_warnings(warning(
+        sprintf(
+          "Dropping blocks not present for all subjects: %s",
+          paste(dropped_missing, collapse = ", ")
+        ),
+        call. = FALSE
+      ))
+    }
+
+    blocks_h <- blocks_by_subject
+    for (subj in subjects) {
+      blocks_h[[subj]] <- blocks_h[[subj]][common_block_names]
+    }
+
+    # Union-fill per block.
+    for (bname in common_block_names) {
+      ids <- lapply(subjects, function(subj) .block_feature_names(blocks_h[[subj]][[bname]]))
+      names(ids) <- subjects
+      if (any(vapply(ids, is.null, logical(1)))) {
+        stop(
+          sprintf("Cannot harmonize block '%s': feature names are missing", bname),
+          call. = FALSE
+        )
+      }
+      mats <- lapply(subjects, function(subj) {
+        b <- blocks_h[[subj]][[bname]]
+        m <- as.matrix(b$x)
+        rownames(m) <- ids[[subj]]
+        m
+      })
+      names(mats) <- subjects
+
+      harm <- capture_warnings(harmonize_union_fill(
+        mats = mats,
+        ids = ids,
+        axis = "rows",
+        union_order = union_order,
+        fill = fill,
+        min_coverage = 0L,
+        warn_sparse_below = warn_sparse_below
+      ))
+
+      n_obs <- vapply(harm$obs_mask, function(mask) sum(mask), integer(1))
+      if (any(n_obs < min_features)) {
+        capture_warnings(warning(
+          sprintf(
+            "Dropping block '%s': one or more subjects have < %d observed features",
+            bname, min_features
+          ),
+          call. = FALSE
+        ))
+        for (subj in subjects) blocks_h[[subj]][[bname]] <- NULL
+        next
+      }
+
+      for (subj in subjects) {
+        block <- blocks_h[[subj]][[bname]]
+        block$x <- as.matrix(harm$mats[[subj]])
+        block$feature_names <- harm$ids
+        blocks_h[[subj]][[bname]] <- block
+      }
+    }
+
+    if (length(blocks_h) < 1L || length(blocks_h[[1L]]) < 1L) {
+      stop("No feature blocks remain after harmonization", call. = FALSE)
+    }
+  }
+
+  # Stack per subject.
+  subjects <- names(blocks_h)
+  for (subj in subjects) {
+    .validate_stackable_blocks(blocks_h[[subj]], subject = subj)
+  }
+  mats_by_subj <- lapply(subjects, function(subj) {
+    stack_feature_blocks(blocks_h[[subj]], block_weights = block_weights)
+  })
+  names(mats_by_subj) <- subjects
+
+  block_names <- names(blocks_h[[1L]])
+  per_block <- data.frame(
+    block = block_names,
+    n_features = vapply(block_names, function(bname) {
+      length(.block_feature_names(blocks_h[[subjects[[1L]]]][[bname]]))
+    }, integer(1)),
+    stringsAsFactors = FALSE
+  )
+
+  dropped_blocks <- setdiff(
+    unique(unlist(lapply(blocks_by_subject, names))),
+    block_names
+  )
+
+  list(
+    matrices = mats_by_subj,
+    blocks = blocks_h,
+    per_block = per_block,
+    dropped_blocks = dropped_blocks,
+    warnings = unique(warnings)
+  )
 }
 
 .effective_rank_from_singular_values <- function(d) {
