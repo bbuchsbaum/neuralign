@@ -219,6 +219,24 @@ test_that("set_guidance validates coords dimension mismatch", {
   expect_error(set_guidance(adat, bad), "dimension mismatch")
 })
 
+test_that("set_guidance validates sparse Matrix guidance without densifying", {
+  skip_if_not_installed("Matrix")
+
+  n_feat <- 40000L
+  adat <- AlignmentData(list(s1 = matrix(1, n_feat, 1L)))
+  P <- Matrix::Diagonal(n_feat)
+
+  g <- list(
+    s1 = list(
+      proj = guidance_channel("projector", P)
+    )
+  )
+
+  adat2 <- set_guidance(adat, g, validate = TRUE)
+  ch <- get_guidance(adat2, subject = "s1")$proj
+  expect_true(inherits(ch$value, "Matrix"))
+})
+
 test_that("set_guidance with validate=FALSE skips dimension check", {
   adat <- AlignmentData(list(s1 = matrix(1, 4, 3)))
   bad <- list(

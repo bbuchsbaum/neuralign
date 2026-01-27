@@ -100,7 +100,9 @@ NULL
             call. = FALSE
           )
         }
-        val <- as.matrix(val)
+        if (!inherits(val, "Matrix")) {
+          val <- as.matrix(val)
+        }
         if (typ == "projector" && ncol(val) != n_feat) {
           stop(
             sprintf(
