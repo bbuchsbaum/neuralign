@@ -105,8 +105,14 @@ from_map_family <- function(map_family, method = "fmrigds_imported") {
   }
 
   maps <- map_family$by_subject
-  space_from <- map_family$from
-  space_to <- map_family$to
+  space_from <- map_family$from_space %||% map_family$from %||% NA_character_
+  space_to <- map_family$to_space %||% map_family$to %||% NA_character_
+  if (is.na(space_from) || is.na(space_to)) {
+    warning(
+      "MapFamily missing from_space/to_space; storing NA for space_from/space_to",
+      call. = FALSE
+    )
+  }
 
   AlignmentModel(
     transforms = maps,
@@ -182,5 +188,3 @@ alignment_data_from_gds <- function(gds_data, assay = "beta", ...) {
     ...
   )
 }
-
-

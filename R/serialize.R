@@ -232,7 +232,7 @@ export_alignment <- function(model,
     }
 
     file <- paste0(path, ".mat")
-    R.matlab::writeMat(file, mat_data)
+    do.call(R.matlab::writeMat, c(list(con = file), mat_data))
     files <- c(files, file)
   }
 

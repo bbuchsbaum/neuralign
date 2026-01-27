@@ -271,6 +271,22 @@ NULL
     transforms[[subj]] <- .coupling_to_operator(P_subj_ref)
   }
 
+  # Add transforms for held-out subjects (fit to reference only)
+  all_subjects <- data@subjects
+  heldout <- setdiff(all_subjects, names(transforms))
+  if (length(heldout) > 0) {
+    for (subj in heldout) {
+      subj_data <- get_subject_data(data, subj)
+      hd_new <- structure(list(
+        subj = list(x = subj_data),
+        ref = list(x = reference_data)
+      ), class = "hyperdesign")
+      fpgw_new <- do.call(manifoldalign::fpgw, c(list(data = hd_new), fpgw_args))
+      P_subj_ref <- fpgw_new$transport_plans[[1L]]
+      transforms[[subj]] <- .coupling_to_operator(P_subj_ref)
+    }
+  }
+
   list(
     transforms = transforms,
     reference_data = reference_data,

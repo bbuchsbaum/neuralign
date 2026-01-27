@@ -111,9 +111,21 @@ validate_cv_setup <- function(cv_folds, reference = "medoid") {
     }
 
     # Fixed subject reference - check it's always in training
+    subjects <- NULL
+    if (!is.null(cv_folds$assignments)) {
+      subjects <- names(cv_folds$assignments)
+    } else if (!is.null(cv_folds$subjects)) {
+      subjects <- cv_folds$subjects
+    }
+    if (is.null(subjects) || length(subjects) == 0) {
+      stop(
+        "cv_folds must include named assignments or an explicit subjects vector to validate a fixed reference",
+        call. = FALSE
+      )
+    }
     for (fold_name in names(cv_folds$folds)) {
       fold <- cv_folds$folds[[fold_name]]
-      fold_subjects <- names(cv_folds$assignments)[fold$train]
+      fold_subjects <- subjects[fold$train]
 
       if (!reference %in% fold_subjects) {
         stop(sprintf(
