@@ -264,3 +264,131 @@ test_that("harmonize_union_fill errors when union_ids misses observed IDs", {
     "not present in .union_ids"
   )
 })
+
+
+# ---------- More harmonize coverage tests ----------
+
+test_that("harmonize_union_fill errors on ID length mismatch", {
+  x1 <- matrix(1:6, 3, 2, dimnames = list(c("a", "b", "c"), c("v1", "v2")))
+
+  # Provide ids that don't match the matrix row count
+  expect_error(
+    harmonize_union_fill(
+      list(s1 = x1),
+      ids = list(s1 = c("a", "b")),  # 2 ids but 3 rows
+      axis = "rows"
+    ),
+    "ID length mismatch"
+  )
+})
+
+test_that("harmonize_union_fill errors on ids missing subjects", {
+  x1 <- matrix(1:4, 2, 2, dimnames = list(c("a", "b"), c("v1", "v2")))
+  x2 <- matrix(5:8, 2, 2, dimnames = list(c("c", "d"), c("v1", "v2")))
+
+  # Named ids list missing s2
+  expect_error(
+    harmonize_union_fill(
+      list(s1 = x1, s2 = x2),
+      ids = list(s1 = c("a", "b")),
+      axis = "rows"
+    ),
+    "missing subjects"
+  )
+})
+
+test_that("harmonize_union_fill with named ids list reorders to match mats", {
+  x1 <- matrix(1:4, 2, 2, dimnames = list(c("a", "b"), c("v1", "v2")))
+  x2 <- matrix(5:8, 2, 2, dimnames = list(c("c", "d"), c("v1", "v2")))
+
+  res <- harmonize_union_fill(
+    list(s1 = x1, s2 = x2),
+    ids = list(s2 = c("c", "d"), s1 = c("a", "b")),  # reversed order
+    axis = "rows",
+    union_order = "sorted"
+  )
+
+  expect_equal(res$ids, c("a", "b", "c", "d"))
+  expect_equal(rownames(res$mats$s1), res$ids)
+})
+
+test_that("harmonize_union_fill unnamed ids list gets names from mats", {
+  x1 <- matrix(1:4, 2, 2, dimnames = list(c("a", "b"), c("v1", "v2")))
+  x2 <- matrix(5:8, 2, 2, dimnames = list(c("b", "c"), c("v1", "v2")))
+
+  res <- harmonize_union_fill(
+    list(s1 = x1, s2 = x2),
+    ids = list(c("a", "b"), c("b", "c")),  # unnamed
+    axis = "rows",
+    union_order = "sorted"
+  )
+
+  expect_equal(res$ids, c("a", "b", "c"))
+})
+
+test_that("harmonize_union_fill cols axis with sparse Matrix preserves sparsity", {
+  skip_if_not_installed("Matrix")
+
+  x1 <- Matrix::sparseMatrix(
+    i = c(1, 2), j = c(1, 3), x = c(10, 20),
+    dims = c(2, 3),
+    dimnames = list(c("r1", "r2"), c("a", "b", "c"))
+  )
+  x2 <- Matrix::sparseMatrix(
+    i = c(1), j = c(2), x = 30,
+    dims = c(2, 2),
+    dimnames = list(c("r1", "r2"), c("b", "d"))
+  )
+
+  res <- harmonize_union_fill(list(s1 = x1, s2 = x2), axis = "cols", fill = 0)
+
+  expect_true(inherits(res$mats$s1, "Matrix"))
+  expect_true(inherits(res$mats$s2, "Matrix"))
+  expect_equal(ncol(res$mats$s1), 4)  # union of a,b,c,d
+  expect_equal(ncol(res$mats$s2), 4)
+})
+
+test_that("harmonize_union_fill cols axis with dense matrix works", {
+  x1 <- matrix(1:6, 2, 3, dimnames = list(c("r1", "r2"), c("a", "b", "c")))
+  x2 <- matrix(7:10, 2, 2, dimnames = list(c("r1", "r2"), c("b", "d")))
+
+  res <- harmonize_union_fill(list(s1 = x1, s2 = x2), axis = "cols", fill = -1)
+
+  expect_equal(colnames(res$mats$s2), colnames(res$mats$s1))
+  expect_equal(unname(res$mats$s2[, "a"]), c(-1, -1))
+  expect_equal(unname(res$mats$s2[, "c"]), c(-1, -1))
+})
+
+test_that("harmonize_union_fill errors on non-matrix entries", {
+  expect_error(
+    harmonize_union_fill(list(s1 = "not_a_matrix"), axis = "rows"),
+    "must be matrices"
+  )
+})
+
+test_that("harmonize_union_fill errors on empty list", {
+  expect_error(
+    harmonize_union_fill(list(), axis = "rows"),
+    "non-empty named list"
+  )
+})
+
+test_that("harmonize_union_fill with NULL ids infers from dimnames", {
+  x1 <- matrix(1:4, 2, 2, dimnames = list(c("a", "b"), NULL))
+  res <- harmonize_union_fill(list(s1 = x1), axis = "rows")
+  expect_equal(res$ids, c("a", "b"))
+})
+
+test_that("harmonize_union_fill with warn_sparse_below=0 suppresses warnings", {
+  x1 <- matrix(1:4, 2, 2, dimnames = list(c("a", "b"), c("v1", "v2")))
+  x2 <- matrix(1:2, 1, 2, dimnames = list("c", c("v1", "v2")))
+
+  # warn_sparse_below=0 should not warn
+  expect_no_warning(
+    harmonize_union_fill(
+      list(s1 = x1, s2 = x2),
+      axis = "rows",
+      warn_sparse_below = 0
+    )
+  )
+})

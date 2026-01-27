@@ -119,3 +119,116 @@ test_that("create_obs_folds per-subject errors on NA in per-subject ids", {
     "NA"
   )
 })
+
+
+# ---------- More obs fold tests for coverage ----------
+
+test_that("create_obs_folds blocked_time per-subject creates nested folds", {
+  obs_ids <- list(
+    s1 = paste0("t", 1:8),
+    s2 = paste0("t", 1:8)
+  )
+  spec <- create_obs_folds(obs_ids, method = "blocked_time", k = 2, guard_tr = 0)
+
+  expect_equal(spec$method, "blocked_time")
+  expect_equal(spec$n_folds, 2)
+  # Each fold should contain per-subject entries
+  for (fid in spec$fold_ids) {
+    fold <- spec$folds[[fid]]
+    expect_true("s1" %in% names(fold))
+    expect_true("s2" %in% names(fold))
+    expect_true(length(fold$s1$test_idx) > 0)
+    expect_true(length(fold$s1$train_idx) > 0)
+  }
+})
+
+test_that("create_obs_folds per-subject run with guard_tr removes neighbors", {
+  obs_ids <- list(
+    s1 = c("A", "A", "B", "B", "C", "C"),
+    s2 = c("A", "A", "B", "B", "C", "C")
+  )
+
+  spec <- create_obs_folds(obs_ids, method = "run", id_policy = "intersection", guard_tr = 1)
+
+  fold_B <- spec$folds[["B"]]
+  # s1 test for B = indices 3,4; guard should remove indices 2 and 5 from train
+  expect_false(2 %in% fold_B$s1$train_idx)
+  expect_false(5 %in% fold_B$s1$train_idx)
+})
+
+test_that("create_obs_folds per-subject run errors with < 2 fold ids", {
+  obs_ids <- list(
+    s1 = c("A", "A", "A"),
+    s2 = c("A", "A", "A")
+  )
+
+  expect_error(
+    create_obs_folds(obs_ids, method = "run"),
+    ">= 2 fold ids"
+  )
+})
+
+test_that(".as_obs_ids_list returns NULL for atomic input", {
+  result <- neuralign:::.as_obs_ids_list(c("a", "b", "c"))
+  expect_null(result)
+})
+
+test_that(".as_obs_ids_list errors on non-list non-atomic input", {
+  expect_error(
+    neuralign:::.as_obs_ids_list(environment()),
+    "atomic vector or a list"
+  )
+})
+
+test_that(".as_obs_ids_list errors on unnamed list", {
+  expect_error(
+    neuralign:::.as_obs_ids_list(list(c("a", "b"))),
+    "named list"
+  )
+})
+
+test_that(".blocked_time_folds errors on n_obs < 2", {
+  expect_error(
+    neuralign:::.blocked_time_folds(1, k = 2, guard_tr = 0),
+    "n_obs >= 2"
+  )
+})
+
+test_that(".blocked_time_folds errors on k < 2", {
+  expect_error(
+    neuralign:::.blocked_time_folds(10, k = 1, guard_tr = 0),
+    "k.*>= 2"
+  )
+})
+
+test_that(".blocked_time_folds errors on negative guard_tr", {
+  expect_error(
+    neuralign:::.blocked_time_folds(10, k = 2, guard_tr = -1),
+    "guard_tr.*>= 0"
+  )
+})
+
+test_that(".blocked_time_folds errors on k > n_obs", {
+  expect_error(
+    neuralign:::.blocked_time_folds(3, k = 5, guard_tr = 0),
+    "cannot exceed"
+  )
+})
+
+test_that("create_obs_folds with seed parameter works", {
+  runs <- c("r1", "r1", "r2", "r2")
+  spec <- create_obs_folds(runs, method = "run", seed = 42)
+  expect_equal(spec$n_folds, 2)
+})
+
+test_that("create_obs_folds per-subject guard_tr too large errors", {
+  obs_ids <- list(
+    s1 = c("A", "B"),
+    s2 = c("A", "B")
+  )
+
+  expect_error(
+    create_obs_folds(obs_ids, method = "run", guard_tr = 5),
+    "guard_tr too large"
+  )
+})

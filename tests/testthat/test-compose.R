@@ -375,3 +375,47 @@ test_that("compose_alignment sets correct space_from and space_to", {
   expect_equal(composed@space_from, "native")
   expect_equal(composed@space_to, "functional")
 })
+
+
+# ---------- More compose coverage tests ----------
+
+test_that("compose_alignment with unregistered method skips capability check", {
+  transforms1 <- list("sub-01" = diag(3))
+  transforms2 <- list("sub-01" = diag(3) * 2)
+
+  # Use unregistered method names - should skip capability check
+  model1 <- AlignmentModel(transforms1, reference = "consensus", method = "unregistered_m1")
+  model2 <- AlignmentModel(transforms2, reference = "consensus", method = "unregistered_m2")
+
+  composed <- compose_alignment(model1, model2)
+  expect_s4_class(composed, "AlignmentModel")
+  expect_equal(composed@method, "unregistered_m1+unregistered_m2")
+})
+
+test_that("compose_alignment method_state merges both models", {
+  transforms <- list("sub-01" = diag(3))
+
+  model1 <- AlignmentModel(
+    transforms, reference = "consensus", method = "m1",
+    method_state = list(scale = TRUE)
+  )
+  model2 <- AlignmentModel(
+    transforms, reference = "consensus", method = "m2",
+    method_state = list(reflection = FALSE)
+  )
+
+  composed <- compose_alignment(model1, model2)
+  expect_equal(composed@method_state$model1_state$scale, TRUE)
+  expect_equal(composed@method_state$model2_state$reflection, FALSE)
+})
+
+test_that("compose_alignment train_subjects is common subjects", {
+  transforms1 <- list("sub-01" = diag(3), "sub-02" = diag(3))
+  transforms2 <- list("sub-01" = diag(3), "sub-02" = diag(3))
+
+  model1 <- AlignmentModel(transforms1, reference = "consensus", method = "m1")
+  model2 <- AlignmentModel(transforms2, reference = "consensus", method = "m2")
+
+  composed <- compose_alignment(model1, model2)
+  expect_setequal(composed@train_subjects, c("sub-01", "sub-02"))
+})

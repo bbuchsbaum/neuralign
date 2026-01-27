@@ -297,3 +297,152 @@ test_that(".validate_reference_for_method returns TRUE for unknown method", {
     neuralign:::.validate_reference_for_method("sub-01", "nonexistent_aligner_xyz")
   )
 })
+
+
+# ---------- More reference coverage tests ----------
+
+test_that("select_reference with procrustes distance metric", {
+  neuralign:::.register_procrustes()
+
+  set.seed(200)
+  d <- 5
+  n_obs <- 8
+  Z <- matrix(rnorm(d * n_obs), d, n_obs)
+  Q <- qr.Q(qr(matrix(rnorm(d * d), d, d)))
+  if (det(Q) < 0) Q[, 1] <- -Q[, 1]
+
+  data_list <- list(
+    "sub-01" = Z,
+    "sub-02" = Q %*% Z + matrix(rnorm(d * n_obs, sd = 0.01), d, n_obs),
+    "sub-03" = matrix(rnorm(d * n_obs), d, n_obs)
+  )
+  adat <- AlignmentData(data_list)
+
+  ref <- select_reference(adat, method = "medoid", distance = "procrustes")
+  expect_true(ref %in% adat@subjects)
+})
+
+test_that("select_reference centroid errors with per-subject obs_labels", {
+  set.seed(201)
+  data_list <- list(
+    "sub-01" = matrix(rnorm(30), 5, 6),
+    "sub-02" = matrix(rnorm(25), 5, 5)
+  )
+  adat <- AlignmentData(
+    data_list,
+    obs_labels = list(
+      "sub-01" = paste0("obs", 1:6),
+      "sub-02" = paste0("obs", 1:5)
+    )
+  )
+
+  expect_error(
+    select_reference(adat, method = "centroid"),
+    "obs_labels differ across subjects"
+  )
+})
+
+test_that("select_reference random without seed is nondeterministic", {
+  data_list <- list(
+    "sub-01" = matrix(1, 5, 3),
+    "sub-02" = matrix(2, 5, 3),
+    "sub-03" = matrix(3, 5, 3)
+  )
+  adat <- AlignmentData(data_list)
+
+  # Without seed, just verify it returns a valid subject
+  ref <- select_reference(adat, method = "random")
+  expect_true(ref %in% adat@subjects)
+})
+
+test_that("get_reference_data coerces plain list to AlignmentData", {
+  plain_list <- list("sub-01" = matrix(10, 5, 3))
+  ref_data <- get_reference_data(plain_list, "sub-01")
+  expect_equal(ref_data[1, 1], 10)
+})
+
+test_that(".resolve_obs_labels_by_subject handles unnamed list", {
+  data_list <- list(
+    "sub-01" = matrix(1, 5, 3),
+    "sub-02" = matrix(2, 5, 3)
+  )
+  adat <- AlignmentData(data_list)
+
+  # Manually set obs_labels as an unnamed list
+  adat@obs_labels <- list(c("a", "b", "c"), c("d", "e", "f"))
+
+  result <- neuralign:::.resolve_obs_labels_by_subject(adat)
+  expect_equal(names(result), c("sub-01", "sub-02"))
+  expect_equal(result[["sub-01"]], c("a", "b", "c"))
+})
+
+test_that(".resolve_obs_labels_by_subject errors on unnamed list length mismatch", {
+  data_list <- list(
+    "sub-01" = matrix(1, 5, 3),
+    "sub-02" = matrix(2, 5, 3)
+  )
+  adat <- AlignmentData(data_list)
+
+  # Set obs_labels as unnamed list with wrong length
+  adat@obs_labels <- list(c("a", "b", "c"))
+
+  expect_error(
+    neuralign:::.resolve_obs_labels_by_subject(adat),
+    "length must match"
+  )
+})
+
+test_that(".resolve_obs_labels_by_subject errors on missing subjects in named list", {
+  data_list <- list(
+    "sub-01" = matrix(1, 5, 3),
+    "sub-02" = matrix(2, 5, 3)
+  )
+  adat <- AlignmentData(data_list)
+
+  adat@obs_labels <- list("sub-01" = c("a", "b", "c"))
+
+  expect_error(
+    neuralign:::.resolve_obs_labels_by_subject(adat),
+    "missing subjects"
+  )
+})
+
+test_that(".resolve_obs_labels_by_subject errors on non-list non-atomic", {
+  data_list <- list("sub-01" = matrix(1, 5, 3))
+  adat <- AlignmentData(data_list)
+
+  adat@obs_labels <- environment()
+
+  expect_error(
+    neuralign:::.resolve_obs_labels_by_subject(adat),
+    "atomic vector.*list"
+  )
+})
+
+test_that(".match_obs_indices errors on insufficient overlap", {
+  expect_error(
+    neuralign:::.match_obs_indices(c("a", "b"), c("c", "d"), min_overlap = 1L),
+    "Not enough shared"
+  )
+})
+
+test_that(".subset_to_overlap errors on incompatible dimensions without labels", {
+  expect_error(
+    neuralign:::.subset_to_overlap(matrix(1, 2, 3), matrix(1, 3, 4)),
+    "incompatible dimensions"
+  )
+})
+
+test_that(".compute_pairwise_distance returns NA when overlap fails", {
+  x <- matrix(rnorm(10), 2, 5)
+  y <- matrix(rnorm(6), 2, 3)
+
+  # Different obs_labels with no overlap
+  d <- neuralign:::.compute_pairwise_distance(
+    x, y, "correlation",
+    obs_labels_x = paste0("a", 1:5),
+    obs_labels_y = paste0("b", 1:3),
+    min_overlap = 1L
+  )
+  expect_true(is.na(d))
+})

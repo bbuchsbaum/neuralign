@@ -248,3 +248,142 @@ test_that("GPA builtin converges for multiple subjects", {
   expect_equal(length(model@transforms), 4)
 })
 
+
+# ---------- More procrustes coverage tests ----------
+
+test_that("procrustes fit generates held-out subject transforms", {
+  neuralign:::.register_procrustes()
+
+  set.seed(15)
+  d <- 4
+  n <- 6
+  Z <- matrix(rnorm(d * n), d, n)
+
+  Q1 <- qr.Q(qr(matrix(rnorm(d * d), d, d)))
+  if (det(Q1) < 0) Q1[, 1] <- -Q1[, 1]
+  Q2 <- qr.Q(qr(matrix(rnorm(d * d), d, d)))
+  if (det(Q2) < 0) Q2[, 1] <- -Q2[, 1]
+  Q3 <- qr.Q(qr(matrix(rnorm(d * d), d, d)))
+  if (det(Q3) < 0) Q3[, 1] <- -Q3[, 1]
+
+  data_list <- list(
+    s1 = Q1 %*% Z,
+    s2 = Q2 %*% Z,
+    s3 = Q3 %*% Z
+  )
+  adat <- AlignmentData(data_list)
+
+  # Fit using train_idx for only 2 subjects, but expect all 3 to get transforms
+  res <- fit_alignment(
+    adat, method = "procrustes", reference = "s1",
+    cv = "none", train_idx = 1:2, compute_quality = FALSE
+  )
+
+  model <- get_model(res)
+  # All 3 subjects should have transforms (s3 is held-out, fitted via fallback)
+  expect_equal(length(model@transforms), 3)
+  expect_true("s3" %in% names(model@transforms))
+
+  # Verify held-out transform is reasonable (orthogonal)
+  T3 <- model@transforms[["s3"]]
+  expect_equal(dim(T3), c(d, d))
+  expect_equal(T3 %*% t(T3), diag(d), tolerance = 1e-6)
+})
+
+test_that("procrustes fit with template matrix reference", {
+  neuralign:::.register_procrustes()
+
+  set.seed(16)
+  d <- 4
+  n <- 6
+  Z <- matrix(rnorm(d * n), d, n)
+
+  Q <- qr.Q(qr(matrix(rnorm(d * d), d, d)))
+  if (det(Q) < 0) Q[, 1] <- -Q[, 1]
+
+  data_list <- list(s1 = Q %*% Z, s2 = Z)
+  adat <- AlignmentData(data_list)
+
+  res <- fit_alignment(
+    adat, method = "procrustes", reference = Z,
+    cv = "none", compute_quality = FALSE
+  )
+
+  model <- get_model(res)
+  expect_equal(length(model@transforms), 2)
+  # s2 data == Z == reference, so transform should be identity
+  expect_equal(model@transforms[["s2"]], diag(d), tolerance = 1e-6)
+})
+
+test_that("procrustes fit with scale=TRUE recovers scale", {
+  neuralign:::.register_procrustes()
+
+  set.seed(17)
+  d <- 4
+  n <- 8
+  Z <- matrix(rnorm(d * n), d, n)
+
+  Q <- qr.Q(qr(matrix(rnorm(d * d), d, d)))
+  if (det(Q) < 0) Q[, 1] <- -Q[, 1]
+
+  data_list <- list(
+    s1 = Z,
+    s2 = 2 * (Q %*% Z)
+  )
+  adat <- AlignmentData(data_list)
+
+  res <- fit_alignment(
+    adat, method = "procrustes", reference = "s1",
+    cv = "none", compute_quality = FALSE, scale = TRUE
+  )
+
+  model <- get_model(res)
+  # Scale should be stored in method_state
+  expect_true(model@method_state$scale)
+})
+
+test_that("GPA builtin with reflection parameter", {
+  neuralign:::.register_procrustes()
+
+  set.seed(18)
+  d <- 4
+  n <- 6
+  Z <- matrix(rnorm(d * n), d, n)
+
+  # Create subjects with a reflection
+  Q_reflect <- qr.Q(qr(matrix(rnorm(d * d), d, d)))
+  if (det(Q_reflect) > 0) Q_reflect[, 1] <- -Q_reflect[, 1]
+  expect_lt(det(Q_reflect), 0)
+
+  data_list <- list(
+    s1 = Z,
+    s2 = Q_reflect %*% Z
+  )
+  adat <- AlignmentData(data_list)
+
+  # Without reflection
+  res_no_ref <- fit_alignment(
+    adat, method = "procrustes", reference = "s1",
+    cv = "none", compute_quality = FALSE, reflection = FALSE
+  )
+  T_no_ref <- get_model(res_no_ref)@transforms[["s2"]]
+  expect_gte(det(T_no_ref), 0)
+
+  # With reflection
+  res_ref <- fit_alignment(
+    adat, method = "procrustes", reference = "s1",
+    cv = "none", compute_quality = FALSE, reflection = TRUE
+  )
+  T_ref <- get_model(res_ref)@transforms[["s2"]]
+  expect_lt(det(T_ref), 0)
+})
+
+test_that("procrustes_rotation scale with zero data returns scale=1", {
+  # When source data is all zeros, denom = 0, scale defaults to 1
+  X <- matrix(0, 3, 5)
+  Y <- matrix(rnorm(15), 3, 5)
+
+  res <- procrustes_rotation(X, Y, "left", scale = TRUE)
+  expect_equal(res$scale_factor, 1)
+})
+

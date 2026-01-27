@@ -478,3 +478,85 @@ test_that("validate_common_anchor includes context in messages", {
     "decoding"
   )
 })
+
+
+# ---------- More CV coverage tests ----------
+
+test_that("has_common_anchor for AlignmentResult without anchor_common field", {
+  # Result with cv_info but no anchor_common field -> fallback to reference check
+  model <- AlignmentModel(
+    transforms = list("sub-01" = diag(3)),
+    reference = "fold_specific",
+    method = "test"
+  )
+  result <- AlignmentResult(
+    model = model,
+    aligned = list("sub-01" = diag(3)),
+    cv_info = list(method = "loso")  # no anchor_common
+  )
+  expect_false(has_common_anchor(result))
+})
+
+test_that("has_common_anchor for AlignmentResult with no CV info", {
+  model <- AlignmentModel(
+    transforms = list("sub-01" = diag(3)),
+    reference = "sub-01",
+    method = "test"
+  )
+  result <- AlignmentResult(
+    model = model,
+    aligned = list("sub-01" = diag(3)),
+    cv_info = list()  # empty cv_info
+  )
+  expect_true(has_common_anchor(result))
+})
+
+test_that("run_cv_alignment with fixed subject reference yields common anchor", {
+  neuralign:::.register_procrustes()
+
+  set.seed(42)
+  data_list <- lapply(1:3, function(i) matrix(rnorm(50), 10, 5))
+  names(data_list) <- paste0("sub-0", 1:3)
+  adat <- AlignmentData(data_list)
+
+  cv_result <- run_cv_alignment(
+    adat, method = "procrustes", cv_folds = "loso",
+    reference = "sub-01"
+  )
+
+  expect_equal(cv_result$result@cv_info$reference_kind, "fixed_subject")
+  expect_true(cv_result$result@cv_info$anchor_common)
+})
+
+test_that("run_cv_alignment with kfold string works", {
+  neuralign:::.register_procrustes()
+
+  set.seed(42)
+  data_list <- lapply(1:6, function(i) matrix(rnorm(50), 10, 5))
+  names(data_list) <- paste0("sub-0", 1:6)
+  adat <- AlignmentData(data_list)
+
+  cv_result <- run_cv_alignment(
+    adat, method = "procrustes", cv_folds = "kfold", k = 2
+  )
+
+  expect_s4_class(cv_result$result, "AlignmentResult")
+  expect_equal(cv_result$cv_info$method, "kfold")
+})
+
+test_that("run_cv_alignment sets matching obs_labels on AlignmentData", {
+  neuralign:::.register_procrustes()
+
+  set.seed(42)
+  data_list <- lapply(1:3, function(i) matrix(rnorm(30), 10, 3))
+  names(data_list) <- paste0("sub-0", 1:3)
+  labs <- paste0("obs_", 1:3)
+  adat <- AlignmentData(data_list, obs_labels = labs)
+
+  # Same labels -> should not error
+  cv_result <- run_cv_alignment(
+    adat, method = "procrustes", cv_folds = "loso",
+    obs_labels = labs
+  )
+  expect_s4_class(cv_result$result, "AlignmentResult")
+})
