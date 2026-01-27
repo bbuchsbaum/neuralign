@@ -153,9 +153,9 @@ NULL
   for (i in seq_len(n_nodes)) {
     ii <- ((i - 1L) * d + 1L):(i * d)
     block <- V[ii, , drop = FALSE]
-    # Important: do NOT enforce det(Q) >= 0 per-subject. Relative rotations
-    # are invariant to a shared global reflection, but per-node enforcement
-    # can break consistency when the leading eigenspace is sign-indeterminate.
+    # Important: do NOT enforce det(Q) >= 0 per-subject here. Relative rotations
+    # are invariant to a shared global reflection, but per-node enforcement can
+    # break consistency when the leading eigenspace is sign-indeterminate.
     G[[i]] <- .project_to_orthogonal(block, reflection = TRUE)
   }
   G
@@ -284,6 +284,17 @@ NULL
       )
       transforms[[subj]] <- res$Q
     }
+  }
+
+  if (!isTRUE(reflection)) {
+    transforms <- lapply(transforms, function(Q) {
+      Q <- as.matrix(Q)
+      if (det(Q) < 0) {
+        .project_to_orthogonal(Q, reflection = FALSE)
+      } else {
+        Q
+      }
+    })
   }
 
   list(

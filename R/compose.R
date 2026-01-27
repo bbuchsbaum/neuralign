@@ -184,13 +184,23 @@ setMethod("%*%", c("AlignmentModel", "AlignmentModel"),
 #' @export
 setMethod("%*%", c("AlignmentModel", "matrix"),
   function(x, y) {
-    # Assume single subject, apply first transform
-    if (length(x@transforms) == 0) {
+    n_transforms <- length(x@transforms)
+    if (n_transforms == 0) {
       stop("Model has no transforms", call. = FALSE)
     }
 
-    # Use first transform
-    transform <- x@transforms[[1]]
+    if (n_transforms > 1) {
+      stop(
+        paste0(
+          "AlignmentModel has transforms for multiple subjects; cannot apply ",
+          "to a bare matrix. Use apply_alignment(model, AlignmentData) or ",
+          "apply_transform(get_transforms(model)[[subject_id]], mat)."
+        ),
+        call. = FALSE
+      )
+    }
+
+    transform <- x@transforms[[1L]]
     apply_transform(transform, y)
   }
 )

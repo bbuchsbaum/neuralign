@@ -429,3 +429,46 @@ test_that("procrustes_graph apply errors on multiple new subjects", {
     "single new subject"
   )
 })
+
+test_that("procrustes_graph respects reflection=FALSE in synchronization", {
+  .ensure_procrustes_graph_registered()
+
+  set.seed(26)
+  d <- 4
+  n <- 6
+  labels <- paste0("stim", seq_len(n))
+  Z <- matrix(rnorm(d * n), d, n)
+  R_reflect <- diag(c(-1, rep(1, d - 1L)))
+
+  adat <- AlignmentData(
+    data = list(
+      s1 = Z,
+      s2 = R_reflect %*% Z
+    ),
+    obs_labels = labels
+  )
+
+  no_reflect <- fit_alignment(
+    adat,
+    method = "procrustes_graph",
+    reference = "s1",
+    min_overlap = d,
+    reflection = FALSE,
+    compute_quality = FALSE
+  )
+  Q2 <- get_transform(get_model(no_reflect), "s2")
+  expect_gt(det(Q2), 0)
+  expect_gt(norm(no_reflect@aligned[["s2"]] - Z, "F"), 1e-6)
+
+  allow_reflect <- fit_alignment(
+    adat,
+    method = "procrustes_graph",
+    reference = "s1",
+    min_overlap = d,
+    reflection = TRUE,
+    compute_quality = FALSE
+  )
+  Q2r <- get_transform(get_model(allow_reflect), "s2")
+  expect_lt(det(Q2r), 0)
+  expect_true(max(abs(allow_reflect@aligned[["s2"]] - Z)) < 1e-8)
+})

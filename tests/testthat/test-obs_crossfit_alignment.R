@@ -84,12 +84,15 @@ test_that("run_obs_crossfit_alignment enforces anchor_policy for data-driven ref
     "common_or_error"
   )
 
-  ok <- run_obs_crossfit_alignment(
-    train_data_by_fold = train_data,
-    method = "procrustes",
-    reference = "consensus",
-    obs_labels_train = obs_labels_train,
-    anchor_policy = "fold_specific_ok"
+  expect_warning(
+    ok <- run_obs_crossfit_alignment(
+      train_data_by_fold = train_data,
+      method = "procrustes",
+      reference = "consensus",
+      obs_labels_train = obs_labels_train,
+      anchor_policy = "fold_specific_ok"
+    ),
+    "Fold-specific anchors"
   )
   expect_false(isTRUE(ok$anchor_common))
   expect_equal(ok$reference_kind, "data_driven")
@@ -372,11 +375,14 @@ test_that("run_obs_crossfit_alignment fold_specific_ok with data-driven ref gene
     f2 = list(s1 = Z[, 4:6, drop = FALSE], s2 = Z[, 4:6, drop = FALSE])
   )
 
-  res <- run_obs_crossfit_alignment(
-    train_data_by_fold = train_data,
-    method = "procrustes",
-    reference = "consensus",
-    anchor_policy = "fold_specific_ok"
+  expect_warning(
+    res <- run_obs_crossfit_alignment(
+      train_data_by_fold = train_data,
+      method = "procrustes",
+      reference = "consensus",
+      anchor_policy = "fold_specific_ok"
+    ),
+    "Fold-specific anchors"
   )
 
   expect_false(isTRUE(res$anchor_common))

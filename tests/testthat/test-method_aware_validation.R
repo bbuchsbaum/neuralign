@@ -62,6 +62,11 @@ test_that("fit_alignment checks shared features only when required", {
     tryCatch(unregister_aligner("dummy_varfeat"), error = function(e) NULL)
   }, add = TRUE)
 
-  res <- fit_alignment(adat, method = "dummy_varfeat", cv = "none", compute_quality = FALSE)
+  res <- fit_alignment(adat,
+    method = "dummy_varfeat",
+    reference = "s1",
+    cv = "none",
+    compute_quality = FALSE
+  )
   expect_s4_class(res, "AlignmentResult")
 })

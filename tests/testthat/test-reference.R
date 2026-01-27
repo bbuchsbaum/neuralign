@@ -450,9 +450,9 @@ test_that(".compute_pairwise_distance returns NA when overlap fails", {
 
 # ---------- select_reference edge cases ----------
 
-test_that("select_reference medoid handles NA pairwise distances gracefully", {
-  # When subjects have disjoint obs_labels, pairwise distances are NA.
-  # Medoid uses rowMeans with na.rm=TRUE, so the diagonal (0) survives.
+test_that("select_reference medoid errors when all pairwise distances are NA", {
+  # When subjects have disjoint obs_labels, all off-diagonal distances are NA
+  # and there is no meaningful medoid.
   adat <- AlignmentData(
     list(
       s1 = matrix(rnorm(6), 2, 3),
@@ -464,9 +464,10 @@ test_that("select_reference medoid handles NA pairwise distances gracefully", {
     )
   )
 
-  # Should still return a subject (falls back to diagonal zeros)
-  ref <- select_reference(adat, method = "medoid")
-  expect_true(ref %in% c("s1", "s2"))
+  expect_error(
+    select_reference(adat, method = "medoid", distance = "procrustes"),
+    "Cannot select medoid: no finite pairwise distances"
+  )
 })
 
 test_that(".compute_pairwise_distance with euclidean metric", {

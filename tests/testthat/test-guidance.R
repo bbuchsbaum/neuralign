@@ -97,7 +97,7 @@ test_that("aligners can require guidance channels via capabilities", {
   )
 
   adat2 <- set_guidance(adat, g)
-  res <- fit_alignment(adat2, method = "dummy_guided", compute_quality = FALSE)
+  res <- fit_alignment(adat2, method = "dummy_guided", reference = "s1", compute_quality = FALSE)
   expect_s4_class(res, "AlignmentResult")
 })
 
@@ -275,4 +275,3 @@ test_that("validate_guidance_dims errors on non-matrix projector", {
   )
   expect_error(set_guidance(adat, g), "matrix-like")
 })
-

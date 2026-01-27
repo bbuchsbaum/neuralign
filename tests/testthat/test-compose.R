@@ -137,6 +137,18 @@ test_that("AlignmentModel %*% matrix applies transform", {
   expect_equal(result, expected)
 })
 
+test_that("AlignmentModel %*% matrix errors when model has multiple transforms", {
+  transforms <- list(
+    "sub-01" = diag(2),
+    "sub-02" = diag(2) * 2
+  )
+  model <- AlignmentModel(transforms, reference = NULL, method = "test")
+  expect_error(
+    model %*% matrix(1, 2, 2),
+    "multiple subjects"
+  )
+})
+
 
 # --- Additional tests for uncovered lines ---
 

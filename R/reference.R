@@ -96,7 +96,9 @@ select_reference <- function(data,
     # Medoid: subject with minimum average distance to all others.
     # When some pairs have no overlap (e.g., disjoint label sets), distances
     # are NA; we ignore those pairs rather than failing outright.
-    total_dist <- rowMeans(dist_mat, na.rm = TRUE)
+    dm <- dist_mat
+    diag(dm) <- NA_real_
+    total_dist <- rowMeans(dm, na.rm = TRUE)
     total_dist[!is.finite(total_dist)] <- Inf
     if (all(is.infinite(total_dist))) {
       stop(

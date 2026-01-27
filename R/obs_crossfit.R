@@ -474,7 +474,7 @@ run_obs_crossfit_alignment <- function(train_data_by_fold,
       )
       Q_map <- map_res$Q
 
-      transforms <- lapply(transforms, function(T) Q_map %*% as.matrix(T))
+      transforms <- lapply(transforms, function(Q_subj) Q_map %*% as.matrix(Q_subj))
       transforms_by_fold[[fid]] <- transforms
       # Do not mutate the stored model object; record mapping in fold_info.
     }
@@ -483,9 +483,9 @@ run_obs_crossfit_alignment <- function(train_data_by_fold,
     if (!is.null(test_data_by_fold)) {
       test_fold <- test_data_by_fold[[fid]]
       aligned_fold <- lapply(subjects, function(subj) {
-        T <- transforms_by_fold[[fid]][[subj]]
+        Q_subj <- transforms_by_fold[[fid]][[subj]]
         X <- as.matrix(test_fold[[subj]])
-        T %*% X
+        Q_subj %*% X
       })
       names(aligned_fold) <- subjects
       aligned_test_by_fold[[fid]] <- aligned_fold
@@ -494,6 +494,10 @@ run_obs_crossfit_alignment <- function(train_data_by_fold,
 
   if (anchor_policy == "map_to_template") {
     anchor_common <- TRUE
+  }
+
+  if (length(warnings) > 0) {
+    warning(paste(unique(warnings), collapse = "\n"), call. = FALSE)
   }
 
   out <- list(
