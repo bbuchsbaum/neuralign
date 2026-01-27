@@ -10,10 +10,19 @@ NULL
   .register_procrustes_graph()
   .register_kprocrustes()
 
-  # Register OT aligners if manifoldalign is available
+  # Register manifoldalign-backed aligners when available
   if (requireNamespace("manifoldalign", quietly = TRUE)) {
     tryCatch(.register_gw(), error = function(e) NULL)
     tryCatch(.register_fpgw(), error = function(e) NULL)
+    tryCatch(.register_kema(), error = function(e) NULL)
+    tryCatch(.register_coupled_diag(), error = function(e) NULL)
+    tryCatch(.register_gpca(), error = function(e) NULL)
+    tryCatch(.register_mma(), error = function(e) NULL)
+    tryCatch(.register_grasp(), error = function(e) NULL)
+    tryCatch(.register_cone(), error = function(e) NULL)
+    tryCatch(.register_parrot(), error = function(e) NULL)
+    tryCatch(.register_lowrank(), error = function(e) NULL)
+    tryCatch(.register_lse(), error = function(e) NULL)
   }
 }
 

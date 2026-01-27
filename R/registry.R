@@ -405,12 +405,20 @@ unregister_aligner <- function(name) {
 
   # Known method -> package mappings for lazy loading
   known_methods <- list(
-    "fugw" = "topofmri",
-    "gw" = "manifoldalign",
-    "fpgw" = "manifoldalign",
-    "kema" = "manifoldalign",
-    "dkge" = "dkge",
-    "nef" = "fmrireg.gnef"
+    "fugw"          = "topofmri",
+    "gw"            = "manifoldalign",
+    "fpgw"          = "manifoldalign",
+    "kema"          = "manifoldalign",
+    "coupled_diag"  = "manifoldalign",
+    "gpca"          = "manifoldalign",
+    "mma"           = "manifoldalign",
+    "grasp"         = "manifoldalign",
+    "cone"          = "manifoldalign",
+    "parrot"        = "manifoldalign",
+    "lowrank"       = "manifoldalign",
+    "lse"           = "manifoldalign",
+    "dkge"          = "dkge",
+    "nef"           = "fmrireg.gnef"
   )
 
   pkg <- known_methods[[name]]
