@@ -47,6 +47,7 @@ Collate:
     'alignment_result.R'
     'registry.R'
     'validate_transforms.R'
+    'uncertainty.R'
     'k_procrustes.R'
     'fit_alignment.R'
     'apply_alignment.R'
