@@ -18,7 +18,7 @@ NULL
   K
 }
 
-#' Kernel Roots (K^{1/2} and K^{-1/2})
+#' Kernel Roots (K^(1/2) and K^(-1/2))
 #'
 #' Compute numerically stable square-root and inverse square-root matrices for a
 #' (symmetric) kernel `K`, using a small eigenvalue floor (`jitter`).
