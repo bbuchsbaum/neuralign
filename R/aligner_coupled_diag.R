@@ -37,8 +37,9 @@ NULL
                               sigma = NULL,
                               max_iter = 200L,
                               tol = 1e-6,
+                              lambda_oos = 1e-2,
                               ...) {
-  .require_manifoldalign("coupled diagonalization")
+  .ma_require_manifoldalign("coupled diagonalization")
 
   dots <- list(...)
 
@@ -46,12 +47,11 @@ NULL
     train_idx <- seq_along(data@subjects)
   }
   train_data <- data[train_idx]
-  data_list <- get_data_list(train_data)
+  labels <- .ma_require_shared_obs_labels(train_data, method = "coupled_diag")
+  ref <- .ma_resolve_reference_spec(train_data, reference, method = "coupled_diag", allow_template = FALSE)
 
-  ref <- .resolve_reference(train_data, reference)
-
-  # Build hyperdesign (no transpose: features-as-points)
-  hd <- .build_hyperdesign(train_data, transpose = FALSE)
+  # observations-as-samples: x = t(X)
+  hd <- .ma_build_hyperdesign_obs(train_data, labels = labels, label_name = "label")
 
   cd_args <- utils::modifyList(
     list(
@@ -71,33 +71,21 @@ NULL
     c(list(data = hd), cd_args)
   )
 
-  # Extract per-subject operators from aligned scores
-  transforms <- .extract_operators_from_scores(
-    cd_result, data_list, ref$name, ref$data
-  )
+  data_list_train <- get_data_list(train_data)
+  feature_counts <- vapply(data_list_train, nrow, integer(1))
+  v_blocks <- .ma_mbp_split_loadings(cd_result, names(data_list_train), feature_counts)
+  transforms_train <- .ma_projection_transforms_from_loadings(v_blocks)
 
-  # Handle held-out subjects
-  all_subjects <- data@subjects
-  heldout <- setdiff(all_subjects, names(transforms))
-  if (length(heldout) > 0) {
-    for (subj in heldout) {
-      subj_data <- get_subject_data(data, subj)
-      small_hd <- structure(
-        list(
-          subj = list(x = subj_data),
-          ref  = list(x = ref$data)
-        ),
-        class = "hyperdesign"
-      )
-      small_result <- do.call(
-        manifoldalign::coupled_diagonalization,
-        c(list(data = small_hd), cd_args)
-      )
-      small_dl <- list(subj = subj_data, ref = ref$data)
-      small_transforms <- .extract_operators_from_scores(
-        small_result, small_dl, "ref", ref$data
-      )
-      transforms[[subj]] <- small_transforms[["subj"]]
+  A_ref <- transforms_train[[ref$name]]
+  Z_ref <- .ma_reference_scores(A_ref, ref$data)
+
+  data_list_all <- get_data_list(data)
+  transforms <- list()
+  for (subj in names(data_list_all)) {
+    if (!is.null(transforms_train[[subj]])) {
+      transforms[[subj]] <- transforms_train[[subj]]
+    } else {
+      transforms[[subj]] <- .ma_ridge_map_to_reference_scores(data_list_all[[subj]], Z_ref, lambda = lambda_oos)
     }
   }
 
@@ -105,14 +93,42 @@ NULL
     transforms = transforms,
     reference_data = ref$data,
     space_from = train_data@space,
-    space_to   = train_data@space,
+    space_to   = NULL,
     method_state = list(
       ncomp       = ncomp,
       mu_coupling = mu_coupling,
       reference   = ref$name,
+      obs_labels_ref = labels,
+      Z_ref = Z_ref,
+      lambda_oos = lambda_oos,
       cd_args     = cd_args
     )
   )
+}
+
+.coupled_diag_apply <- function(fit_result, new_data, ...) {
+  if (!inherits(new_data, "AlignmentData") || length(new_data@subjects) != 1L) {
+    stop("coupled_diag apply_fn expects new_data to contain exactly one subject", call. = FALSE)
+  }
+  subj <- new_data@subjects[[1L]]
+  X <- get_subject_data(new_data, subj)
+
+  st <- fit_result$method_state %||% list()
+  Z_ref <- st$Z_ref %||% NULL
+  obs_ref <- st$obs_labels_ref %||% NULL
+  lambda <- st$lambda_oos %||% 1e-2
+  if (is.null(Z_ref) || is.null(obs_ref)) {
+    stop("coupled_diag apply_fn missing reference latent scores/labels in method_state", call. = FALSE)
+  }
+  obs_new <- .ma_get_single_subject_obs_labels(new_data)
+  if (is.null(obs_new)) stop("coupled_diag apply_fn requires obs_labels on new_data", call. = FALSE)
+  idx <- .ma_match_obs_indices(obs_ref, obs_new)
+  A_new <- .ma_ridge_map_to_reference_scores(
+    X[, idx$new, drop = FALSE],
+    Z_ref[, idx$ref, drop = FALSE],
+    lambda = lambda
+  )
+  list(transforms = setNames(list(A_new), subj))
 }
 
 
@@ -124,14 +140,14 @@ NULL
   needs_geometry             = FALSE,
   needs_design               = FALSE,
   requires_shared_features   = TRUE,
-  requires_shared_observations = FALSE,
+  requires_shared_observations = TRUE,
   returns_invertible         = FALSE,
   transform_type             = "linear",
   mass_preserving            = FALSE,
   returns                    = "operator",
   supports_new_subject       = TRUE,
   supports_new_data          = TRUE,
-  reference_types            = c("subject", "medoid", "template")
+  reference_types            = c("subject")
 )
 
 
@@ -141,7 +157,7 @@ NULL
   register_aligner(
     name         = "coupled_diag",
     fit_fn       = .coupled_diag_fit,
-    apply_fn     = NULL,
+    apply_fn     = .coupled_diag_apply,
     capabilities = .coupled_diag_capabilities,
     package      = "manifoldalign",
     description  = "Coupled Diagonalization alignment",

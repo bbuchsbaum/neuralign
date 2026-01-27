@@ -33,7 +33,7 @@ NULL
                       max_iter = 30L,
                       tol = 0.01,
                       ...) {
-  .require_manifoldalign("CONE-Align")
+  .ma_require_manifoldalign("CONE-Align")
 
   dots <- list(...)
 
@@ -41,58 +41,36 @@ NULL
     train_idx <- seq_along(data@subjects)
   }
   train_data <- data[train_idx]
-  data_list <- get_data_list(train_data)
-  ref <- .resolve_reference(train_data, reference)
-
-  hd <- .build_hyperdesign(train_data, transpose = FALSE)
+  ref <- .ma_resolve_reference_spec(train_data, reference, method = "cone", allow_template = TRUE)
 
   cone_args <- utils::modifyList(
-    list(
-      ncomp    = ncomp,
-      sigma    = sigma,
-      lambda   = lambda,
-      max_iter = max_iter,
-      tol      = tol
-    ),
+    list(ncomp = ncomp, sigma = sigma, lambda = lambda, max_iter = max_iter, tol = tol),
     dots
   )
 
-  n_domains <- length(data_list)
+  # Pairwise align each domain to the reference, and build a sparse permutation
+  # operator from the returned assignment. This is the primary output of CONE-Align.
+  data_list_all <- get_data_list(data)
+  n_target <- nrow(ref$data)
 
-  if (n_domains > 2) {
-    cone_result <- do.call(
-      manifoldalign::cone_align_multiple,
-      c(list(data = hd), cone_args)
-    )
-  } else {
-    cone_result <- do.call(
-      manifoldalign::cone_align,
-      c(list(data = hd), cone_args)
-    )
-  }
-
-  transforms <- .extract_operators_from_scores(
-    cone_result, data_list, ref$name, ref$data
-  )
-
-  # Held-out subjects
-  heldout <- setdiff(data@subjects, names(transforms))
-  if (length(heldout) > 0) {
-    for (subj in heldout) {
-      subj_data <- get_subject_data(data, subj)
-      small_hd <- structure(
-        list(subj = list(x = subj_data), ref = list(x = ref$data)),
-        class = "hyperdesign"
-      )
-      small_result <- do.call(
-        manifoldalign::cone_align,
-        c(list(data = small_hd), cone_args)
-      )
-      small_dl <- list(subj = subj_data, ref = ref$data)
-      transforms[[subj]] <- .extract_operators_from_scores(
-        small_result, small_dl, "ref", ref$data
-      )[["subj"]]
+  transforms <- list()
+  for (subj in names(data_list_all)) {
+    Xi <- data_list_all[[subj]]
+    if (identical(ref$name, subj)) {
+      transforms[[subj]] <- Matrix::Diagonal(n_target)
+      next
     }
+
+    pair_hd <- structure(
+      list(
+        target = list(x = ref$data),
+        source = list(x = Xi)
+      ),
+      class = c("hyperdesign", "list")
+    )
+    fit <- do.call(manifoldalign::cone_align, c(list(data = pair_hd), cone_args))
+    P <- fit$assignment
+    transforms[[subj]] <- .ma_assignment_to_operator(P, n_target = n_target, n_source = nrow(Xi))
   }
 
   list(
@@ -104,6 +82,30 @@ NULL
   )
 }
 
+.cone_apply <- function(fit_result, new_data, ...) {
+  .ma_require_manifoldalign("CONE-Align")
+  if (!inherits(new_data, "AlignmentData") || length(new_data@subjects) != 1L) {
+    stop("cone apply_fn expects new_data to contain exactly one subject", call. = FALSE)
+  }
+  subj <- new_data@subjects[[1L]]
+  X <- get_subject_data(new_data, subj)
+
+  ref_data <- fit_result$reference_data %||% NULL
+  st <- fit_result$method_state %||% list()
+  cone_args <- st$cone_args %||% list()
+  if (is.null(ref_data)) stop("cone apply_fn requires reference_data in model", call. = FALSE)
+
+  n_target <- nrow(ref_data)
+  pair_hd <- structure(
+    list(target = list(x = ref_data), source = list(x = X)),
+    class = c("hyperdesign", "list")
+  )
+  fit <- do.call(manifoldalign::cone_align, c(list(data = pair_hd), cone_args))
+  P <- fit$assignment
+  A_new <- .ma_assignment_to_operator(P, n_target = n_target, n_source = nrow(X))
+  list(transforms = setNames(list(A_new), subj))
+}
+
 
 .cone_capabilities <- list(
   supports_cv                  = TRUE,
@@ -113,12 +115,12 @@ NULL
   requires_shared_features     = FALSE,
   requires_shared_observations = FALSE,
   returns_invertible           = FALSE,
-  transform_type               = "linear",
+  transform_type               = "permutation",
   mass_preserving              = FALSE,
   returns                      = "operator",
   supports_new_subject         = TRUE,
   supports_new_data            = TRUE,
-  reference_types              = c("subject", "medoid", "template")
+  reference_types              = c("subject", "template")
 )
 
 
@@ -127,7 +129,7 @@ NULL
   register_aligner(
     name         = "cone",
     fit_fn       = .cone_fit,
-    apply_fn     = NULL,
+    apply_fn     = .cone_apply,
     capabilities = .cone_capabilities,
     package      = "manifoldalign",
     description  = "CONE-Align graph alignment",

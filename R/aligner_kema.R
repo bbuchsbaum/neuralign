@@ -1,8 +1,7 @@
 #' KEMA Alignment
 #'
 #' Kernel Manifold Alignment (KEMA) via manifoldalign. Produces per-subject
-#' operators by extracting score-based embeddings and constructing linear
-#' maps to a reference subject's feature space.
+#' projection operators into a shared latent space.
 #'
 #' @name aligner_kema
 #' @keywords internal
@@ -33,37 +32,28 @@ NULL
                       sigma = NULL,
                       u = 0.5,
                       solver = "regression",
-                      lambda = 1e-4,
+                      lambda = 1e-2,
                       ...) {
-  .require_manifoldalign("KEMA")
+  .ma_require_manifoldalign("KEMA")
 
   dots <- list(...)
 
-  # --- Subset to training subjects ---
   if (is.null(train_idx)) {
     train_idx <- seq_along(data@subjects)
   }
   train_data <- data[train_idx]
-  train_subjects <- train_data@subjects
-  data_list <- get_data_list(train_data)
+  labels <- .ma_require_shared_obs_labels(train_data, method = "kema")
+  ref <- .ma_resolve_reference_spec(train_data, reference, method = "kema", allow_template = FALSE)
 
-  # --- Resolve reference ---
-  ref <- .resolve_reference(train_data, reference)
-
-  # --- Build hyperdesign (no transpose: features-as-points) ---
-  hd <- .build_hyperdesign(train_data, transpose = FALSE)
-
-  # --- Resolve observation labels for the `y` argument ---
-  # KEMA needs a label vector, one per "sample" (here: per feature/voxel).
-  # If obs_labels are available they apply to observations (columns), not
-  # features (rows).  For the no-transpose convention we rely on KEMA's
-  # unsupervised capability (u=1 fully manifold-based) when no feature-level
-  # labels are supplied.
-  obs_labels <- .resolve_obs_labels(data)
+  # observations-as-samples: x = t(X), y = obs_labels
+  label_name <- "label"
+  y_sym <- as.name(label_name)
+  hd <- .ma_build_hyperdesign_obs(train_data, labels = labels, label_name = label_name)
 
   # --- Assemble arguments ---
   kema_args <- utils::modifyList(
     list(
+      y     = y_sym,
       ncomp = ncomp,
       knn   = knn,
       sigma = sigma,
@@ -74,52 +64,29 @@ NULL
     dots
   )
 
-  # Add y only if labels are present and correspond to observations
-  # (i.e. the hyperdesign rows).  With no-transpose, rows are features;
-  # only include y if feature-level labels are supplied via metadata.
-  feat_labels <- train_data@metadata[["feature_labels"]]
-  if (!is.null(feat_labels)) {
-    kema_args$y <- feat_labels
-  }
-
   kema_result <- do.call(
     manifoldalign::kema,
     c(list(data = hd), kema_args)
   )
 
-  # --- Extract per-subject operators ---
-  transforms <- .extract_operators_from_scores(
-    kema_result, data_list, ref$name, ref$data
-  )
+  data_list_train <- get_data_list(train_data)
+  feature_counts <- vapply(data_list_train, nrow, integer(1))
+  v_blocks <- .ma_mbp_split_loadings(kema_result, names(data_list_train), feature_counts)
+  transforms_train <- .ma_projection_transforms_from_loadings(v_blocks)
 
-  # --- Handle held-out subjects ---
-  all_subjects <- data@subjects
-  heldout <- setdiff(all_subjects, names(transforms))
-  if (length(heldout) > 0) {
-    for (subj in heldout) {
-      subj_data <- get_subject_data(data, subj)
-      # Re-fit a small 2-domain problem (subject + reference)
-      small_hd <- structure(
-        list(
-          subj = list(x = subj_data),
-          ref  = list(x = ref$data)
-        ),
-        class = "hyperdesign"
-      )
-      small_kema_args <- kema_args
-      small_kema_args$y <- NULL
-      if (!is.null(feat_labels)) {
-        small_kema_args$y <- feat_labels
-      }
-      small_result <- do.call(
-        manifoldalign::kema,
-        c(list(data = small_hd), small_kema_args)
-      )
-      small_dl <- list(subj = subj_data, ref = ref$data)
-      small_transforms <- .extract_operators_from_scores(
-        small_result, small_dl, "ref", ref$data
-      )
-      transforms[[subj]] <- small_transforms[["subj"]]
+  # Reference latent scores (k x n_obs)
+  A_ref <- transforms_train[[ref$name]]
+  Z_ref <- .ma_reference_scores(A_ref, ref$data)
+
+  # Produce transforms for all subjects (train + heldout/new)
+  data_list_all <- get_data_list(data)
+  transforms <- list()
+  for (subj in names(data_list_all)) {
+    if (!is.null(transforms_train[[subj]])) {
+      transforms[[subj]] <- transforms_train[[subj]]
+    } else {
+      X_subj <- data_list_all[[subj]]
+      transforms[[subj]] <- .ma_ridge_map_to_reference_scores(X_subj, Z_ref, lambda = lambda)
     }
   }
 
@@ -127,18 +94,41 @@ NULL
     transforms = transforms,
     reference_data = ref$data,
     space_from = train_data@space,
-    space_to   = train_data@space,
+    space_to   = NULL,
     method_state = list(
-      ncomp     = ncomp,
-      knn       = knn,
-      sigma     = sigma,
-      u         = u,
-      solver    = solver,
-      lambda    = lambda,
       reference = ref$name,
+      obs_labels_ref = labels,
+      Z_ref = Z_ref,
+      lambda = lambda,
       kema_args = kema_args
     )
   )
+}
+
+.kema_apply <- function(fit_result, new_data, ...) {
+  if (!inherits(new_data, "AlignmentData") || length(new_data@subjects) != 1L) {
+    stop("kema apply_fn expects new_data to contain exactly one subject", call. = FALSE)
+  }
+  subj <- new_data@subjects[[1L]]
+  X <- get_subject_data(new_data, subj)
+
+  st <- fit_result$method_state %||% list()
+  Z_ref <- st$Z_ref %||% NULL
+  obs_ref <- st$obs_labels_ref %||% NULL
+  lambda <- st$lambda %||% 1e-2
+  if (is.null(Z_ref) || is.null(obs_ref)) {
+    stop("kema apply_fn missing reference latent scores/labels in method_state", call. = FALSE)
+  }
+
+  obs_new <- .ma_get_single_subject_obs_labels(new_data)
+  if (is.null(obs_new)) {
+    stop("kema apply_fn requires obs_labels on new_data", call. = FALSE)
+  }
+  idx <- .ma_match_obs_indices(obs_ref, obs_new)
+  Xc <- X[, idx$new, drop = FALSE]
+  Zc <- Z_ref[, idx$ref, drop = FALSE]
+  A_new <- .ma_ridge_map_to_reference_scores(Xc, Zc, lambda = lambda)
+  list(transforms = setNames(list(A_new), subj))
 }
 
 
@@ -150,14 +140,14 @@ NULL
   needs_geometry             = FALSE,
   needs_design               = FALSE,
   requires_shared_features   = TRUE,
-  requires_shared_observations = FALSE,
+  requires_shared_observations = TRUE,
   returns_invertible         = FALSE,
   transform_type             = "linear",
   mass_preserving            = FALSE,
   returns                    = "operator",
   supports_new_subject       = TRUE,
   supports_new_data          = TRUE,
-  reference_types            = c("subject", "medoid", "template")
+  reference_types            = c("subject")
 )
 
 
@@ -167,7 +157,7 @@ NULL
   register_aligner(
     name        = "kema",
     fit_fn      = .kema_fit,
-    apply_fn    = NULL,
+    apply_fn    = .kema_apply,
     capabilities = .kema_capabilities,
     package     = "manifoldalign",
     description = "Kernel Manifold Alignment (KEMA)",

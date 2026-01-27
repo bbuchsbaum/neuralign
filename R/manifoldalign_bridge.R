@@ -1,182 +1,26 @@
 #' Bridge Utilities for manifoldalign Integration
 #'
-#' Data conversion and operator extraction for manifoldalign methods.
+#' Internal helpers for converting neuralign data to manifoldalign inputs and
+#' extracting operator transforms in a way that is (a) mathematically coherent
+#' and (b) computationally tractable.
+#'
+#' Key principle:
+#' - For manifoldalign's multiblock methods (KEMA/GPCA/coupled_diag/lowrank),
+#'   we treat *observations* as samples: `x = t(X)` where neuralign stores
+#'   `X` as `(features x observations)`.
+#'   These methods naturally produce per-domain loadings `v_i (features x k)`.
+#'   neuralign operators become `A_i = t(v_i)` (shape `k x features`), mapping
+#'   into a shared latent space with `A_i %*% X_i -> (k x observations)`.
+#' - For graph correspondence methods (CONE/GRASP), we treat *features* as nodes
+#'   and use the returned assignment to build sparse permutation-style operators
+#'   into a fixed reference feature space.
 #'
 #' @name manifoldalign_bridge
 #' @keywords internal
 NULL
 
 
-#' Build a Minimal Hyperdesign from AlignmentData
-#'
-#' Creates a \code{hyperdesign}-like structure that manifoldalign methods
-#' can consume.  neuralign stores matrices as \code{(features x observations)};
-#' manifoldalign expects \code{(observations x features)} in its design slots.
-#'
-#' When \code{transpose = FALSE} (the default) the matrices are passed as-is,
-#' treating rows (features / voxels) as samples and columns (observations /
-#' conditions) as features.
-#' This matches the convention used by the existing GW / FPGW adapters
-#' and is appropriate for correspondence-based methods that build
-#' intra-domain distance or similarity graphs over features.
-#'
-#' When \code{transpose = TRUE} the matrices are transposed so that rows are
-#' observations and columns are features.  Use this when the manifoldalign
-#' method needs a \code{y} (label) argument that corresponds to observation
-#' labels (stored in \code{data@@obs_labels}).
-#'
-#' @param data AlignmentData object.
-#' @param train_idx Integer indices of subjects to include (or NULL for all).
-#' @param transpose Logical; transpose matrices before wrapping?
-#' @param labels Optional labels vector to place in the design.
-#'   Ignored when \code{transpose = FALSE}.
-#' @param label_name Column name for labels in the design data frame.
-#'
-#' @return A list of class \code{"hyperdesign"} consumable by manifoldalign
-#'   methods.
-#'
-#' @keywords internal
-.build_hyperdesign <- function(data,
-                               train_idx = NULL,
-                               transpose = FALSE,
-                               labels = NULL,
-                               label_name = "label") {
-  if (is.null(train_idx)) {
-    train_idx <- seq_along(data@subjects)
-  }
-  train_data <- data[train_idx]
-  data_list <- get_data_list(train_data)
-  domain_names <- names(data_list)
-
-  domains <- lapply(domain_names, function(nm) {
-    X <- as.matrix(data_list[[nm]])
-    if (transpose) X <- t(X)
-
-    dom <- list(x = X)
-
-    # Attach a design data-frame when labels are available
-    if (transpose && !is.null(labels)) {
-      dom$design <- data.frame(label = labels)
-      names(dom$design)[1] <- label_name
-    }
-    dom
-  })
-  names(domains) <- domain_names
-  structure(domains, class = "hyperdesign")
-}
-
-
-#' Resolve Observation Labels for manifoldalign
-#'
-#' Extracts a character/factor vector of observation labels from
-#' \code{AlignmentData}.  Returns NULL if none are available.
-#'
-#' @param data AlignmentData object.
-#'
-#' @return A vector of labels or NULL.
-#'
-#' @keywords internal
-.resolve_obs_labels <- function(data) {
-  labs <- data@obs_labels
-  if (is.null(labs)) return(NULL)
-
-
-  # Atomic or factor → shared across subjects
-
-  if (is.atomic(labs) || is.factor(labs)) {
-    return(labs)
-  }
-
-
-  # Per-subject list → take the first subject's labels (all should match
-
-  # for label-supervised methods that require shared observations).
-  if (is.list(labs) && length(labs) > 0) {
-    return(labs[[1]])
-  }
-  NULL
-}
-
-
-#' Extract Per-Subject Operators from a multiblock_biprojector
-#'
-#' Given a \code{multiblock_biprojector} result from manifoldalign and
-#' the source \code{AlignmentData}, derive per-subject \code{(target x source)}
-#' linear operators suitable for neuralign.
-#'
-#' The strategy depends on the method output:
-#' \itemize{
-#'   \item \strong{Scores-based (default)}: Extract per-subject score blocks
-#'     from \code{$s}.  Compute \code{T_i = S_ref \%*\% pinv(S_i)} so that
-#'     \code{T_i \%*\% X_i \approx X_ref} in the subspace.
-#'   \item \strong{Transport/coupling}: Similar to GW adapter — normalise
-#'     coupling rows to build a stochastic operator.
-#' }
-#'
-#' @param mbp A multiblock_biprojector (or list with $s, $block_indices).
-#' @param data_list Named list of per-subject matrices (features x obs).
-#' @param ref_name Name of the reference subject.
-#' @param ref_data Reference matrix (features x obs), or NULL to extract
-#'   from \code{data_list}.
-#' @param lambda Ridge regularisation for pseudo-inverse (default 1e-6).
-#'
-#' @return Named list of per-subject operator matrices.
-#'
-#' @keywords internal
-.extract_operators_from_scores <- function(mbp,
-                                           data_list,
-                                           ref_name,
-                                           ref_data = NULL,
-                                           lambda = 1e-6) {
-  S <- mbp$s  # total_points x ncomp
-  n_subjects <- length(data_list)
-  subject_names <- names(data_list)
-
-  # Determine per-subject score ranges.
-  # block_indices / feature_blocks stores column ranges in the concatenated
-
-  # feature dimension, but $s is concatenated along *rows* (one per point).
-  # With the no-transpose convention, each subject contributes nrow (= n_features)
-  # points.
-  n_features <- vapply(data_list, nrow, integer(1))
-  cum <- cumsum(c(0L, n_features))
-
-  # Extract per-subject score blocks
-  score_blocks <- setNames(lapply(seq_along(subject_names), function(i) {
-    rows <- (cum[i] + 1L):cum[i + 1L]
-    S[rows, , drop = FALSE]
-  }), subject_names)
-
-  # Reference scores
-  if (is.null(ref_data)) {
-    ref_data <- data_list[[ref_name]]
-  }
-  S_ref <- score_blocks[[ref_name]]
-  ncomp <- ncol(S_ref)
-
-  # Build per-subject operators:  T_i = S_ref %*% pinv(S_i)
-  # pinv(S_i) = solve(t(S_i) %*% S_i + lambda * I) %*% t(S_i)
-  transforms <- setNames(lapply(subject_names, function(nm) {
-    if (nm == ref_name) {
-      return(diag(nrow(data_list[[nm]])))
-    }
-    S_i <- score_blocks[[nm]]
-    gram <- crossprod(S_i) + lambda * diag(ncomp)
-    # T_i = S_ref %*% solve(gram) %*% t(S_i)
-    S_ref %*% solve(gram, t(S_i))
-  }), subject_names)
-
-  transforms
-}
-
-
-#' Require manifoldalign at Runtime
-#'
-#' Utility that stops with a clear message when manifoldalign is not installed.
-#'
-#' @param method Character string naming the method (for error message).
-#' @keywords internal
-.require_manifoldalign <- function(method) {
+.ma_require_manifoldalign <- function(method) {
   if (!requireNamespace("manifoldalign", quietly = TRUE)) {
     stop(
       sprintf("Package 'manifoldalign' is required for %s alignment.", method),
@@ -186,26 +30,195 @@ NULL
 }
 
 
-#' Standard Reference Resolution
-#'
-#' Resolve the reference argument to a subject name and matrix.
-#'
-#' @param data AlignmentData object (training subset).
-#' @param reference Character or matrix.
-#' @return List with \code{name} and \code{data}.
-#' @keywords internal
-.resolve_reference <- function(data, reference) {
-  if (is.character(reference) && reference %in% c("medoid", "centroid")) {
+.ma_require_shared_obs_labels <- function(data, method) {
+  labs <- data@obs_labels
+  if (is.null(labs)) {
+    stop(sprintf("Method '%s' requires AlignmentData@obs_labels", method), call. = FALSE)
+  }
+  if (!(is.atomic(labs) || is.factor(labs))) {
+    stop(
+      sprintf(
+        "Method '%s' currently requires shared (atomic/factor) obs_labels; per-subject obs_labels lists are not supported yet",
+        method
+      ),
+      call. = FALSE
+    )
+  }
+  if (any(is.na(labs))) {
+    stop(sprintf("Method '%s' requires obs_labels without NA", method), call. = FALSE)
+  }
+  labs
+}
+
+
+.ma_build_hyperdesign_obs <- function(data, train_idx = NULL, labels, label_name = "label") {
+  if (is.null(train_idx)) train_idx <- seq_along(data@subjects)
+  train_data <- data[train_idx]
+  data_list <- get_data_list(train_data)
+
+  domains <- lapply(names(data_list), function(nm) {
+    X <- as.matrix(data_list[[nm]])
+    Xo <- t(X) # observations x features
+    if (length(labels) != nrow(Xo)) {
+      stop(
+        sprintf(
+          "obs_labels length mismatch: expected %d (n_obs), got %d",
+          nrow(Xo), length(labels)
+        ),
+        call. = FALSE
+      )
+    }
+    list(
+      x = Xo,
+      design = data.frame(stats::setNames(list(labels), label_name))
+    )
+  })
+  names(domains) <- names(data_list)
+  structure(domains, class = c("hyperdesign", "list"))
+}
+
+
+.ma_build_hyperdesign_features <- function(data, train_idx = NULL) {
+  if (is.null(train_idx)) train_idx <- seq_along(data@subjects)
+  train_data <- data[train_idx]
+  data_list <- get_data_list(train_data)
+
+  domains <- lapply(names(data_list), function(nm) {
+    list(x = as.matrix(data_list[[nm]])) # features x observations
+  })
+  names(domains) <- names(data_list)
+  structure(domains, class = c("hyperdesign", "list"))
+}
+
+
+.ma_resolve_reference_spec <- function(data, reference, method, allow_template = FALSE) {
+  if (is.character(reference) && length(reference) == 1L && reference %in% c("medoid", "centroid")) {
     ref_name <- select_reference(data, method = reference)
     ref_data <- get_subject_data(data, ref_name)
-  } else if (.is_matrixish(reference)) {
-    ref_name <- "template"
-    ref_data <- as.matrix(reference)
-  } else if (is.character(reference)) {
-    ref_name <- reference
-    ref_data <- get_subject_data(data, reference)
-  } else {
-    stop("Unsupported reference type", call. = FALSE)
+    return(list(name = ref_name, data = ref_data))
   }
-  list(name = ref_name, data = ref_data)
+
+  if (.is_matrixish(reference)) {
+    if (!allow_template) {
+      stop(sprintf("Method '%s' does not support template matrix references", method), call. = FALSE)
+    }
+    return(list(name = "template", data = as.matrix(reference)))
+  }
+
+  if (is.character(reference) && length(reference) == 1L) {
+    if (!reference %in% data@subjects) {
+      stop(sprintf("Unknown reference subject '%s'", reference), call. = FALSE)
+    }
+    return(list(name = reference, data = get_subject_data(data, reference)))
+  }
+
+  stop("Unsupported reference type", call. = FALSE)
+}
+
+
+.ma_mbp_split_loadings <- function(mbp, domain_names, feature_counts) {
+  if (is.null(mbp$v)) stop("manifoldalign result missing $v loadings", call. = FALSE)
+  v <- as.matrix(mbp$v)
+
+  idx <- mbp$block_indices
+  if (is.null(idx)) {
+    # Fallback: contiguous blocks by feature counts
+    cum <- cumsum(c(0L, feature_counts))
+    idx <- lapply(seq_along(feature_counts), function(i) seq.int(cum[i] + 1L, cum[i + 1L]))
+  } else if (is.matrix(idx) && ncol(idx) == 2L) {
+    idx <- lapply(seq_len(nrow(idx)), function(i) seq.int(idx[i, 1], idx[i, 2]))
+  } else if (!is.list(idx)) {
+    stop("Unexpected block_indices format in manifoldalign result", call. = FALSE)
+  }
+
+  if (length(idx) != length(domain_names)) {
+    stop("block_indices length mismatch with number of domains", call. = FALSE)
+  }
+
+  v_blocks <- lapply(seq_along(domain_names), function(i) {
+    vi <- v[idx[[i]], , drop = FALSE]
+    if (nrow(vi) != feature_counts[[i]]) {
+      stop(
+        sprintf(
+          "Loadings block row mismatch for '%s': expected %d, got %d",
+          domain_names[[i]], feature_counts[[i]], nrow(vi)
+        ),
+        call. = FALSE
+      )
+    }
+    vi
+  })
+  names(v_blocks) <- domain_names
+  v_blocks
+}
+
+
+.ma_projection_transforms_from_loadings <- function(v_blocks) {
+  setNames(lapply(names(v_blocks), function(nm) {
+    t(v_blocks[[nm]])
+  }), names(v_blocks))
+}
+
+
+.ma_reference_scores <- function(A_ref, X_ref) {
+  A_ref %*% X_ref
+}
+
+
+.ma_match_obs_indices <- function(obs_labels_ref, obs_labels_new, min_overlap = 2L) {
+  obs_labels_ref <- as.character(obs_labels_ref)
+  obs_labels_new <- as.character(obs_labels_new)
+
+  common <- intersect(obs_labels_ref, obs_labels_new)
+  if (length(common) < min_overlap) {
+    stop(
+      sprintf("Insufficient obs_labels overlap (need >= %d, got %d)", min_overlap, length(common)),
+      call. = FALSE
+    )
+  }
+  list(
+    ref = match(common, obs_labels_ref),
+    new = match(common, obs_labels_new)
+  )
+}
+
+
+.ma_ridge_map_to_reference_scores <- function(X, Z_ref, lambda = 1e-2) {
+  X <- as.matrix(X)
+  Z_ref <- as.matrix(Z_ref)
+  if (ncol(X) != ncol(Z_ref)) {
+    stop("X and Z_ref must have the same number of observations (columns)", call. = FALSE)
+  }
+  n <- ncol(X)
+  XtX <- crossprod(X) + lambda * diag(n)
+  W <- solve(XtX, t(X)) # n x p
+  Z_ref %*% W          # k x p
+}
+
+
+.ma_get_single_subject_obs_labels <- function(data) {
+  labs <- data@obs_labels
+  if (is.null(labs)) return(NULL)
+  if (is.atomic(labs) || is.factor(labs)) return(labs)
+  if (is.list(labs) && length(labs) >= 1L) return(labs[[1L]])
+  NULL
+}
+
+
+.ma_assignment_to_operator <- function(assignment, n_target, n_source) {
+  if (is.null(assignment)) stop("Missing assignment for graph alignment", call. = FALSE)
+  a <- as.integer(assignment)
+  if (length(a) != n_target) {
+    stop(
+      sprintf("Assignment length mismatch: expected %d, got %d", n_target, length(a)),
+      call. = FALSE
+    )
+  }
+  ok <- !is.na(a) & a >= 1L & a <= n_source
+  Matrix::sparseMatrix(
+    i = which(ok),
+    j = a[ok],
+    x = rep(1, sum(ok)),
+    dims = c(n_target, n_source)
+  )
 }

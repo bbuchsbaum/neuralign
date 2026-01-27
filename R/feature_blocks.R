@@ -739,7 +739,7 @@ build_alignment_features <- function(blocks_by_subject,
   )
 
   row_end <- cumsum(per_block$n_features)
-  row_start <- c(1L, head(row_end, -1L) + 1L)
+  row_start <- c(1L, utils::head(row_end, -1L) + 1L)
   block_row_ranges <- data.frame(
     block = per_block$block,
     row_start = as.integer(row_start),

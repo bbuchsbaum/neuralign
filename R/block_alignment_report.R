@@ -148,7 +148,7 @@ block_alignment_report <- function(blocks_by_subject,
     }))
   }))
 
-  summary <- aggregate(
+  summary <- stats::aggregate(
     by_subject[, c("rmse", "frobenius", "reference_correlation")],
     by = list(block = by_subject$block),
     FUN = function(x) mean(x, na.rm = TRUE)

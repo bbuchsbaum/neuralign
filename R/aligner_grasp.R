@@ -33,7 +33,7 @@ NULL
                        lambda = 0.1,
                        solver = "linear",
                        ...) {
-  .require_manifoldalign("GRASP")
+  .ma_require_manifoldalign("GRASP")
 
   dots <- list(...)
 
@@ -41,10 +41,7 @@ NULL
     train_idx <- seq_along(data@subjects)
   }
   train_data <- data[train_idx]
-  data_list <- get_data_list(train_data)
-  ref <- .resolve_reference(train_data, reference)
-
-  hd <- .build_hyperdesign(train_data, transpose = FALSE)
+  ref <- .ma_resolve_reference_spec(train_data, reference, method = "grasp", allow_template = TRUE)
 
   grasp_args <- utils::modifyList(
     list(
@@ -56,48 +53,29 @@ NULL
     ),
     dots
   )
+  data_list_all <- get_data_list(data)
+  n_target <- nrow(ref$data)
 
-  n_domains <- length(data_list)
-
-  # Use multiset variant for 3+ domains, pairwise for 2
-  if (n_domains > 2) {
-    anchor_idx <- match(ref$name, names(data_list))
-    if (is.na(anchor_idx)) anchor_idx <- 1L
-    grasp_args$anchor <- anchor_idx
-    grasp_result <- do.call(
-      manifoldalign::grasp_multiset,
-      c(list(data = hd), grasp_args)
-    )
-  } else {
-    grasp_result <- do.call(
-      manifoldalign::grasp,
-      c(list(data = hd), grasp_args)
-    )
-  }
-
-  # Extract operators from spectral embeddings
-  transforms <- .extract_operators_from_scores(
-    grasp_result, data_list, ref$name, ref$data
-  )
-
-  # Held-out subjects
-  heldout <- setdiff(data@subjects, names(transforms))
-  if (length(heldout) > 0) {
-    for (subj in heldout) {
-      subj_data <- get_subject_data(data, subj)
-      small_hd <- structure(
-        list(subj = list(x = subj_data), ref = list(x = ref$data)),
-        class = "hyperdesign"
-      )
-      small_result <- do.call(
-        manifoldalign::grasp,
-        c(list(data = small_hd), grasp_args)
-      )
-      small_dl <- list(subj = subj_data, ref = ref$data)
-      transforms[[subj]] <- .extract_operators_from_scores(
-        small_result, small_dl, "ref", ref$data
-      )[["subj"]]
+  # Pairwise align each domain to the reference, returning a sparse
+  # permutation-style operator derived from the assignment.
+  transforms <- list()
+  for (subj in names(data_list_all)) {
+    Xi <- data_list_all[[subj]]
+    if (identical(ref$name, subj)) {
+      transforms[[subj]] <- Matrix::Diagonal(n_target)
+      next
     }
+
+    pair_hd <- structure(
+      list(
+        target = list(x = ref$data),
+        source = list(x = Xi)
+      ),
+      class = c("hyperdesign", "list")
+    )
+    fit <- do.call(manifoldalign::grasp, c(list(data = pair_hd), grasp_args))
+    P <- fit$assignment
+    transforms[[subj]] <- .ma_assignment_to_operator(P, n_target = n_target, n_source = nrow(Xi))
   }
 
   list(
@@ -109,6 +87,30 @@ NULL
   )
 }
 
+.grasp_apply <- function(fit_result, new_data, ...) {
+  .ma_require_manifoldalign("GRASP")
+  if (!inherits(new_data, "AlignmentData") || length(new_data@subjects) != 1L) {
+    stop("grasp apply_fn expects new_data to contain exactly one subject", call. = FALSE)
+  }
+  subj <- new_data@subjects[[1L]]
+  X <- get_subject_data(new_data, subj)
+
+  ref_data <- fit_result$reference_data %||% NULL
+  st <- fit_result$method_state %||% list()
+  grasp_args <- st$grasp_args %||% list()
+  if (is.null(ref_data)) stop("grasp apply_fn requires reference_data in model", call. = FALSE)
+
+  n_target <- nrow(ref_data)
+  pair_hd <- structure(
+    list(target = list(x = ref_data), source = list(x = X)),
+    class = c("hyperdesign", "list")
+  )
+  fit <- do.call(manifoldalign::grasp, c(list(data = pair_hd), grasp_args))
+  P <- fit$assignment
+  A_new <- .ma_assignment_to_operator(P, n_target = n_target, n_source = nrow(X))
+  list(transforms = setNames(list(A_new), subj))
+}
+
 
 .grasp_capabilities <- list(
   supports_cv                  = TRUE,
@@ -118,12 +120,12 @@ NULL
   requires_shared_features     = FALSE,
   requires_shared_observations = FALSE,
   returns_invertible           = FALSE,
-  transform_type               = "linear",
+  transform_type               = "permutation",
   mass_preserving              = FALSE,
   returns                      = "operator",
   supports_new_subject         = TRUE,
   supports_new_data            = TRUE,
-  reference_types              = c("subject", "medoid", "template")
+  reference_types              = c("subject", "template")
 )
 
 
@@ -132,7 +134,7 @@ NULL
   register_aligner(
     name         = "grasp",
     fit_fn       = .grasp_fit,
-    apply_fn     = NULL,
+    apply_fn     = .grasp_apply,
     capabilities = .grasp_capabilities,
     package      = "manifoldalign",
     description  = "GRASP spectral graph alignment",

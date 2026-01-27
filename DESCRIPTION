@@ -24,6 +24,8 @@ Imports:
     methods
 Suggests:
     manifoldalign,
+    multivarious,
+    neighborweights,
     fmrigds,
     topofmri,
     dkge,
@@ -39,6 +41,7 @@ Config/testthat/edition: 3
 VignetteBuilder: knitr
 Collate:
     'alignment_data.R'
+    'utils_infix.R'
     'guidance.R'
     'roi_anchors.R'
     'harmonize.R'
@@ -67,4 +70,12 @@ Collate:
     'aligner_procrustes_graph.R'
     'aligner_kprocrustes.R'
     'aligner_ot.R'
+    'manifoldalign_bridge.R'
+    'multivarious_hyperdesign.R'
+    'aligner_kema.R'
+    'aligner_gpca.R'
+    'aligner_coupled_diag.R'
+    'aligner_lowrank.R'
+    'aligner_cone.R'
+    'aligner_grasp.R'
     'zzz.R'
