@@ -67,6 +67,20 @@ create_cv_folds <- function(data,
   n <- length(subjects)
 
   if (!is.null(seed)) {
+    old_seed <- if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+      get(".Random.seed", envir = .GlobalEnv)
+    } else {
+      NULL
+    }
+    on.exit({
+      if (is.null(old_seed)) {
+        if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+          rm(".Random.seed", envir = .GlobalEnv)
+        }
+      } else {
+        assign(".Random.seed", old_seed, envir = .GlobalEnv)
+      }
+    }, add = TRUE)
     set.seed(seed)
   }
 
@@ -245,7 +259,7 @@ create_obs_folds <- function(obs_ids,
   if (!is.finite(guard_tr) || guard_tr < 0L) {
     stop("'guard_tr' must be a non-negative integer", call. = FALSE)
   }
-  if (!is.null(seed)) set.seed(seed)
+  # 'seed' is currently reserved for future extensions. Avoid changing global RNG state.
 
   obs_list <- .as_obs_ids_list(obs_ids)
 

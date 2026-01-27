@@ -96,10 +96,10 @@ AlignmentData <- function(data,
                           design = NULL,
                           geometry = NULL,
                           obs_labels = NULL,
-                          metadata = list()) {
+  metadata = list()) {
   # Validate data is a list
 
-if (!is.list(data)) {
+  if (!is.list(data)) {
     stop("'data' must be a list of matrices or NeuroVec objects", call. = FALSE)
   }
 
@@ -132,7 +132,7 @@ if (!is.list(data)) {
       warning(sprintf(
         "Element '%s' is not a matrix or NeuroVec; coercion may be needed",
         subjects[i]
-      ))
+      ), call. = FALSE)
     }
   }
 

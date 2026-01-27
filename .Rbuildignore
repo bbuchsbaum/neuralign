@@ -39,5 +39,9 @@
 # Coverage
 ^codecov\.yml$
 
+# lintr
+^\.lintr$
+^\.lintr\.R$
+
 # Misc dev files
 ^cran-comments\.md$

@@ -194,7 +194,7 @@ harmonize_union_fill <- function(mats,
           i = integer(0), j = integer(0), x = numeric(0),
           dims = c(n_union, ncol(m)),
           dimnames = list(union_ids, colnames(m)),
-          giveCsparse = TRUE
+          repr = "C"
         )
         out[idx, ] <- m
       } else {
@@ -212,7 +212,7 @@ harmonize_union_fill <- function(mats,
           i = integer(0), j = integer(0), x = numeric(0),
           dims = c(nrow(m), n_union),
           dimnames = list(rownames(m), union_ids),
-          giveCsparse = TRUE
+          repr = "C"
         )
         out[, idx] <- m
       } else {
@@ -252,4 +252,3 @@ harmonize_union_fill <- function(mats,
     dropped = dropped
   )
 }
-

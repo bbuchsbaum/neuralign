@@ -17,6 +17,7 @@
 #'     \item "correlation" - 1 - mean pairwise correlation (default)
 #'     \item "euclidean" - Euclidean distance between flattened data
 #'     \item "frobenius" - Frobenius norm of difference
+#'     \item "procrustes" - Procrustes residual after optimal orthogonal alignment
 #'   }
 #' @param seed Random seed for reproducibility (used if method="random").
 #'
@@ -55,7 +56,7 @@ select_reference <- function(data,
   n <- length(subjects)
 
   if (n == 0) {
-    stop("No subjects in data")
+    stop("No subjects in data", call. = FALSE)
   }
 
   if (n == 1) {
@@ -69,6 +70,20 @@ select_reference <- function(data,
 
   if (method == "random") {
     if (!is.null(seed)) {
+      old_seed <- if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+        get(".Random.seed", envir = .GlobalEnv)
+      } else {
+        NULL
+      }
+      on.exit({
+        if (is.null(old_seed)) {
+          if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+            rm(".Random.seed", envir = .GlobalEnv)
+          }
+        } else {
+          assign(".Random.seed", old_seed, envir = .GlobalEnv)
+        }
+      }, add = TRUE)
       set.seed(seed)
     }
     return(sample(subjects, 1))
@@ -116,15 +131,17 @@ select_reference <- function(data,
     mean_data <- Reduce(`+`, data_list) / n
 
     # Distance from each subject to mean
-    dist_to_mean <- sapply(data_list, function(x) {
-      .compute_pairwise_distance(x, mean_data, distance)
-    })
+    dist_to_mean <- vapply(
+      data_list,
+      function(x) .compute_pairwise_distance(x, mean_data, distance),
+      numeric(1)
+    )
 
     idx <- which.min(dist_to_mean)
     return(subjects[idx])
   }
 
-  stop(sprintf("Unknown method: %s", method))
+  stop(sprintf("Unknown method: %s", method), call. = FALSE)
 }
 
 
@@ -287,9 +304,7 @@ select_reference <- function(data,
   if (distance == "correlation") {
     # Mean correlation across features/rows
     n_features <- nrow(x)
-    cors <- sapply(seq_len(n_features), function(i) {
-      cor(x[i, ], y[i, ])
-    })
+    cors <- vapply(seq_len(n_features), function(i) cor(x[i, ], y[i, ]), numeric(1))
     # Distance = 1 - mean correlation
     return(1 - mean(cors, na.rm = TRUE))
   }
@@ -308,7 +323,7 @@ select_reference <- function(data,
     return(procrustes_distance(x, y, convention = "left"))
   }
 
-  stop(sprintf("Unknown distance: %s", distance))
+  stop(sprintf("Unknown distance: %s", distance), call. = FALSE)
 }
 
 
@@ -330,7 +345,7 @@ compute_centroid <- function(data) {
   n <- length(data_list)
 
   if (n == 0) {
-    stop("No subjects in data")
+    stop("No subjects in data", call. = FALSE)
   }
 
   Reduce(`+`, data_list) / n
@@ -361,7 +376,7 @@ get_reference_data <- function(data, reference) {
   }
 
   if (!reference %in% data@subjects) {
-    stop(sprintf("Subject '%s' not found in data", reference))
+    stop(sprintf("Subject '%s' not found in data", reference), call. = FALSE)
   }
 
   get_subject_data(data, reference)
@@ -398,10 +413,13 @@ get_reference_data <- function(data, reference) {
   }
 
   if (!ref_type %in% ref_types) {
-    stop(sprintf(
-      "Method '%s' does not support reference type '%s'. Supported: %s",
-      method, ref_type, paste(ref_types, collapse = ", ")
-    ))
+    stop(
+      sprintf(
+        "Method '%s' does not support reference type '%s'. Supported: %s",
+        method, ref_type, paste(ref_types, collapse = ", ")
+      ),
+      call. = FALSE
+    )
   }
 
   TRUE

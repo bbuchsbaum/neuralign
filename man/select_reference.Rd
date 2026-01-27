@@ -27,6 +27,7 @@ select_reference(
 \item "correlation" - 1 - mean pairwise correlation (default)
 \item "euclidean" - Euclidean distance between flattened data
 \item "frobenius" - Frobenius norm of difference
+\item "procrustes" - Procrustes residual after optimal orthogonal alignment
 }}
 
 \item{seed}{Random seed for reproducibility (used if method="random").}

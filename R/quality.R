@@ -37,11 +37,15 @@ alignment_quality <- function(result,
   } else if (is.list(result)) {
     aligned <- result
   } else {
-    stop("'result' must be an AlignmentResult or list of matrices")
+    stop("'result' must be an AlignmentResult or list of matrices", call. = FALSE)
   }
 
   if (length(aligned) == 0) {
-    stop("No aligned data to compute quality")
+    stop("No aligned data to compute quality", call. = FALSE)
+  }
+
+  if (is.null(names(aligned)) || any(!nzchar(names(aligned)))) {
+    names(aligned) <- paste0("sub-", sprintf("%02d", seq_along(aligned)))
   }
 
   quality <- list()

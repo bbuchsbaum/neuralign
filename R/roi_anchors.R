@@ -141,7 +141,7 @@ roi_anchor_projector <- function(roi,
         i = i, j = j, x = x,
         dims = c(length(anchors), n_features),
         dimnames = list(anchors, NULL),
-        giveCsparse = TRUE
+        repr = "C"
       )
       return(P)
     }
@@ -182,7 +182,7 @@ roi_anchor_projector <- function(roi,
       i = i, j = j, x = x,
       dims = c(length(anchors), n_features),
       dimnames = list(anchors, NULL),
-      giveCsparse = TRUE
+      repr = "C"
     ))
   }
 
