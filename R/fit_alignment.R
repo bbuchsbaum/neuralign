@@ -280,6 +280,23 @@ fit_alignment <- function(data,
 
   subjects <- data@subjects
   n_subjects <- length(subjects)
+  unevaluated_subjects <- as.character(cv_folds$unevaluated_subjects %||% character(0))
+  if (length(unevaluated_subjects) > 0) {
+    if (anyNA(unevaluated_subjects) || any(!nzchar(unevaluated_subjects))) {
+      stop("'cv_folds$unevaluated_subjects' must not contain NA/empty values", call. = FALSE)
+    }
+    unknown <- setdiff(unevaluated_subjects, subjects)
+    if (length(unknown) > 0) {
+      stop(
+        sprintf(
+          "'cv_folds$unevaluated_subjects' contains unknown subjects: %s",
+          paste(unknown, collapse = ", ")
+        ),
+        call. = FALSE
+      )
+    }
+    unevaluated_subjects <- unique(unevaluated_subjects)
+  }
 
   # Check CV support
   if (!isTRUE(aligner$capabilities$supports_cv)) {
@@ -344,14 +361,25 @@ fit_alignment <- function(data,
   }
 
   missing_subjects <- setdiff(subjects, names(all_transforms))
-  if (length(missing_subjects) > 0) {
+  remaining_missing <- setdiff(missing_subjects, unevaluated_subjects)
+  if (length(remaining_missing) > 0) {
     stop(
       sprintf(
         "CV fold spec never assigns these subjects to a test fold: %s",
-        paste(missing_subjects, collapse = ", ")
+        paste(remaining_missing, collapse = ", ")
       ),
       call. = FALSE
     )
+  }
+  if (length(missing_subjects) > 0) {
+    for (subj in missing_subjects) {
+      X <- get_subject_data(data, subj)
+      all_transforms[[subj]] <- diag(nrow(X))
+      if (return_aligned) {
+        all_aligned[[subj]] <- X
+      }
+      anchor_by_subject[[subj]] <- as.character(reference)
+    }
   }
 
   reference_kind <- .reference_kind(reference)

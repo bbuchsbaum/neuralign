@@ -36,11 +36,20 @@ run_cv_alignment(
 List with:
 \itemize{
 \item result - Combined AlignmentResult with all CV transforms
-\item fold_results - List of per-fold results
+\item fold_results - Deprecated; always NULL.
 \item cv_info - CV configuration info
 }
 }
 \description{
 Convenience function to run alignment with cross-validation and
 collect per-fold results.
+}
+\details{
+Note: when \code{reference} is a fixed subject ID, that subject must be available
+to define the anchor space. If the provided folds would otherwise place the
+reference subject in a test set (e.g., LOSO), \code{run_cv_alignment()} will keep
+the reference subject in the training set and will not evaluate it as a
+held-out subject (a warning is emitted). Use a data-driven reference (e.g.,
+\code{"medoid"}) or custom folds if you need symmetric hold-out across all
+subjects.
 }

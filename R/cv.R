@@ -418,7 +418,7 @@ create_obs_folds <- function(obs_ids,
 #' @return List with:
 #'   \itemize{
 #'     \item result - Combined AlignmentResult with all CV transforms
-#'     \item fold_results - List of per-fold results
+#'     \item fold_results - Deprecated; always NULL.
 #'     \item cv_info - CV configuration info
 #'   }
 #'
@@ -450,19 +450,15 @@ run_cv_alignment <- function(data,
   }
 
   subjects <- data@subjects
-  n_folds <- cv_folds$n_folds
-
-  # Storage
-  all_transforms <- list()
-  all_aligned <- list()
-  fold_results <- list()
   warned_reference <- FALSE
 
   fixed_subject_reference <- is.character(reference) &&
     length(reference) == 1L &&
     reference %in% subjects
 
-  # Run each fold
+  # If using a fixed-subject reference, ensure it is always available in the
+  # training set to define the anchor space, and mark it as unevaluated if it
+  # would otherwise appear in a test fold.
   for (fold_name in names(cv_folds$folds)) {
     fold <- cv_folds$folds[[fold_name]]
     train_idx <- fold$train
@@ -493,104 +489,30 @@ run_cv_alignment <- function(data,
 
     cv_folds$folds[[fold_name]]$train <- train_idx
     cv_folds$folds[[fold_name]]$test <- test_idx
+  }
 
-    # Fit on training data
-    result <- fit_alignment(
-      data = data,
-      method = method,
-      reference = reference,
-      cv = "none",
-      train_idx = train_idx,
-      ...
-    )
-
-    # Apply to test subjects
-    test_subjects <- subjects[test_idx]
-    for (subj in test_subjects) {
-      # Get transform for test subject
-      if (subj %in% names(result@model@transforms)) {
-        transform <- result@model@transforms[[subj]]
-      } else {
-        # Need to fit for this subject
-        test_result <- apply_alignment(
-          result@model,
-          data[subj],
-          warn_leakage = FALSE
-        )
-        transform <- test_result@model@transforms[[subj]]
-      }
-
-      all_transforms[[subj]] <- transform
-      all_aligned[[subj]] <- transform %*% get_subject_data(data, subj)
+  if (fixed_subject_reference) {
+    ref_idx <- match(reference, subjects)
+    in_any_test <- any(vapply(cv_folds$folds, function(f) ref_idx %in% f$test, logical(1)))
+    if (!in_any_test) {
+      cv_folds$unevaluated_subjects <- reference
     }
-
-    fold_results[[fold_name]] <- result
   }
 
-  if (fixed_subject_reference && !reference %in% names(all_transforms)) {
-    ref_data <- get_subject_data(data, reference)
-    all_transforms[[reference]] <- diag(nrow(ref_data))
-    all_aligned[[reference]] <- ref_data
-  }
-
-  # Build combined model
-  # Fit on all data for reference
-  full_fit <- fit_alignment(
+  combined_result <- fit_alignment(
     data = data,
     method = method,
     reference = reference,
     cv = "none",
-    compute_quality = FALSE,
+    cv_folds = cv_folds,
+    compute_quality = TRUE,
+    return_aligned = TRUE,
     ...
-  )
-
-  reference_kind <- if (.is_matrixish(reference)) {
-    "template"
-  } else if (is.character(reference) && length(reference) == 1) {
-    if (reference %in% c("medoid", "centroid", "consensus")) "data_driven" else "fixed_subject"
-  } else {
-    "unknown"
-  }
-
-  anchor_common <- reference_kind %in% c("fixed_subject", "template")
-
-  combined_model <- AlignmentModel(
-    transforms = all_transforms,
-    reference = if (anchor_common) full_fit@model@reference else "fold_specific",
-    reference_data = if (anchor_common) full_fit@model@reference_data else NULL,
-    method = method,
-    space_from = full_fit@model@space_from,
-    space_to = full_fit@model@space_to,
-    params = list(...),
-    method_state = if (anchor_common) full_fit@model@method_state else list(),
-    train_subjects = subjects
-  )
-
-  quality <- .compute_basic_quality(data, all_aligned, combined_model)
-
-  combined_result <- AlignmentResult(
-    model = combined_model,
-    aligned = all_aligned,
-    quality = quality,
-    cv_info = list(
-      method = cv_folds$method,
-      axis = cv_folds$axis %||% "subject",
-      n_folds = n_folds,
-      fold_assignments = cv_folds$assignments,
-      folds = cv_folds$folds,
-      reference_kind = reference_kind,
-      anchor_common = anchor_common,
-      anchor_note = if (!anchor_common) {
-        "Aligned outputs are in fold-specific anchor spaces; do not use for group-level comparisons without mapping to a common anchor."
-      } else {
-        NULL
-      }
-    )
   )
 
   list(
     result = combined_result,
-    fold_results = fold_results,
+    fold_results = NULL,
     cv_info = cv_folds
   )
 }

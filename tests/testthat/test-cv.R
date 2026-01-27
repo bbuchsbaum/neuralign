@@ -213,7 +213,7 @@ test_that("run_cv_alignment works with loso string", {
 
   expect_true(is.list(cv_result))
   expect_s4_class(cv_result$result, "AlignmentResult")
-  expect_equal(length(cv_result$fold_results), 3)
+  expect_null(cv_result$fold_results)
   expect_equal(cv_result$cv_info$method, "loso")
 })
 
@@ -312,7 +312,7 @@ test_that("run_cv_alignment sets obs_labels when AlignmentData has none", {
                                 obs_labels = new_labels)
 
   expect_s4_class(cv_result$result, "AlignmentResult")
-  expect_equal(length(cv_result$fold_results), 3)
+  expect_null(cv_result$fold_results)
 })
 
 test_that("run_cv_alignment with data-driven reference yields fold-specific anchor", {
