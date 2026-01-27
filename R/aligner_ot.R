@@ -176,7 +176,7 @@ NULL
   transform_type = "ot",
   mass_preserving = TRUE,
   returns = "operator",  # Couplings converted to operators via .coupling_to_operator
-  supports_new_subject = FALSE,  # no apply_fn provided
+  supports_new_subject = TRUE,
   supports_new_data = TRUE,
   reference_types = c("subject", "barycenter", "template")
 )
@@ -299,7 +299,7 @@ NULL
   transform_type = "ot",
   mass_preserving = TRUE,
   returns = "operator",  # Couplings converted to operators via .coupling_to_operator
-  supports_new_subject = FALSE,  # no apply_fn provided
+  supports_new_subject = TRUE,
   supports_new_data = TRUE,
   reference_types = c("subject", "template")
 )
