@@ -35,7 +35,7 @@ test_that(".gw_capabilities has correct structure", {
 
   expect_true(caps$supports_cv)
   expect_equal(caps$transform_type, "ot")
-  expect_true(caps$mass_preserving)
+  expect_false(caps$mass_preserving)
   expect_false(caps$returns_invertible)
   expect_equal(caps$returns, "operator")
 })
@@ -45,7 +45,7 @@ test_that(".fpgw_capabilities has correct structure", {
 
   expect_true(caps$supports_cv)
   expect_equal(caps$transform_type, "ot")
-  expect_true(caps$mass_preserving)
+  expect_false(caps$mass_preserving)
 })
 
 test_that("GW fit function requires manifoldalign", {
@@ -190,7 +190,7 @@ test_that(".register_fpgw registers aligner correctly", {
   # Check capabilities
   caps <- aligner_capabilities("fpgw")
   expect_equal(caps$transform_type, "ot")
-  expect_true(caps$mass_preserving)
+  expect_false(caps$mass_preserving)
 
   # Cleanup
   unregister_aligner("fpgw")

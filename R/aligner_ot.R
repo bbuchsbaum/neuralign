@@ -174,7 +174,10 @@ NULL
   requires_shared_observations = FALSE,
   returns_invertible = FALSE,  # OT couplings are not bijections
   transform_type = "ot",
-  mass_preserving = TRUE,
+  # We return a row-normalized operator derived from the coupling (barycentric
+  # projection). This preserves constant fields but does not preserve mass
+  # (marginals) in the OT sense.
+  mass_preserving = FALSE,
   returns = "operator",  # Couplings converted to operators via .coupling_to_operator
   supports_new_subject = TRUE,
   supports_new_data = TRUE,
@@ -313,7 +316,9 @@ NULL
   requires_shared_observations = FALSE,
   returns_invertible = FALSE,
   transform_type = "ot",
-  mass_preserving = TRUE,
+  # See .gw_capabilities: the returned operator is a barycentric projection
+  # derived from the coupling, not a mass-preserving transport plan.
+  mass_preserving = FALSE,
   returns = "operator",  # Couplings converted to operators via .coupling_to_operator
   supports_new_subject = TRUE,
   supports_new_data = TRUE,
