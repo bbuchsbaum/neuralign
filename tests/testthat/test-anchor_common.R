@@ -1,5 +1,5 @@
 test_that("has_common_anchor detects fold-specific anchors under CV", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(123)
   data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
@@ -13,7 +13,7 @@ test_that("has_common_anchor detects fold-specific anchors under CV", {
 })
 
 test_that("template reference yields a common anchor under CV", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(124)
   data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
@@ -27,7 +27,7 @@ test_that("template reference yields a common anchor under CV", {
 })
 
 test_that("validate_common_anchor can error on fold-specific CV results", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(125)
   data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
@@ -41,7 +41,7 @@ test_that("validate_common_anchor can error on fold-specific CV results", {
 })
 
 test_that("fit_alignment accepts explicit fold specs", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(127)
   data_list <- make_test_data_list(n_subjects = 4, n_features = 10, n_obs = 10)
@@ -57,7 +57,7 @@ test_that("fit_alignment accepts explicit fold specs", {
 })
 
 test_that("apply_alignment refuses to fit new subjects for fold-specific anchor models", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(126)
   data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)

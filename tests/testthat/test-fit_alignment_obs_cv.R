@@ -1,5 +1,5 @@
 test_that("fit_alignment resolves reference per observation fold (medoid)", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(1)
   n_feat <- 6
@@ -38,7 +38,7 @@ test_that("fit_alignment resolves reference per observation fold (medoid)", {
 })
 
 test_that("fit_alignment obs-CV can retain fold transforms", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(2)
   n_feat <- 5
@@ -80,7 +80,7 @@ test_that("fit_alignment obs-CV can retain fold transforms", {
 
 test_that("obs-CV with fixed-subject reference does NOT warn about fold-specific anchors", {
 
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(10)
   n_feat <- 5
@@ -116,7 +116,7 @@ test_that("obs-CV with fixed-subject reference does NOT warn about fold-specific
 # ---------- Obs-axis CV: full-coverage reassembly ----------
 
 test_that("obs-CV with complete folds reassembles aligned data in original observation order", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(20)
   n_feat <- 4
@@ -158,7 +158,7 @@ test_that("obs-CV with complete folds reassembles aligned data in original obser
 # ---------- Obs-axis CV: return_fold_transforms = FALSE (default) ----------
 
 test_that("obs-CV with return_fold_transforms=FALSE has NULL transforms_by_fold", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(30)
   n_feat <- 4
@@ -189,7 +189,7 @@ test_that("obs-CV with return_fold_transforms=FALSE has NULL transforms_by_fold"
 # ---------- Obs-axis CV: consensus reference triggers fold-specific warning ----------
 
 test_that("obs-CV with consensus reference warns about fold-specific anchors", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(40)
   n_feat <- 5
@@ -224,7 +224,7 @@ test_that("obs-CV with consensus reference warns about fold-specific anchors", {
 # ---------- Obs-axis CV: return_aligned = FALSE ----------
 
 test_that("obs-CV with return_aligned=FALSE produces empty aligned list", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(50)
   n_feat <- 4
@@ -263,7 +263,7 @@ test_that("obs-CV with return_aligned=FALSE produces empty aligned list", {
 # ---------- Obs-axis CV: template reference is anchor_common ----------
 
 test_that("obs-CV with template reference sets anchor_common=TRUE", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(60)
   n_feat <- 5

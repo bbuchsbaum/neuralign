@@ -1,6 +1,6 @@
 test_that("fit_alignment works with procrustes", {
   # Register procrustes for testing
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   # Create test data
   set.seed(123)
@@ -32,7 +32,7 @@ test_that("fit_alignment works with procrustes", {
 })
 
 test_that("fit_alignment threads obs_labels into AlignmentData coercion", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(321)
   data_list <- make_test_data_list(n_subjects = 2, n_features = 5, n_obs = 10)
@@ -50,7 +50,7 @@ test_that("fit_alignment threads obs_labels into AlignmentData coercion", {
 })
 
 test_that("fit_alignment with medoid reference works", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(456)
   data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
@@ -63,7 +63,7 @@ test_that("fit_alignment with medoid reference works", {
 })
 
 test_that("fit_alignment with specific reference subject works", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(789)
   data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
@@ -88,7 +88,7 @@ test_that("fit_alignment errors on unknown method", {
 })
 
 test_that("fit_alignment produces transforms with correct dimensions", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   n_features <- 15
   data_list <- make_test_data_list(n_subjects = 3, n_features = n_features, n_obs = 20)
@@ -105,7 +105,7 @@ test_that("fit_alignment produces transforms with correct dimensions", {
 })
 
 test_that("fit_alignment with train_idx works", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(111)
   data_list <- make_test_data_list(n_subjects = 4, n_features = 10, n_obs = 10)
@@ -126,7 +126,7 @@ test_that("fit_alignment with train_idx works", {
 })
 
 test_that("fit_alignment computes quality metrics", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(222)
   data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
@@ -142,7 +142,7 @@ test_that("fit_alignment computes quality metrics", {
 # ---------- New tests appended below ----------
 
 test_that("fit_alignment errors when AlignmentData has different obs_labels", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(42)
   n_feat <- 10
@@ -161,7 +161,7 @@ test_that("fit_alignment errors when AlignmentData has different obs_labels", {
 })
 
 test_that("fit_alignment sets obs_labels when AlignmentData has none", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(42)
   n_feat <- 10
@@ -438,7 +438,7 @@ test_that(".fit_new_subject falls back to original reference when reference_data
 # ---------- return_aligned = FALSE (model-only workflow) ----------
 
 test_that("fit_alignment with return_aligned=FALSE returns empty aligned list", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(42)
   n_feat <- 10
@@ -464,7 +464,7 @@ test_that("fit_alignment with return_aligned=FALSE returns empty aligned list", 
 })
 
 test_that("fit_alignment with return_aligned=TRUE returns aligned data", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(42)
   n_feat <- 10
@@ -483,7 +483,7 @@ test_that("fit_alignment with return_aligned=TRUE returns aligned data", {
 })
 
 test_that("fit_alignment cv='loso' with return_aligned=FALSE returns empty aligned", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(42)
   n_feat <- 10
@@ -560,7 +560,7 @@ test_that(".subset_obs errors on empty observation index", {
 })
 
 test_that("fit_alignment routes observation-axis folds to .fit_cv_obs_folds", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(42)
   n_feat <- 10
@@ -637,7 +637,7 @@ test_that("observation-axis CV warns when method doesn't declare observation in 
 })
 
 test_that("fit_alignment validates reference against method reference_types", {
-  neuralign:::.register_procrustes_graph()
+  ensure_test_aligner("procrustes_graph")
 
   set.seed(123)
   x <- matrix(rnorm(4 * 6), 4, 6)

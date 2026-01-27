@@ -7,9 +7,9 @@ random_rotation <- function(d) {
 .ensure_procrustes_graph_registered <- function() {
   if (!is_aligner_registered("procrustes_graph")) {
     if (!is_aligner_registered("procrustes")) {
-      neuralign:::.register_procrustes()
+      ensure_test_aligner("procrustes")
     }
-    neuralign:::.register_procrustes_graph()
+    ensure_test_aligner("procrustes_graph")
   }
 }
 

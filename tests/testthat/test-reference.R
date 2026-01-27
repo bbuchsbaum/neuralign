@@ -290,7 +290,7 @@ test_that(".validate_reference_for_method returns TRUE for unknown method", {
 # ---------- More reference coverage tests ----------
 
 test_that("select_reference with procrustes distance metric", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(200)
   d <- 5

@@ -226,7 +226,7 @@ test_that("procrustes_distance with right convention", {
 })
 
 test_that("GPA builtin converges for multiple subjects", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(14)
   d <- 5
@@ -252,7 +252,7 @@ test_that("GPA builtin converges for multiple subjects", {
 # ---------- More procrustes coverage tests ----------
 
 test_that("procrustes fit generates held-out subject transforms", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(15)
   d <- 4
@@ -291,7 +291,7 @@ test_that("procrustes fit generates held-out subject transforms", {
 })
 
 test_that("procrustes fit with template matrix reference", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(16)
   d <- 4
@@ -316,7 +316,7 @@ test_that("procrustes fit with template matrix reference", {
 })
 
 test_that("procrustes fit with scale=TRUE recovers scale", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(17)
   d <- 4
@@ -343,7 +343,7 @@ test_that("procrustes fit with scale=TRUE recovers scale", {
 })
 
 test_that("GPA builtin with reflection parameter", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(18)
   d <- 4

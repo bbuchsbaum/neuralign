@@ -149,7 +149,7 @@ test_that(".register_gw registers aligner correctly", {
   tryCatch(unregister_aligner("gw"), error = function(e) NULL)
 
   # Register - expected to succeed
-  neuralign:::.register_gw()
+  ensure_test_aligner("gw")
 
   # Verify registration
   expect_true("gw" %in% available_aligners())
@@ -169,7 +169,7 @@ test_that(".register_fpgw registers aligner correctly", {
   tryCatch(unregister_aligner("fpgw"), error = function(e) NULL)
 
   # Register
-  neuralign:::.register_fpgw()
+  ensure_test_aligner("fpgw")
 
   # Verify registration
   expect_true("fpgw" %in% available_aligners())

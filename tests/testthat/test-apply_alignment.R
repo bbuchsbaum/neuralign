@@ -1,5 +1,5 @@
 test_that("apply_alignment works with new subjects", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(333)
   # Training data
@@ -20,7 +20,7 @@ test_that("apply_alignment works with new subjects", {
 })
 
 test_that("apply_alignment uses existing transforms for known subjects", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(444)
   data_list <- make_test_data_list(n_subjects = 2, n_features = 10, n_obs = 10)
@@ -40,7 +40,7 @@ test_that("apply_alignment uses existing transforms for known subjects", {
 })
 
 test_that("apply_alignment warns about leakage", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(555)
   data_list <- make_test_data_list(n_subjects = 2, n_features = 10, n_obs = 10)
@@ -56,7 +56,7 @@ test_that("apply_alignment warns about leakage", {
 })
 
 test_that("apply_alignment respects fit_new = FALSE", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(666)
   train_data <- make_test_data_list(n_subjects = 2, n_features = 10, n_obs = 10)
@@ -90,7 +90,7 @@ test_that("apply_transform validates dimensions", {
 })
 
 test_that("inverse_transform works for orthogonal transforms", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(777)
   data_list <- make_test_data_list(n_subjects = 2, n_features = 10, n_obs = 10)
@@ -116,7 +116,7 @@ test_that("apply_alignment validates model input", {
 })
 
 test_that("apply_alignment coerces list input to AlignmentData", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(888)
   train_data <- list(
@@ -206,7 +206,7 @@ test_that("apply_transform rejects invalid transform", {
 })
 
 test_that("inverse_transform with explicit method = transpose", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(999)
   data_list <- list(
@@ -584,7 +584,7 @@ test_that(".as_dense_matrix returns plain matrix unchanged", {
 # ---------- Space mismatch warning in apply_alignment ----------
 
 test_that("apply_alignment warns on space mismatch", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(42)
   data_list <- list(
@@ -612,7 +612,7 @@ test_that("apply_alignment warns on space mismatch", {
 # ---------- fold_specific anchor and inverse_transform ----------
 
 test_that("apply_alignment errors on fold_specific reference with new subjects", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   model <- new("AlignmentModel",
     transforms = list("sub-01" = diag(5)),
@@ -631,7 +631,7 @@ test_that("apply_alignment errors on fold_specific reference with new subjects",
 })
 
 test_that("apply_alignment with fit_new=FALSE warns for new subjects", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(55)
   d <- 5; n <- 4

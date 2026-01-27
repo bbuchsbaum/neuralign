@@ -1,5 +1,5 @@
 test_that("run_obs_crossfit_alignment fits per fold and aligns held-out data", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(1)
   d <- 4
@@ -56,7 +56,7 @@ test_that("run_obs_crossfit_alignment fits per fold and aligns held-out data", {
 })
 
 test_that("run_obs_crossfit_alignment enforces anchor_policy for data-driven references", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(2)
   d <- 3
@@ -114,7 +114,7 @@ test_that("run_obs_crossfit_alignment enforces anchor_policy for data-driven ref
 })
 
 test_that("run_obs_crossfit_alignment accepts per-subject obs_labels lists", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(3)
   d <- 3
@@ -144,7 +144,7 @@ test_that("run_obs_crossfit_alignment accepts per-subject obs_labels lists", {
 # ---------- Additional obs crossfit tests ----------
 
 test_that("run_obs_crossfit_alignment train-only (no test data) returns NULL aligned_test", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(10)
   d <- 3
@@ -168,7 +168,7 @@ test_that("run_obs_crossfit_alignment train-only (no test data) returns NULL ali
 })
 
 test_that("run_obs_crossfit_alignment errors on mismatched fold ids", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(11)
   d <- 3
@@ -193,7 +193,7 @@ test_that("run_obs_crossfit_alignment errors on mismatched fold ids", {
 })
 
 test_that("run_obs_crossfit_alignment errors on mismatched subjects in test data", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(12)
   d <- 3
@@ -272,7 +272,7 @@ test_that("run_obs_crossfit_alignment errors on non-matrix fold entry", {
 })
 
 test_that("run_obs_crossfit_alignment map_to_template errors without template", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(13)
   d <- 3
@@ -295,7 +295,7 @@ test_that("run_obs_crossfit_alignment map_to_template errors without template", 
 })
 
 test_that("run_obs_crossfit_alignment compute_quality returns quality_by_fold", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(14)
   d <- 4
@@ -321,7 +321,7 @@ test_that("run_obs_crossfit_alignment compute_quality returns quality_by_fold", 
 })
 
 test_that("run_obs_crossfit_alignment with per-fold obs_labels", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(15)
   d <- 3
@@ -364,7 +364,7 @@ test_that("run_obs_crossfit_alignment errors on inconsistent feature dims across
 })
 
 test_that("run_obs_crossfit_alignment fold_specific_ok with data-driven ref generates warning", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(16)
   d <- 3
@@ -391,7 +391,7 @@ test_that("run_obs_crossfit_alignment fold_specific_ok with data-driven ref gene
 })
 
 test_that(".normalize_obs_labels_for_folds handles factor input", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(17)
   d <- 3
@@ -430,7 +430,7 @@ test_that(".normalize_obs_labels_for_folds errors on mismatched names", {
 
 
 test_that("run_obs_crossfit_from_data slices run folds and aligns held-out data", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(100)
   d <- 4
@@ -466,7 +466,7 @@ test_that("run_obs_crossfit_from_data slices run folds and aligns held-out data"
 })
 
 test_that("run_obs_crossfit_from_data supports per-subject run ids with overlap (union policy)", {
-  neuralign:::.register_procrustes_graph()
+  ensure_test_aligner("procrustes_graph")
 
   set.seed(101)
   d <- 2
@@ -595,7 +595,7 @@ test_that(".normalize_obs_labels_for_folds per-fold errors on length mismatch", 
 })
 
 test_that("run_obs_crossfit_alignment template mapping with obs_labels", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(30)
   d <- 4
@@ -629,7 +629,7 @@ test_that("run_obs_crossfit_alignment template mapping with obs_labels", {
 })
 
 test_that("run_obs_crossfit_alignment template mapping errors without labels", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(31)
   d <- 3

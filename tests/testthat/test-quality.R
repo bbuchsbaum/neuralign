@@ -1,5 +1,5 @@
 test_that("alignment_quality computes correlation metrics", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(500)
   data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
@@ -130,7 +130,7 @@ test_that("print_quality_summary works", {
 })
 
 test_that("alignment_quality works with AlignmentResult", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(504)
   data_list <- make_test_data_list(n_subjects = 2, n_features = 10, n_obs = 10)

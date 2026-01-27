@@ -6,7 +6,7 @@ test_that("fit_alignment checks shared features only when required", {
   ))
 
   if (!is_aligner_registered("procrustes")) {
-    neuralign:::.register_procrustes()
+    ensure_test_aligner("procrustes")
   }
 
   # procrustes requires shared feature dims

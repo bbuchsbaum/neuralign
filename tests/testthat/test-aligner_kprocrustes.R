@@ -1,5 +1,5 @@
 test_that("fit_alignment works with kprocrustes end-to-end", {
-  neuralign:::.register_kprocrustes()
+  ensure_test_aligner("kprocrustes")
 
   set.seed(1)
   q <- 6
@@ -34,7 +34,7 @@ test_that("fit_alignment works with kprocrustes end-to-end", {
 })
 
 test_that("kprocrustes enforces needs_design", {
-  neuralign:::.register_kprocrustes()
+  ensure_test_aligner("kprocrustes")
 
   data_list <- list(
     s1 = matrix(rnorm(12), 3, 4),
@@ -49,7 +49,7 @@ test_that("kprocrustes enforces needs_design", {
 })
 
 test_that("kprocrustes validates design K dimensions", {
-  neuralign:::.register_kprocrustes()
+  ensure_test_aligner("kprocrustes")
 
   set.seed(2)
   q <- 5
@@ -69,7 +69,7 @@ test_that("kprocrustes validates design K dimensions", {
 })
 
 test_that("kprocrustes supports subject-axis CV", {
-  neuralign:::.register_kprocrustes()
+  ensure_test_aligner("kprocrustes")
 
   set.seed(3)
   q <- 6
@@ -102,7 +102,7 @@ test_that("kprocrustes supports subject-axis CV", {
 })
 
 test_that("kprocrustes apply_alignment fits a new subject", {
-  neuralign:::.register_kprocrustes()
+  ensure_test_aligner("kprocrustes")
 
   set.seed(4)
   q <- 6
@@ -138,7 +138,7 @@ test_that("kprocrustes apply_alignment fits a new subject", {
 })
 
 test_that("kprocrustes supports partial effect overlap via zero-fill harmonization", {
-  neuralign:::.register_kprocrustes()
+  ensure_test_aligner("kprocrustes")
 
   set.seed(5)
   q <- 6
@@ -171,7 +171,7 @@ test_that("kprocrustes supports partial effect overlap via zero-fill harmonizati
 })
 
 test_that("kprocrustes reflection control forces det(transform) >= 0", {
-  neuralign:::.register_kprocrustes()
+  ensure_test_aligner("kprocrustes")
 
   set.seed(6)
   q <- 6
@@ -205,7 +205,7 @@ test_that("kprocrustes reflection control forces det(transform) >= 0", {
 # ---------- Additional kprocrustes aligner tests ----------
 
 test_that("kprocrustes with consensus reference produces K-orthonormal reference", {
-  neuralign:::.register_kprocrustes()
+  ensure_test_aligner("kprocrustes")
 
   set.seed(10)
   q <- 6
@@ -244,7 +244,7 @@ test_that("kprocrustes with consensus reference produces K-orthonormal reference
 })
 
 test_that("kprocrustes with non-identity kernel", {
-  neuralign:::.register_kprocrustes()
+  ensure_test_aligner("kprocrustes")
 
   set.seed(15)
   q <- 5
@@ -278,7 +278,7 @@ test_that("kprocrustes with non-identity kernel", {
 })
 
 test_that("kprocrustes capabilities are correctly declared", {
-  neuralign:::.register_kprocrustes()
+  ensure_test_aligner("kprocrustes")
 
   caps <- aligner_capabilities("kprocrustes")
   expect_true(is.list(caps))
@@ -292,7 +292,7 @@ test_that("kprocrustes capabilities are correctly declared", {
 # ---------- Additional kprocrustes design & apply tests ----------
 
 test_that("kprocrustes_extract_design handles bare matrix design", {
-  neuralign:::.register_kprocrustes()
+  ensure_test_aligner("kprocrustes")
 
   set.seed(50)
   q <- 4
@@ -323,7 +323,7 @@ test_that("kprocrustes_extract_design handles bare matrix design", {
 })
 
 test_that("kprocrustes_extract_design handles matrix without dimnames", {
-  neuralign:::.register_kprocrustes()
+  ensure_test_aligner("kprocrustes")
 
   set.seed(51)
   q <- 3
@@ -346,7 +346,7 @@ test_that("kprocrustes_extract_design handles matrix without dimnames", {
 })
 
 test_that("kprocrustes_extract_design errors on NULL design", {
-  neuralign:::.register_kprocrustes()
+  ensure_test_aligner("kprocrustes")
 
   adat <- AlignmentData(list(s1 = matrix(1, 2, 3), s2 = matrix(1, 2, 3)))
   expect_error(
@@ -356,7 +356,7 @@ test_that("kprocrustes_extract_design errors on NULL design", {
 })
 
 test_that("kprocrustes_extract_design errors on non-square K", {
-  neuralign:::.register_kprocrustes()
+  ensure_test_aligner("kprocrustes")
 
   adat <- AlignmentData(
     list(s1 = matrix(1, 2, 3), s2 = matrix(1, 2, 3)),
@@ -369,7 +369,7 @@ test_that("kprocrustes_extract_design errors on non-square K", {
 })
 
 test_that("kprocrustes_extract_design handles nested K structure", {
-  neuralign:::.register_kprocrustes()
+  ensure_test_aligner("kprocrustes")
 
   set.seed(52)
   q <- 4
@@ -396,7 +396,7 @@ test_that("kprocrustes_extract_design handles nested K structure", {
 })
 
 test_that("kprocrustes_extract_design uses colnames when effects missing", {
-  neuralign:::.register_kprocrustes()
+  ensure_test_aligner("kprocrustes")
 
   set.seed(53)
   q <- 3
@@ -421,7 +421,7 @@ test_that("kprocrustes_extract_design uses colnames when effects missing", {
 })
 
 test_that("kprocrustes with allow_reflection=TRUE allows negative determinant", {
-  neuralign:::.register_kprocrustes()
+  ensure_test_aligner("kprocrustes")
 
   set.seed(54)
   q <- 5

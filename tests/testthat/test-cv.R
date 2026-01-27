@@ -90,7 +90,7 @@ test_that("create_cv_folds with stratified works", {
 })
 
 test_that("fit_alignment with cv = loso works", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(999)
   data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
@@ -104,7 +104,7 @@ test_that("fit_alignment with cv = loso works", {
 })
 
 test_that("fit_alignment with cv = kfold works", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(998)
   data_list <- make_test_data_list(n_subjects = 4, n_features = 10, n_obs = 10)
@@ -117,7 +117,7 @@ test_that("fit_alignment with cv = kfold works", {
 })
 
 test_that("is_cv_result correctly identifies CV results", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(997)
   data_list <- make_test_data_list(n_subjects = 2, n_features = 10, n_obs = 10)
@@ -131,7 +131,7 @@ test_that("is_cv_result correctly identifies CV results", {
 })
 
 test_that("get_fold_assignments returns fold info", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(996)
   data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 10)
@@ -183,7 +183,7 @@ test_that("stratified CV validates groups length", {
 })
 
 test_that("run_cv_alignment works with loso string", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(42)
   data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 5)
@@ -198,7 +198,7 @@ test_that("run_cv_alignment works with loso string", {
 })
 
 test_that("run_cv_alignment works with precomputed folds", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(42)
   data_list <- make_test_data_list(n_subjects = 4, n_features = 10, n_obs = 5)
@@ -214,7 +214,7 @@ test_that("run_cv_alignment works with precomputed folds", {
 })
 
 test_that("run_cv_alignment accepts list input", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(42)
   data_list <- make_test_data_list(n_subjects = 2, n_features = 10, n_obs = 5)
@@ -226,7 +226,7 @@ test_that("run_cv_alignment accepts list input", {
 })
 
 test_that("get_fold_assignments returns NULL for non-CV result", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(42)
   data_list <- make_test_data_list(n_subjects = 2, n_features = 5, n_obs = 5)
@@ -242,7 +242,7 @@ test_that("get_fold_assignments returns NULL for non-CV result", {
 # --- Additional tests for uncovered lines ---
 
 test_that("run_cv_alignment errors when obs_labels conflict with AlignmentData", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(42)
   n_feat <- 10
@@ -261,7 +261,7 @@ test_that("run_cv_alignment errors when obs_labels conflict with AlignmentData",
 })
 
 test_that("run_cv_alignment sets obs_labels when AlignmentData has none", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(42)
   n_feat <- 10
@@ -283,7 +283,7 @@ test_that("run_cv_alignment sets obs_labels when AlignmentData has none", {
 })
 
 test_that("run_cv_alignment with data-driven reference yields fold-specific anchor", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(42)
   n_feat <- 10
@@ -304,7 +304,7 @@ test_that("run_cv_alignment with data-driven reference yields fold-specific anch
 })
 
 test_that("run_cv_alignment with template matrix reference yields common anchor", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(42)
   n_feat <- 10
@@ -477,7 +477,7 @@ test_that("has_common_anchor for AlignmentResult with no CV info", {
 })
 
 test_that("run_cv_alignment with fixed subject reference yields common anchor", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(42)
   data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 5)
@@ -505,7 +505,7 @@ test_that("run_cv_alignment with fixed subject reference yields common anchor", 
 })
 
 test_that("run_cv_alignment with kfold string works", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(42)
   data_list <- make_test_data_list(n_subjects = 6, n_features = 10, n_obs = 5)
@@ -520,7 +520,7 @@ test_that("run_cv_alignment with kfold string works", {
 })
 
 test_that("run_cv_alignment sets matching obs_labels on AlignmentData", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(42)
   data_list <- make_test_data_list(n_subjects = 3, n_features = 10, n_obs = 3)

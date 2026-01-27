@@ -1,5 +1,5 @@
 test_that("save_alignment and load_alignment work", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(888)
   data_list <- make_test_data_list(n_subjects = 2, n_features = 10, n_obs = 10)
@@ -57,7 +57,7 @@ test_that("load_alignment errors on missing file", {
 })
 
 test_that("save_alignment can include aligned data", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(887)
   data_list <- make_test_data_list(n_subjects = 2, n_features = 10, n_obs = 10)
@@ -145,7 +145,7 @@ test_that("import_alignment from json works", {
 })
 
 test_that("round-trip save/load preserves transforms exactly", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   set.seed(886)
   data_list <- make_test_data_list(n_subjects = 2, n_features = 10, n_obs = 10)
@@ -528,7 +528,7 @@ test_that("import_alignment CSV warns on missing transform file", {
 
 test_that("import_alignment JSON with .json extension in path works", {
   skip_if_not_installed("jsonlite")
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
 
   model <- AlignmentModel(
     transforms = list(s1 = diag(3), s2 = diag(3)),
@@ -556,7 +556,7 @@ test_that("import_alignment JSON errors on missing file", {
 })
 
 test_that("load_alignment with raw model (not save_alignment format)", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
   model <- AlignmentModel(
     transforms = list(s1 = diag(5)),
     reference = "s1",
@@ -595,7 +595,7 @@ test_that("save_alignment rejects non-model objects", {
 })
 
 test_that("load_alignment detects hash mismatch", {
-  neuralign:::.register_procrustes()
+  ensure_test_aligner("procrustes")
   model <- AlignmentModel(
     transforms = list(s1 = diag(5)),
     reference = "s1",
