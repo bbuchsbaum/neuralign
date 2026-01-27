@@ -134,7 +134,7 @@ obs_folds$fold_ids
 When there are no natural run boundaries, create contiguous temporal blocks:
 
 ```{r obs-blocked}
-obs_folds_time <- create_obs_folds(n_obs, method = "blocked_time", k = 3)
+obs_folds_time <- create_obs_folds(seq_len(n_obs), method = "blocked_time", k = 3)
 obs_folds_time$n_folds
 ```
 
@@ -146,7 +146,7 @@ buffer of timepoints around each held-out block:
 
 ```{r guard-tr}
 obs_folds_guarded <- create_obs_folds(
-  20,
+  seq_len(20),
   method = "blocked_time",
   k = 4,
   guard_tr = 2  # exclude 2 TRs before/after each test block
@@ -240,7 +240,7 @@ For a comprehensive leakage audit, use `assess_leakage_risk()`:
 ```{r leakage-assess}
 risk <- assess_leakage_risk(
   result_loso,
-  apply_subjects = adat@subjects
+  test_subjects = adat@subjects
 )
 risk$overall_risk
 risk$issues
