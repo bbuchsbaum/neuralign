@@ -201,6 +201,48 @@ test_that("kprocrustes reflection control forces det(transform) >= 0", {
   expect_gte(det(model@transforms$s2), 0)
 })
 
+test_that("kprocrustes accepts reflection alias for allow_reflection", {
+  ensure_test_aligner("kprocrustes")
+
+  set.seed(6)
+  q <- 6
+  r <- 3
+  effects <- paste0("e", seq_len(q))
+  K <- diag(q)
+  dimnames(K) <- list(effects, effects)
+
+  Uref <- k_orthonormalize(matrix(rnorm(q * r), q, r), K)
+  Xref <- t(Uref)
+  colnames(Xref) <- effects
+
+  Rneg <- qr.Q(qr(matrix(rnorm(r * r), r, r)))
+  if (det(Rneg) > 0) Rneg[, 1] <- -Rneg[, 1]
+  expect_lt(det(Rneg), 0)
+
+  X2 <- t(Rneg) %*% Xref
+  colnames(X2) <- effects
+
+  res <- fit_alignment(
+    AlignmentData(list(s1 = Xref, s2 = X2), design = list(K = K, effects = effects)),
+    method = "kprocrustes",
+    reference = "s1",
+    reflection = FALSE
+  )
+  model <- get_model(res)
+  expect_gte(det(model@transforms$s2), 0)
+
+  expect_error(
+    fit_alignment(
+      AlignmentData(list(s1 = Xref, s2 = X2), design = list(K = K, effects = effects)),
+      method = "kprocrustes",
+      reference = "s1",
+      allow_reflection = TRUE,
+      reflection = FALSE
+    ),
+    "must agree"
+  )
+})
+
 
 # ---------- Additional kprocrustes aligner tests ----------
 

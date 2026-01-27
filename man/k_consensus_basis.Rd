@@ -11,7 +11,8 @@ k_consensus_basis(
   Kroots = NULL,
   max_iter = 50,
   tol = 1e-06,
-  allow_reflection = TRUE
+  allow_reflection = TRUE,
+  reflection = NULL
 )
 }
 \arguments{
@@ -28,6 +29,8 @@ k_consensus_basis(
 \item{tol}{Convergence tolerance on \verb{1 - mean(principal cosines)}.}
 
 \item{allow_reflection}{Passed to alignment step.}
+
+\item{reflection}{Alias for \code{allow_reflection}.}
 }
 \value{
 A list with elements \code{U}, \code{iters}, \code{converged}, \code{gaps}, \code{scores}.

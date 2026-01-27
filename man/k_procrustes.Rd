@@ -4,7 +4,7 @@
 \alias{k_procrustes}
 \title{K-metric Procrustes Utilities}
 \usage{
-k_procrustes(Uref, U, K, allow_reflection = TRUE)
+k_procrustes(Uref, U, K, allow_reflection = TRUE, reflection = NULL)
 }
 \arguments{
 \item{Uref}{Reference basis (q x r).}
@@ -14,6 +14,8 @@ k_procrustes(Uref, U, K, allow_reflection = TRUE)
 \item{K}{Square kernel matrix (q x q).}
 
 \item{allow_reflection}{Logical; if \code{FALSE}, forces \code{det(R) = +1}.}
+
+\item{reflection}{Alias for \code{allow_reflection}.}
 }
 \value{
 A list with elements:

@@ -30,7 +30,15 @@ NULL
                             reflection = FALSE,
                             tol = 1e-6,
                             max_iter = 100,
+                            allow_reflection = NULL,
                             ...) {
+  if (!is.null(allow_reflection)) {
+    if (!missing(reflection) && isTRUE(reflection) != isTRUE(allow_reflection)) {
+      stop("Provide only one of 'reflection' and 'allow_reflection' (and they must agree).", call. = FALSE)
+    }
+    reflection <- isTRUE(allow_reflection)
+  }
+
   pre <- .aligner_preamble(data, train_idx = train_idx)
   train_data <- pre$train_data
   data_list <- pre$data_list
@@ -169,6 +177,7 @@ NULL
 #' @param convention Multiplication convention (`"left"` or `"right"`).
 #' @param scale Logical; if `TRUE`, include optimal scale factor.
 #' @param reflection Logical; if `TRUE`, allow reflections (det(Q) may be -1).
+#' @param allow_reflection Alias for `reflection`.
 #' @param obs_labels_source Optional observation labels for `source`.
 #' @param obs_labels_target Optional observation labels for `target`.
 #' @param min_overlap Minimum number of shared labels when labels are supplied.
@@ -184,7 +193,15 @@ procrustes_rotation <- function(source,
                                 reflection = FALSE,
                                 obs_labels_source = NULL,
                                 obs_labels_target = NULL,
-                                min_overlap = 2L) {
+                                min_overlap = 2L,
+                                allow_reflection = NULL) {
+  if (!is.null(allow_reflection)) {
+    if (!missing(reflection) && isTRUE(reflection) != isTRUE(allow_reflection)) {
+      stop("Provide only one of 'reflection' and 'allow_reflection' (and they must agree).", call. = FALSE)
+    }
+    reflection <- isTRUE(allow_reflection)
+  }
+
   convention <- match.arg(convention)
   min_overlap <- as.integer(min_overlap)
   if (!is.finite(min_overlap) || min_overlap < 1L) {

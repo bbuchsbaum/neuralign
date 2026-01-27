@@ -11,6 +11,7 @@
   min_overlap = 2L,
   weight = c("overlap", "uniform"),
   reflection = FALSE,
+  allow_reflection = NULL,
   ...
 )
 }

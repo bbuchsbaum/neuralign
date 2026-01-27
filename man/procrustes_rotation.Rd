@@ -12,7 +12,8 @@ procrustes_rotation(
   reflection = FALSE,
   obs_labels_source = NULL,
   obs_labels_target = NULL,
-  min_overlap = 2L
+  min_overlap = 2L,
+  allow_reflection = NULL
 )
 }
 \arguments{
@@ -31,6 +32,8 @@ procrustes_rotation(
 \item{obs_labels_target}{Optional observation labels for \code{target}.}
 
 \item{min_overlap}{Minimum number of shared labels when labels are supplied.}
+
+\item{allow_reflection}{Alias for \code{reflection}.}
 }
 \value{
 A list with elements \code{Q}, \code{scale_factor}, \code{residual},

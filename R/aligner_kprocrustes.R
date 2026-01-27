@@ -164,7 +164,15 @@ NULL
                              allow_reflection = TRUE,
                              min_overlap = 1L,
                              warn_sparse_below = 0.5,
+                             reflection = NULL,
                              ...) {
+  if (!is.null(reflection)) {
+    if (!missing(allow_reflection) && isTRUE(allow_reflection) != isTRUE(reflection)) {
+      stop("Provide only one of 'allow_reflection' and 'reflection' (and they must agree).", call. = FALSE)
+    }
+    allow_reflection <- isTRUE(reflection)
+  }
+
   if (is.null(train_idx)) train_idx <- seq_along(data@subjects)
   subjects <- data@subjects
   train_subjects <- subjects[train_idx]

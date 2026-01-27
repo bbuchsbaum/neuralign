@@ -128,6 +128,7 @@ k_orthonormalize <- function(W, K, Kroots = NULL) {
 #' @param U Basis to align (q x r).
 #' @param K Square kernel matrix (q x q).
 #' @param allow_reflection Logical; if `FALSE`, forces `det(R) = +1`.
+#' @param reflection Alias for `allow_reflection`.
 #'
 #' @return A list with elements:
 #' \describe{
@@ -151,7 +152,14 @@ k_orthonormalize <- function(W, K, Kroots = NULL) {
 #'
 #' @family k_procrustes
 #' @export
-k_procrustes <- function(Uref, U, K, allow_reflection = TRUE) {
+k_procrustes <- function(Uref, U, K, allow_reflection = TRUE, reflection = NULL) {
+  if (!is.null(reflection)) {
+    if (!missing(allow_reflection) && isTRUE(allow_reflection) != isTRUE(reflection)) {
+      stop("Provide only one of 'allow_reflection' and 'reflection' (and they must agree).", call. = FALSE)
+    }
+    allow_reflection <- reflection
+  }
+
   if (!.is_matrixish(Uref) || !.is_matrixish(U)) {
     stop("'Uref' and 'U' must be matrix-like", call. = FALSE)
   }
@@ -198,6 +206,7 @@ k_procrustes <- function(Uref, U, K, allow_reflection = TRUE) {
 #' @param ref Reference basis or index (default 1).
 #' @param allow_reflection Passed to `k_procrustes()`.
 #' @param weights Optional numeric weights (stored in return value).
+#' @param reflection Alias for `allow_reflection`.
 #'
 #' @return A list with elements `U_aligned`, `R`, `Uref`, `score`, `weights`.
 #'
@@ -205,7 +214,15 @@ k_procrustes <- function(Uref, U, K, allow_reflection = TRUE) {
 #' @export
 k_align_bases <- function(U_list, K, ref = 1L,
                           allow_reflection = TRUE,
-                          weights = NULL) {
+                          weights = NULL,
+                          reflection = NULL) {
+  if (!is.null(reflection)) {
+    if (!missing(allow_reflection) && isTRUE(allow_reflection) != isTRUE(reflection)) {
+      stop("Provide only one of 'allow_reflection' and 'reflection' (and they must agree).", call. = FALSE)
+    }
+    allow_reflection <- reflection
+  }
+
   if (!is.list(U_list) || length(U_list) < 1L) {
     stop("'U_list' must be a non-empty list of bases", call. = FALSE)
   }
@@ -248,6 +265,7 @@ k_align_bases <- function(U_list, K, ref = 1L,
 #' @param max_iter Maximum iterations.
 #' @param tol Convergence tolerance on `1 - mean(principal cosines)`.
 #' @param allow_reflection Passed to alignment step.
+#' @param reflection Alias for `allow_reflection`.
 #'
 #' @return A list with elements `U`, `iters`, `converged`, `gaps`, `scores`.
 #'
@@ -258,7 +276,15 @@ k_consensus_basis <- function(U_list, K,
                               Kroots = NULL,
                               max_iter = 50,
                               tol = 1e-6,
-                              allow_reflection = TRUE) {
+                              allow_reflection = TRUE,
+                              reflection = NULL) {
+  if (!is.null(reflection)) {
+    if (!missing(allow_reflection) && isTRUE(allow_reflection) != isTRUE(reflection)) {
+      stop("Provide only one of 'allow_reflection' and 'reflection' (and they must agree).", call. = FALSE)
+    }
+    allow_reflection <- reflection
+  }
+
   if (!is.list(U_list) || length(U_list) < 1L) {
     stop("'U_list' must be a non-empty list of bases", call. = FALSE)
   }

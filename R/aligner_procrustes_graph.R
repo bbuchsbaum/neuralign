@@ -175,7 +175,15 @@ NULL
                                   min_overlap = 2L,
                                   weight = c("overlap", "uniform"),
                                   reflection = FALSE,
+                                  allow_reflection = NULL,
                                   ...) {
+  if (!is.null(allow_reflection)) {
+    if (!missing(reflection) && isTRUE(reflection) != isTRUE(allow_reflection)) {
+      stop("Provide only one of 'reflection' and 'allow_reflection' (and they must agree).", call. = FALSE)
+    }
+    reflection <- isTRUE(allow_reflection)
+  }
+
   weight <- match.arg(weight)
   min_overlap <- as.integer(min_overlap)
   if (!is.finite(min_overlap) || min_overlap < 1L) {

@@ -553,3 +553,47 @@ test_that("procrustes_graph respects reflection=FALSE in synchronization", {
   expect_lt(det(Q2r), 0)
   expect_true(max(abs(allow_reflect@aligned[["s2"]] - Z)) < 1e-8)
 })
+
+test_that("procrustes_graph accepts allow_reflection alias", {
+  .ensure_procrustes_graph_registered()
+
+  set.seed(26)
+  d <- 4
+  n <- 6
+  labels <- paste0("stim", seq_len(n))
+  Z <- matrix(rnorm(d * n), d, n)
+  R_reflect <- diag(c(-1, rep(1, d - 1L)))
+
+  adat <- AlignmentData(
+    data = list(
+      s1 = Z,
+      s2 = R_reflect %*% Z
+    ),
+    obs_labels = labels
+  )
+
+  allow_reflect <- fit_alignment(
+    adat,
+    method = "procrustes_graph",
+    reference = "s1",
+    min_overlap = d,
+    allow_reflection = TRUE,
+    compute_quality = FALSE
+  )
+  Q2r <- get_transform(get_model(allow_reflect), "s2")
+  expect_lt(det(Q2r), 0)
+  expect_true(max(abs(allow_reflect@aligned[["s2"]] - Z)) < 1e-8)
+
+  expect_error(
+    fit_alignment(
+      adat,
+      method = "procrustes_graph",
+      reference = "s1",
+      min_overlap = d,
+      reflection = FALSE,
+      allow_reflection = TRUE,
+      compute_quality = FALSE
+    ),
+    "must agree"
+  )
+})

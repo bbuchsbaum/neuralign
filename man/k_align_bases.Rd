@@ -4,7 +4,14 @@
 \alias{k_align_bases}
 \title{Align Multiple Bases to a Reference}
 \usage{
-k_align_bases(U_list, K, ref = 1L, allow_reflection = TRUE, weights = NULL)
+k_align_bases(
+  U_list,
+  K,
+  ref = 1L,
+  allow_reflection = TRUE,
+  weights = NULL,
+  reflection = NULL
+)
 }
 \arguments{
 \item{U_list}{List of q x r bases.}
@@ -16,6 +23,8 @@ k_align_bases(U_list, K, ref = 1L, allow_reflection = TRUE, weights = NULL)
 \item{allow_reflection}{Passed to \code{k_procrustes()}.}
 
 \item{weights}{Optional numeric weights (stored in return value).}
+
+\item{reflection}{Alias for \code{allow_reflection}.}
 }
 \value{
 A list with elements \code{U_aligned}, \code{R}, \code{Uref}, \code{score}, \code{weights}.

@@ -81,6 +81,26 @@ test_that("reflection control enforces det(Q) >= 0 when reflection=FALSE", {
   expect_equal(res_reflect$residual, 0, tolerance = 1e-8)
 })
 
+test_that("procrustes_rotation accepts allow_reflection alias", {
+  set.seed(5)
+  d <- 9
+  n <- 30
+  Q_true <- qr.Q(qr(matrix(rnorm(d * d), d, d)))
+  if (det(Q_true) > 0) Q_true[, 1] <- -Q_true[, 1] # force det < 0
+  expect_lt(det(Q_true), 0)
+
+  X <- matrix(rnorm(d * n), d, n)
+  Y <- Q_true %*% X
+
+  res_alias <- procrustes_rotation(X, Y, "left", allow_reflection = TRUE)
+  expect_lt(det(res_alias$Q), 0)
+
+  expect_error(
+    procrustes_rotation(X, Y, "left", reflection = TRUE, allow_reflection = FALSE),
+    "must agree"
+  )
+})
+
 test_that("procrustes_distance basic properties hold", {
   set.seed(6)
   d <- 5
@@ -386,4 +406,3 @@ test_that("procrustes_rotation scale with zero data returns scale=1", {
   res <- procrustes_rotation(X, Y, "left", scale = TRUE)
   expect_equal(res$scale_factor, 1)
 })
-
