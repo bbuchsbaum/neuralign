@@ -47,6 +47,34 @@ NULL
   )
 }
 
+.gw_apply <- function(fit_result, new_data, ...) {
+  .ma_require_manifoldalign("GW")
+
+  if (!inherits(new_data, "AlignmentData") || length(new_data@subjects) != 1L) {
+    stop("gw apply_fn expects new_data to contain exactly one subject", call. = FALSE)
+  }
+  subj <- new_data@subjects[[1L]]
+  X <- get_subject_data(new_data, subj)
+
+  ref_data <- fit_result$reference_data %||% NULL
+  if (is.null(ref_data)) stop("gw apply_fn requires reference_data in model", call. = FALSE)
+
+  st <- fit_result$method_state %||% list()
+  gw_args <- st$gw_args %||% list()
+  gw_args <- utils::modifyList(gw_args, list(...))
+
+  hd_new <- structure(list(
+    subj = list(x = X),
+    ref = list(x = ref_data)
+  ), class = "hyperdesign")
+
+  ot_new <- do.call(manifoldalign::gromov_wasserstein, c(list(data = hd_new), gw_args))
+  P_subj_ref <- ot_new$transport_plans[[1L]]
+  A_new <- .coupling_to_operator(P_subj_ref)
+
+  list(transforms = setNames(list(A_new), subj))
+}
+
 
 #' Convert OT Coupling to Operator
 #'
@@ -210,7 +238,7 @@ NULL
   register_aligner(
     name = "gw",
     fit_fn = .gw_fit,
-    apply_fn = NULL,
+    apply_fn = .gw_apply,
     capabilities = .gw_capabilities,
     package = "manifoldalign",
     description = "Gromov-Wasserstein alignment",
@@ -253,6 +281,34 @@ NULL
   )
 }
 
+.fpgw_apply <- function(fit_result, new_data, ...) {
+  .ma_require_manifoldalign("FPGW")
+
+  if (!inherits(new_data, "AlignmentData") || length(new_data@subjects) != 1L) {
+    stop("fpgw apply_fn expects new_data to contain exactly one subject", call. = FALSE)
+  }
+  subj <- new_data@subjects[[1L]]
+  X <- get_subject_data(new_data, subj)
+
+  ref_data <- fit_result$reference_data %||% NULL
+  if (is.null(ref_data)) stop("fpgw apply_fn requires reference_data in model", call. = FALSE)
+
+  st <- fit_result$method_state %||% list()
+  fpgw_args <- st$fpgw_args %||% list()
+  fpgw_args <- utils::modifyList(fpgw_args, list(...))
+
+  hd_new <- structure(list(
+    subj = list(x = X),
+    ref = list(x = ref_data)
+  ), class = "hyperdesign")
+
+  ot_new <- do.call(manifoldalign::fpgw, c(list(data = hd_new), fpgw_args))
+  P_subj_ref <- ot_new$transport_plans[[1L]]
+  A_new <- .coupling_to_operator(P_subj_ref)
+
+  list(transforms = setNames(list(A_new), subj))
+}
+
 
 #' FPGW Capabilities
 #' @keywords internal
@@ -281,7 +337,7 @@ NULL
   register_aligner(
     name = "fpgw",
     fit_fn = .fpgw_fit,
-    apply_fn = NULL,
+    apply_fn = .fpgw_apply,
     capabilities = .fpgw_capabilities,
     package = "manifoldalign",
     description = "Fused-Partial Gromov-Wasserstein alignment",

@@ -144,6 +144,88 @@ test_that("GW registration via fit_alignment works", {
   expect_equal(length(get_aligned(result)), 2)
 })
 
+test_that("apply_alignment fits GW transforms for new subjects using stored args", {
+  skip_if_not_installed("manifoldalign")
+  ensure_test_aligner("gw")
+
+  set.seed(101)
+  train_list <- make_test_data_list(
+    n_subjects = 2,
+    n_features = 8,
+    n_obs = 4,
+    subject_ids = c("s1", "s2")
+  )
+  train_data <- AlignmentData(train_list)
+
+  res <- fit_alignment(
+    train_data,
+    method = "gw",
+    reference = "s1",
+    epsilon = 0.2,
+    max_iter = 5,
+    tol = 1e-6,
+    compute_quality = FALSE
+  )
+  model <- get_model(res)
+
+  new_data <- AlignmentData(list(s3 = make_test_matrix(8, 4)))
+  applied <- apply_alignment(res, new_data)
+  A_apply <- get_transform(get_model(applied), "s3")
+
+  expected <- neuralign:::.gw_fit(
+    new_data,
+    reference = get_reference(model),
+    epsilon = 0.2,
+    max_iter = 5,
+    tol = 1e-6
+  )
+  A_expected <- expected$transforms[["s3"]]
+
+  expect_equal(A_apply, A_expected, tolerance = 1e-10)
+})
+
+test_that("apply_alignment fits FPGW transforms for new subjects using stored args", {
+  skip_if_not_installed("manifoldalign")
+  ensure_test_aligner("fpgw")
+
+  set.seed(102)
+  train_list <- make_test_data_list(
+    n_subjects = 2,
+    n_features = 8,
+    n_obs = 4,
+    subject_ids = c("s1", "s2")
+  )
+  train_data <- AlignmentData(train_list)
+
+  res <- fit_alignment(
+    train_data,
+    method = "fpgw",
+    reference = "s1",
+    omega1 = 0.05,
+    epsilon = 0.2,
+    max_iter = 5,
+    tol = 1e-6,
+    compute_quality = FALSE
+  )
+  model <- get_model(res)
+
+  new_data <- AlignmentData(list(s3 = make_test_matrix(8, 4)))
+  applied <- apply_alignment(res, new_data)
+  A_apply <- get_transform(get_model(applied), "s3")
+
+  expected <- neuralign:::.fpgw_fit(
+    new_data,
+    reference = get_reference(model),
+    omega1 = 0.05,
+    epsilon = 0.2,
+    max_iter = 5,
+    tol = 1e-6
+  )
+  A_expected <- expected$transforms[["s3"]]
+
+  expect_equal(A_apply, A_expected, tolerance = 1e-10)
+})
+
 test_that(".register_gw registers aligner correctly", {
   # Unregister first if exists
   tryCatch(unregister_aligner("gw"), error = function(e) NULL)
