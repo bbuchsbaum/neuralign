@@ -113,6 +113,8 @@ fit_alignment <- function(data,
   aligner <- get_aligner(method)
   caps <- aligner$capabilities %||% list()
 
+  .validate_reference_for_aligner(reference, data, method, caps)
+
   # Validate data dimensions based on method capabilities
   validate_alignment_data(
     data,
@@ -482,6 +484,70 @@ fit_alignment <- function(data,
   }
 
   "unknown"
+}
+
+.reference_type_for_validation <- function(reference, data) {
+  if (.is_matrixish(reference)) {
+    return("template")
+  }
+
+  if (!is.character(reference) || length(reference) != 1L) {
+    return("unknown")
+  }
+
+  if (reference %in% c("medoid", "centroid")) {
+    return("subject")
+  }
+  if (reference %in% c("consensus")) {
+    return("consensus")
+  }
+  if (reference %in% c("barycenter")) {
+    return("barycenter")
+  }
+
+  if (reference %in% data@subjects) {
+    return("subject")
+  }
+
+  "unknown"
+}
+
+.validate_reference_for_aligner <- function(reference, data, method, capabilities) {
+  ref_types <- capabilities$reference_types %||% NULL
+  if (is.null(ref_types)) return(invisible(TRUE))
+  ref_types <- as.character(ref_types)
+
+  ref_type <- .reference_type_for_validation(reference, data)
+
+  if (identical(ref_type, "unknown")) {
+    if (is.character(reference) && length(reference) == 1L) {
+      stop(
+        sprintf(
+          "Unknown reference '%s'. Expected a subject id in the data, one of {medoid, centroid, consensus, barycenter}, or a template matrix.",
+          reference
+        ),
+        call. = FALSE
+      )
+    }
+    stop(
+      "Invalid reference specification. Expected a subject id, a supported token, or a template matrix.",
+      call. = FALSE
+    )
+  }
+
+  if (!ref_type %in% ref_types) {
+    stop(
+      sprintf(
+        "Method '%s' does not support reference type '%s'. Supported reference types: %s",
+        method,
+        ref_type,
+        paste(ref_types, collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
+
+  invisible(TRUE)
 }
 
 

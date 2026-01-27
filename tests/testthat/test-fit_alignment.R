@@ -661,3 +661,24 @@ test_that("observation-axis CV warns when method doesn't declare observation in 
     "observation-axis CV may not be meaningful"
   )
 })
+
+test_that("fit_alignment validates reference against method reference_types", {
+  neuralign:::.register_procrustes_graph()
+
+  set.seed(123)
+  x <- matrix(rnorm(4 * 6), 4, 6)
+  adat <- AlignmentData(
+    list(s1 = x, s2 = x),
+    obs_labels = paste0("o", seq_len(ncol(x)))
+  )
+
+  expect_error(
+    fit_alignment(adat, method = "procrustes_graph", reference = "consensus"),
+    "does not support reference type 'consensus'"
+  )
+
+  expect_error(
+    fit_alignment(adat, method = "procrustes_graph", reference = matrix(0, 4, 6)),
+    "does not support reference type 'template'"
+  )
+})
