@@ -15,3 +15,6 @@ The reference data (matrix or template object).
 \description{
 Get Reference Data from Model
 }
+\seealso{
+\code{\link{get_reference_spec}} for the reference specification.
+}

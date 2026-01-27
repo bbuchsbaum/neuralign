@@ -296,10 +296,25 @@ has_transform <- function(model, subject) {
 #' @param model An AlignmentModel object.
 #'
 #' @return The reference data (matrix or template object).
+#' @seealso \code{\link{get_reference_spec}} for the reference specification.
 #'
 #' @export
 get_reference <- function(model) {
   model@reference_data
+}
+
+#' Get Reference Specification from Model
+#'
+#' Returns the reference specification used during fitting (e.g., a subject id,
+#' `"consensus"`, `"template"`, or `"fold_specific"`).
+#'
+#' @param model An AlignmentModel object.
+#'
+#' @return The reference specification.
+#'
+#' @export
+get_reference_spec <- function(model) {
+  model@reference
 }
 
 
