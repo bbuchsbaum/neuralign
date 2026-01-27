@@ -185,6 +185,10 @@ export_alignment <- function(model,
   }
 
   if (format == "json") {
+    if (!requireNamespace("jsonlite", quietly = TRUE)) {
+      stop("Package 'jsonlite' required for JSON export", call. = FALSE)
+    }
+
     json_data <- list(
       method = model@method,
       subjects = names(model@transforms),
@@ -279,6 +283,10 @@ import_alignment <- function(path,
   }
 
   if (format == "json") {
+    if (!requireNamespace("jsonlite", quietly = TRUE)) {
+      stop("Package 'jsonlite' required for JSON import", call. = FALSE)
+    }
+
     file <- if (grepl("\\.json$", path)) path else paste0(path, ".json")
     if (!file.exists(file)) {
       stop(sprintf("File not found: %s", file))

@@ -511,12 +511,13 @@ fit_alignment <- function(data,
         reference_spec = ref_subj
       ))
     } else {
-      # Assume it's a subject ID
-      if (!reference %in% train_subjects) {
-        warning(sprintf(
-          "Reference subject '%s' not in training set; potential leakage",
-          reference
-        ))
+      # Treat as a subject id when it matches the data; otherwise pass through
+      # (some aligners accept special reference tokens like "barycenter").
+      if (reference %in% subjects && !reference %in% train_subjects) {
+        warning(
+          sprintf("Reference subject '%s' not in training set; potential leakage", reference),
+          call. = FALSE
+        )
       }
       return(list(
         reference = reference,
@@ -530,7 +531,7 @@ fit_alignment <- function(data,
       reference_spec = "template"
     ))
   } else {
-    stop("Invalid reference specification")
+    stop("Invalid reference specification", call. = FALSE)
   }
 }
 
