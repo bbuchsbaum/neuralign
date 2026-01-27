@@ -168,6 +168,80 @@ result_kfold <- fit_alignment(
 get_cv_info(result_kfold)
 ```
 
+## Observation-axis crossfit (run-wise / blocked-time)
+
+Subject-axis CV (e.g., LOSO) evaluates generalization to *new subjects*. In many
+workflows you instead need unbiased evaluation over *observations* (timepoints,
+runs, trials, etc.) while holding subjects fixed. neuralign supports this pattern
+via observation-axis crossfit:
+
+- fit transforms using **training observations only** (per fold),
+- apply those transforms to **held-out observations**.
+
+This is especially important when your correspondence signal is learned from the
+same observations you later evaluate (to avoid leakage).
+
+### Anchor semantics
+
+Observation-axis crossfit can produce **fold-specific anchors** when the reference
+is data-driven (e.g., `"medoid"` or `"consensus"`). In that case, fold outputs do
+not necessarily live in the same coordinate system.
+
+- `anchor_common=TRUE` indicates a fixed subject or explicit template reference.
+- `anchor_common=FALSE` indicates fold-specific anchors; avoid aggregating across
+  folds unless you map to a common anchor.
+
+`anchor_policy` controls how neuralign handles this:
+
+- `"common_or_error"`: require a fixed subject or template reference.
+- `"fold_specific_ok"`: allow fold-specific anchors (with warnings).
+- `"map_to_template"`: map fold-wise transforms into a provided template anchor.
+
+### Example: run-wise folds
+
+```{r obs-crossfit}
+set.seed(123)
+n_subjects <- 3
+n_features <- 30
+n_obs <- 12
+
+runs <- rep(paste0("run", 1:3), each = 4)
+obs_labels <- paste0("t", seq_len(n_obs))
+
+shared <- matrix(rnorm(n_features * n_obs), n_features, n_obs)
+data_list2 <- lapply(seq_len(n_subjects), function(i) {
+  Q <- qr.Q(qr(matrix(rnorm(n_features^2), n_features)))
+  Q %*% shared + 0.3 * matrix(rnorm(n_features * n_obs), n_features, n_obs)
+})
+names(data_list2) <- paste0("sub-", sprintf("%02d", seq_len(n_subjects)))
+
+adat2 <- AlignmentData(data_list2, obs_labels = obs_labels)
+obs_folds <- create_obs_folds(runs, method = "run")
+
+# Fixed reference -> common anchor across folds
+cf_fixed <- run_obs_crossfit_from_data(
+  adat2,
+  obs_folds,
+  method = "procrustes",
+  reference = "sub-01",
+  anchor_policy = "common_or_error"
+)
+cf_fixed$anchor_common
+names(cf_fixed$aligned_test_by_fold)
+
+# Data-driven reference (e.g., "medoid") can be fold-specific: allow, but do not
+# aggregate across folds unless you map to a common anchor.
+cf_medoid <- suppressWarnings(run_obs_crossfit_from_data(
+  adat2,
+  obs_folds,
+  method = "procrustes",
+  reference = "medoid",
+  anchor_policy = "fold_specific_ok"
+))
+cf_medoid$anchor_common
+cf_medoid$reference_kind
+```
+
 ## Applying to New Data
 
 Once you have a fitted model, you can apply it to new subjects:
