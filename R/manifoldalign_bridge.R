@@ -50,18 +50,38 @@ NULL
   labs
 }
 
+.ma_hyperdesign_meta <- function(domains) {
+  domain_names <- names(domains)
+  nr <- vapply(domains, function(d) nrow(d$x), integer(1))
+  nc <- vapply(domains, function(d) ncol(d$x), integer(1))
+  ny <- vapply(domains, function(d) {
+    if (is.null(d$design)) 0L else ncol(d$design)
+  }, integer(1))
+
+  row_end <- cumsum(nr)
+  row_start <- c(1L, utils::head(row_end, -1L) + 1L)
+  col_end <- cumsum(nc)
+  col_start <- c(1L, utils::head(col_end, -1L) + 1L)
+
+  data.frame(
+    block = seq_along(domains),
+    block_name = domain_names,
+    nr = as.integer(nr),
+    nxvar = as.integer(nc),
+    nyvar = as.integer(ny),
+    row_start = as.integer(row_start),
+    row_end = as.integer(row_end),
+    col_start = as.integer(col_start),
+    col_end = as.integer(col_end),
+    stringsAsFactors = FALSE
+  )
+}
+
 
 .ma_build_hyperdesign_obs <- function(data, train_idx = NULL, labels, label_name = "label") {
   if (is.null(train_idx)) train_idx <- seq_along(data@subjects)
   train_data <- data[train_idx]
   data_list <- get_data_list(train_data)
-
-  if (!requireNamespace("multidesign", quietly = TRUE)) {
-    stop(
-      "Package 'multidesign' is required to construct hyperdesign objects for manifoldalign integration.",
-      call. = FALSE
-    )
-  }
 
   domains <- lapply(names(data_list), function(nm) {
     X <- as.matrix(data_list[[nm]])
@@ -75,11 +95,20 @@ NULL
         call. = FALSE
       )
     }
-    design <- data.frame(stats::setNames(list(labels), label_name))
-    multidesign::multidesign(Xo, design)
+    list(
+      x = Xo,
+      design = data.frame(stats::setNames(list(labels), label_name))
+    )
   })
+  names(domains) <- names(data_list)
+  hdes <- .ma_hyperdesign_meta(domains)
 
-  multidesign::hyperdesign(domains, block_names = names(data_list))
+  structure(
+    domains,
+    hdes = hdes,
+    common_vars = label_name,
+    class = c("neuralign_hyperdesign", "hyperdesign", "list")
+  )
 }
 
 
@@ -88,20 +117,19 @@ NULL
   train_data <- data[train_idx]
   data_list <- get_data_list(train_data)
 
-  if (!requireNamespace("multidesign", quietly = TRUE)) {
-    stop(
-      "Package 'multidesign' is required to construct hyperdesign objects for manifoldalign integration.",
-      call. = FALSE
-    )
-  }
-
   domains <- lapply(names(data_list), function(nm) {
     X <- as.matrix(data_list[[nm]]) # features x observations
-    # For feature-as-nodes algorithms (graph methods), we don't require a design.
-    multidesign::multidesign(X, design = data.frame(.id = seq_len(nrow(X))))
+    list(x = X)
   })
+  names(domains) <- names(data_list)
+  hdes <- .ma_hyperdesign_meta(domains)
 
-  multidesign::hyperdesign(domains, block_names = names(data_list))
+  structure(
+    domains,
+    hdes = hdes,
+    common_vars = character(0),
+    class = c("neuralign_hyperdesign", "hyperdesign", "list")
+  )
 }
 
 

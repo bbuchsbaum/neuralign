@@ -24,8 +24,8 @@ Imports:
     methods
 Suggests:
     manifoldalign,
+    multivarious,
     neighborweights,
-    multidesign,
     fmrigds,
     topofmri,
     dkge,
@@ -71,6 +71,7 @@ Collate:
     'aligner_kprocrustes.R'
     'aligner_ot.R'
     'manifoldalign_bridge.R'
+    'multivarious_hyperdesign.R'
     'aligner_kema.R'
     'aligner_gpca.R'
     'aligner_coupled_diag.R'

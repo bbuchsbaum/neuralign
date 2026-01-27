@@ -12,6 +12,20 @@ NULL
 
   # Register manifoldalign-backed aligners when available
   if (requireNamespace("manifoldalign", quietly = TRUE)) {
+    # manifoldalign calls multivarious::init_transform(hyperdesign, preproc) in a few
+    # methods. Register neuralign's method for its own hyperdesign subclass.
+    if (requireNamespace("multivarious", quietly = TRUE)) {
+      tryCatch(
+        registerS3method(
+          "init_transform",
+          "neuralign_hyperdesign",
+          init_transform.neuralign_hyperdesign,
+          envir = asNamespace("multivarious")
+        ),
+        error = function(e) NULL
+      )
+    }
+
     tryCatch(.register_gw(), error = function(e) NULL)
     tryCatch(.register_fpgw(), error = function(e) NULL)
     tryCatch(.register_kema(), error = function(e) NULL)
