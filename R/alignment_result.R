@@ -23,6 +23,23 @@ setClass("AlignmentResult",
   )
 )
 
+setValidity("AlignmentResult", function(object) {
+  errors <- character()
+  if (!inherits(object@model, "AlignmentModel")) {
+    errors <- c(errors, "'model' must be an AlignmentModel object")
+  }
+  if (!is.list(object@aligned)) {
+    errors <- c(errors, "'aligned' must be a list")
+  }
+  if (!is.list(object@quality)) {
+    errors <- c(errors, "'quality' must be a list")
+  }
+  if (!is.list(object@cv_info)) {
+    errors <- c(errors, "'cv_info' must be a list")
+  }
+  if (length(errors) == 0L) TRUE else errors
+})
+
 
 #' Create an AlignmentResult Object
 #'

@@ -186,6 +186,66 @@ assess_leakage_risk <- function(model, test_subjects = NULL) {
 }
 
 
+#' Check for Observation-Level Leakage
+#'
+#' Check if observation-level train/test splits have overlapping indices,
+#' which would constitute data leakage in observation-axis cross-validation.
+#'
+#' @param train_obs Named list (keyed by subject) of training observation
+#'   labels or indices.
+#' @param test_obs Named list (keyed by subject) of test observation
+#'   labels or indices.
+#' @param action What to do on leakage detection: "warn", "error", or "silent".
+#'
+#' @return Invisibly returns list with leakage info per subject.
+#'
+#' @export
+check_obs_leakage <- function(train_obs, test_obs,
+                              action = c("warn", "error", "silent")) {
+  action <- match.arg(action)
+
+  common_subjects <- intersect(names(train_obs), names(test_obs))
+  leaky_subjects <- character(0)
+
+  for (subj in common_subjects) {
+    overlap <- intersect(train_obs[[subj]], test_obs[[subj]])
+    if (length(overlap) > 0) {
+      leaky_subjects <- c(leaky_subjects, subj)
+    }
+  }
+
+  if (length(leaky_subjects) == 0) {
+    return(invisible(list(has_leakage = FALSE, leaky_subjects = character(0))))
+  }
+
+  msg <- sprintf(
+    "Observation-level leakage: %d of %d subjects have overlapping train/test observations (%s).",
+    length(leaky_subjects),
+    length(common_subjects),
+    if (length(leaky_subjects) <= 3) {
+      paste(leaky_subjects, collapse = ", ")
+    } else {
+      paste(c(leaky_subjects[1:2], sprintf("... +%d more", length(leaky_subjects) - 2)),
+        collapse = ", "
+      )
+    }
+  )
+
+  if (action == "error") {
+    stop(msg, call. = FALSE)
+  } else if (action == "warn") {
+    warning(msg, call. = FALSE)
+  }
+
+  invisible(list(
+    has_leakage = TRUE,
+    leaky_subjects = leaky_subjects,
+    n_leaky = length(leaky_subjects),
+    n_subjects = length(common_subjects)
+  ))
+}
+
+
 #' Print Leakage Risk Assessment
 #'
 #' @param risk Risk assessment from assess_leakage_risk.

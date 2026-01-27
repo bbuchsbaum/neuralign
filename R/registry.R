@@ -269,6 +269,13 @@ register_aligner <- function(name,
     registered_at = Sys.time()
   )
 
+  # Warn on overwrite
+  if (exists(name, envir = .aligner_registry, inherits = FALSE)) {
+    warning(sprintf("Overwriting existing aligner registration '%s'", name),
+      call. = FALSE
+    )
+  }
+
   # Store in registry
   .aligner_registry[[name]] <- entry
 

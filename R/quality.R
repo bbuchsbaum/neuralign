@@ -185,7 +185,7 @@ alignment_quality <- function(result,
     total_variance = total_var,
     between_subject_variance = between_var,
     within_subject_variance = within_var,
-    variance_ratio = between_var / within_var
+    variance_ratio = if (within_var > 0) between_var / within_var else NA_real_
   )
 }
 
@@ -256,7 +256,8 @@ alignment_quality <- function(result,
     original_mean_correlation = original_cor$mean_pairwise_correlation,
     aligned_mean_correlation = aligned_cor$mean_pairwise_correlation,
     correlation_improvement = improvement,
-    relative_improvement = improvement / abs(original_cor$mean_pairwise_correlation)
+    relative_improvement = if (abs(original_cor$mean_pairwise_correlation) > 0)
+      improvement / abs(original_cor$mean_pairwise_correlation) else NA_real_
   )
 }
 

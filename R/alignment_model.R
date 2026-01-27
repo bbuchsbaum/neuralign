@@ -39,6 +39,29 @@ setClass("AlignmentModel",
   )
 )
 
+setValidity("AlignmentModel", function(object) {
+  errors <- character()
+  if (!is.list(object@transforms)) {
+    errors <- c(errors, "'transforms' must be a list")
+  }
+  if (length(object@transforms) > 0 && is.null(names(object@transforms))) {
+    errors <- c(errors, "'transforms' must be named with subject IDs")
+  }
+  if (!is.character(object@method)) {
+    errors <- c(errors, "'method' must be a character string")
+  }
+  if (!is.list(object@provenance)) {
+    errors <- c(errors, "'provenance' must be a list")
+  }
+  if (!is.list(object@method_state)) {
+    errors <- c(errors, "'method_state' must be a list")
+  }
+  if (!is.character(object@train_subjects)) {
+    errors <- c(errors, "'train_subjects' must be a character vector")
+  }
+  if (length(errors) == 0L) TRUE else errors
+})
+
 
 #' Create an AlignmentModel Object
 #'

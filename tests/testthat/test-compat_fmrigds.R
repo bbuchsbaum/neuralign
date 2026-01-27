@@ -137,38 +137,6 @@ test_that("alignment_data_from_gds requires fmrigds", {
   expect_error(alignment_data_from_gds(NULL), "fmrigds")
 })
 
-test_that("print.neuralign_map_family formats output", {
-  mock_obj <- list(
-    name = "test_family",
-    n_subjects = 3,
-    maps = list(
-      matrix(1, 10, 10),
-      matrix(1, 10, 10),
-      matrix(1, 10, 10)
-    )
-  )
-  class(mock_obj) <- "neuralign_map_family"
-
-  output <- capture.output(print(mock_obj))
-
-  expect_true(any(grepl("neuralign MapFamily", output)))
-  expect_true(any(grepl("test_family", output)))
-  expect_true(any(grepl("Subjects: 3", output)))
-  expect_true(any(grepl("10 x 10", output)))
-})
-
-test_that("print.neuralign_map_family handles zero subjects", {
-  mock_obj <- list(
-    name = "empty_family",
-    n_subjects = 0,
-    maps = list()
-  )
-  class(mock_obj) <- "neuralign_map_family"
-
-  output <- capture.output(print(mock_obj))
-  expect_true(any(grepl("Subjects: 0", output)))
-})
-
 # Integration tests with fmrigds
 test_that("full fmrigds round-trip works", {
   .load_pkg_quietly_or_skip("fmrigds")

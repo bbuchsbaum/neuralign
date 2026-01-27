@@ -184,21 +184,3 @@ alignment_data_from_gds <- function(gds_data, assay = "beta", ...) {
 }
 
 
-#' Print Method for neuralign_map_family
-#'
-#' @param x A neuralign_map_family object.
-#' @param ... Additional arguments (ignored).
-#'
-#' @return Invisibly returns x.
-#'
-#' @export
-print.neuralign_map_family <- function(x, ...) {
-  cat("neuralign MapFamily\n")
-  cat(sprintf("  Name: %s\n", x$name))
-  cat(sprintf("  Subjects: %d\n", x$n_subjects))
-  if (x$n_subjects > 0) {
-    first_map <- x$maps[[1]]
-    cat(sprintf("  Map dims: %d x %d\n", nrow(first_map), ncol(first_map)))
-  }
-  invisible(x)
-}

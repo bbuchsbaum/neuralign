@@ -44,6 +44,27 @@ setClass("AlignmentData",
   )
 )
 
+setValidity("AlignmentData", function(object) {
+  errors <- character()
+  if (!is.list(object@data)) {
+    errors <- c(errors, "'data' must be a list")
+  }
+  if (!is.character(object@subjects)) {
+    errors <- c(errors, "'subjects' must be a character vector")
+  }
+  if (length(object@data) > 0 && length(object@subjects) > 0 &&
+      length(object@data) != length(object@subjects)) {
+    errors <- c(errors, "length of 'data' must match length of 'subjects'")
+  }
+  if (anyDuplicated(object@subjects)) {
+    errors <- c(errors, "subject IDs must be unique")
+  }
+  if (!is.list(object@metadata)) {
+    errors <- c(errors, "'metadata' must be a list")
+  }
+  if (length(errors) == 0L) TRUE else errors
+})
+
 
 #' Create an AlignmentData Object
 #'
