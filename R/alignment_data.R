@@ -44,24 +44,203 @@ setClass("AlignmentData",
   )
 )
 
+.alignment_data_is_supported_element <- function(x) {
+  .is_matrixish(x) || inherits(x, "NeuroVec") || inherits(x, "NeuroVol")
+}
+
+.alignment_data_element_dims <- function(x) {
+  if (.is_matrixish(x)) {
+    return(c(nrow(x), ncol(x)))
+  }
+  if (inherits(x, "NeuroVec") || inherits(x, "NeuroVol")) {
+    d <- dim(x)
+    if (is.null(d) || !length(d)) {
+      return(c(NA_integer_, NA_integer_))
+    }
+    if (length(d) >= 3L) {
+      n_features <- prod(d[seq_len(3L)])
+    } else {
+      n_features <- d[[1L]]
+    }
+    n_obs <- if (length(d) >= 4L) d[[4L]] else 1L
+    return(c(as.integer(n_features), as.integer(n_obs)))
+  }
+  c(NA_integer_, NA_integer_)
+}
+
 setValidity("AlignmentData", function(object) {
   errors <- character()
+
   if (!is.list(object@data)) {
     errors <- c(errors, "'data' must be a list")
   }
   if (!is.character(object@subjects)) {
     errors <- c(errors, "'subjects' must be a character vector")
   }
-  if (length(object@data) > 0 && length(object@subjects) > 0 &&
-      length(object@data) != length(object@subjects)) {
+
+  if (length(object@data) != length(object@subjects)) {
     errors <- c(errors, "length of 'data' must match length of 'subjects'")
   }
   if (anyDuplicated(object@subjects)) {
     errors <- c(errors, "subject IDs must be unique")
   }
+  if (length(object@subjects) > 0 && any(!nzchar(object@subjects))) {
+    errors <- c(errors, "subject IDs must be non-empty strings")
+  }
   if (!is.list(object@metadata)) {
     errors <- c(errors, "'metadata' must be a list")
   }
+
+  if (length(errors) > 0L) {
+    return(errors)
+  }
+
+  if (length(object@data) > 0L) {
+    if (is.null(names(object@data)) || any(!nzchar(names(object@data)))) {
+      errors <- c(errors, "'data' must be a named list keyed by subject")
+    } else if (!identical(names(object@data), object@subjects)) {
+      errors <- c(errors, "names(data) must exactly match 'subjects'")
+    }
+  }
+
+  dims_mat <- NULL
+  if (length(object@data) > 0L && length(errors) == 0L) {
+    dims <- vector("list", length(object@data))
+    for (i in seq_along(object@data)) {
+      subj <- object@subjects[[i]]
+      x <- object@data[[i]]
+
+      if (!.alignment_data_is_supported_element(x)) {
+        errors <- c(
+          errors,
+          sprintf(
+            "data element for subject '%s' must be matrix-like or a NeuroVec (got class '%s')",
+            subj, class(x)[1L]
+          )
+        )
+        next
+      }
+
+      d <- .alignment_data_element_dims(x)
+      if (any(is.na(d))) {
+        errors <- c(
+          errors,
+          sprintf(
+            "data element for subject '%s' must have valid dimensions (got NA dims for class '%s')",
+            subj, class(x)[1L]
+          )
+        )
+        next
+      }
+      if (any(d < 1L)) {
+        errors <- c(
+          errors,
+          sprintf(
+            "data element for subject '%s' must have positive dimensions (got %d x %d)",
+            subj, d[[1L]], d[[2L]]
+          )
+        )
+      }
+      dims[[i]] <- d
+    }
+
+    if (length(errors) == 0L) {
+      dims_mat <- do.call(rbind, dims)
+      rownames(dims_mat) <- object@subjects
+    }
+  }
+
+  labs <- object@obs_labels
+  if (!is.null(labs)) {
+    if (length(object@data) == 0L) {
+      errors <- c(errors, "obs_labels set but no subjects are present in 'data'")
+    } else if (is.null(dims_mat)) {
+      errors <- c(errors, "obs_labels set but could not determine data dimensions")
+    } else if (is.atomic(labs) || is.factor(labs)) {
+      if (any(is.na(labs))) {
+        errors <- c(errors, "obs_labels contains NA values")
+      }
+      n_obs <- dims_mat[, 2L]
+      bad <- names(n_obs)[n_obs != length(labs)]
+      if (length(bad) > 0L) {
+        errors <- c(
+          errors,
+          sprintf(
+            "obs_labels length mismatch: expected %d columns for subjects %s, got %d labels",
+            unique(n_obs[bad])[[1L]],
+            paste(bad, collapse = ", "),
+            length(labs)
+          )
+        )
+      }
+
+      # If column names are present, require they agree with obs_labels and are
+      # consistently present across subjects.
+      colnames_list <- lapply(object@data, function(x) {
+        if (.is_matrixish(x)) colnames(x) else NULL
+      })
+      has_any_names <- any(vapply(colnames_list, function(nm) !is.null(nm), logical(1)))
+      has_all_names <- all(vapply(colnames_list, function(nm) !is.null(nm), logical(1)))
+      if (has_any_names && !has_all_names) {
+        errors <- c(errors, "Some subjects have colnames but others do not; cannot validate against obs_labels")
+      }
+      if (has_all_names) {
+        labs_chr <- as.character(labs)
+        for (subj in object@subjects) {
+          nm <- colnames_list[[subj]]
+          if (!identical(nm, labs_chr)) {
+            errors <- c(errors, sprintf("Subject '%s' colnames do not match obs_labels", subj))
+          }
+        }
+      }
+    } else if (is.list(labs)) {
+      if (is.null(names(labs)) || any(!nzchar(names(labs)))) {
+        errors <- c(errors, "obs_labels list must be a named list keyed by subject")
+      } else {
+        missing <- setdiff(object@subjects, names(labs))
+        if (length(missing) > 0L) {
+          errors <- c(
+            errors,
+            sprintf("obs_labels list is missing subjects: %s", paste(missing, collapse = ", "))
+          )
+        }
+      }
+
+      if (length(errors) == 0L) {
+        for (subj in object@subjects) {
+          v <- labs[[subj]]
+          if (!is.atomic(v) && !is.factor(v)) {
+            errors <- c(errors, sprintf("obs_labels for subject '%s' must be an atomic vector", subj))
+            next
+          }
+          v <- as.character(v)
+          if (any(is.na(v))) {
+            errors <- c(errors, sprintf("obs_labels for subject '%s' contains NA values", subj))
+          }
+          n_obs_subj <- dims_mat[subj, 2L]
+          if (length(v) != n_obs_subj) {
+            errors <- c(
+              errors,
+              sprintf(
+                "obs_labels length mismatch for subject '%s': expected %d, got %d",
+                subj, n_obs_subj, length(v)
+              )
+            )
+          }
+          x <- object@data[[subj]]
+          if (.is_matrixish(x)) {
+            nm <- colnames(x)
+            if (!is.null(nm) && !identical(nm, v)) {
+              errors <- c(errors, sprintf("Subject '%s' colnames do not match its obs_labels", subj))
+            }
+          }
+        }
+      }
+    } else {
+      errors <- c(errors, "obs_labels must be NULL, an atomic vector, or a named list")
+    }
+  }
+
   if (length(errors) == 0L) TRUE else errors
 })
 
@@ -122,18 +301,6 @@ AlignmentData <- function(data,
   # Validate subjects are unique
   if (anyDuplicated(subjects)) {
     stop("Subject IDs must be unique", call. = FALSE)
-  }
-
-  # Basic validation of data elements
-  for (i in seq_along(data)) {
-    elem <- data[[i]]
-    if (!is.matrix(elem) && !inherits(elem, "Matrix") &&
-        !inherits(elem, "NeuroVec") && !inherits(elem, "NeuroVol")) {
-      warning(sprintf(
-        "Element '%s' is not a matrix or NeuroVec; coercion may be needed",
-        subjects[i]
-      ), call. = FALSE)
-    }
   }
 
   new("AlignmentData",
@@ -344,6 +511,12 @@ get_obs_labels <- function(object) {
 validate_alignment_data <- function(object, check_features = TRUE,
                                     check_observations = FALSE,
                                     check_obs_labels = FALSE) {
+  if (!inherits(object, "AlignmentData")) {
+    stop("'object' must be an AlignmentData instance", call. = FALSE)
+  }
+
+  validObject(object)
+
   if (length(object) == 0) {
     stop("AlignmentData contains no subjects", call. = FALSE)
   }
@@ -358,18 +531,7 @@ validate_alignment_data <- function(object, check_features = TRUE,
     check_obs_labels <- TRUE
   }
 
-  # Get dimensions for each subject
-  dims <- lapply(object@data, function(x) {
-    if (is.matrix(x) || inherits(x, "Matrix")) {
-      c(nrow(x), ncol(x))
-    } else if (inherits(x, "NeuroVec")) {
-      # Assume features are spatial, observations are time
-      c(prod(dim(x)[1:3]), dim(x)[4])
-    } else {
-      c(NA, NA)
-    }
-  })
-
+  dims <- lapply(object@data, .alignment_data_element_dims)
   dims_mat <- do.call(rbind, dims)
 
   if (check_features) {
@@ -391,98 +553,8 @@ validate_alignment_data <- function(object, check_features = TRUE,
   }
 
   if (check_obs_labels) {
-    labs <- object@obs_labels
-    if (is.null(labs)) {
+    if (is.null(object@obs_labels)) {
       stop("check_obs_labels=TRUE but object@obs_labels is NULL", call. = FALSE)
-    }
-
-    data_list <- get_data_list(object)
-
-    if (is.atomic(labs) || is.factor(labs)) {
-      n_obs <- unique(dims_mat[, 2])
-      if (length(n_obs) != 1 || is.na(n_obs)) {
-        stop(
-          "Cannot validate obs_labels: subjects have differing or unknown observation counts",
-          call. = FALSE
-        )
-      }
-      if (length(labs) != n_obs) {
-        stop(
-          sprintf("obs_labels length mismatch: expected %d, got %d", n_obs, length(labs)),
-          call. = FALSE
-        )
-      }
-      if (any(is.na(labs))) {
-        stop("obs_labels contains NA values", call. = FALSE)
-      }
-
-      # If column names are present, require they agree with obs_labels and are
-      # consistently present across subjects.
-      colnames_list <- lapply(data_list, function(x) {
-        if (is.matrix(x) || inherits(x, "Matrix")) colnames(x) else NULL
-      })
-      has_any_names <- any(vapply(colnames_list, function(nm) !is.null(nm), logical(1)))
-      has_all_names <- all(vapply(colnames_list, function(nm) !is.null(nm), logical(1)))
-      if (has_any_names && !has_all_names) {
-        stop("Some subjects have colnames but others do not; cannot validate against obs_labels", call. = FALSE)
-      }
-      if (has_all_names) {
-        for (subj in names(data_list)) {
-          nm <- colnames_list[[subj]]
-          if (length(nm) != length(labs) || any(nm != as.character(labs))) {
-            stop(
-              sprintf("Subject '%s' colnames do not match obs_labels", subj),
-              call. = FALSE
-            )
-          }
-        }
-      }
-    } else if (is.list(labs)) {
-      if (is.null(names(labs)) || any(!nzchar(names(labs)))) {
-        stop("obs_labels list must be a named list keyed by subject", call. = FALSE)
-      }
-      missing <- setdiff(object@subjects, names(labs))
-      if (length(missing) > 0) {
-        stop(
-          sprintf("obs_labels list is missing subjects: %s", paste(missing, collapse = ", ")),
-          call. = FALSE
-        )
-      }
-      for (subj in object@subjects) {
-        v <- labs[[subj]]
-        if (!is.atomic(v) && !is.factor(v)) {
-          stop(
-            sprintf("obs_labels for subject '%s' must be an atomic vector", subj),
-            call. = FALSE
-          )
-        }
-        v <- as.character(v)
-        n_obs_subj <- dims_mat[match(subj, object@subjects), 2]
-        if (is.na(n_obs_subj) || length(v) != n_obs_subj) {
-          stop(
-            sprintf(
-              "obs_labels length mismatch for subject '%s': expected %d, got %d",
-              subj, n_obs_subj, length(v)
-            ),
-            call. = FALSE
-          )
-        }
-        if (any(is.na(v))) {
-          stop(sprintf("obs_labels for subject '%s' contains NA values", subj), call. = FALSE)
-        }
-        x <- data_list[[subj]]
-        if (is.matrix(x) || inherits(x, "Matrix")) {
-          nm <- colnames(x)
-          if (!is.null(nm) && (length(nm) != length(v) || any(nm != v))) {
-            stop(
-              sprintf("Subject '%s' colnames do not match its obs_labels", subj),
-              call. = FALSE
-            )
-          }
-        }
-      }
-    } else {
-      stop("obs_labels must be NULL, an atomic vector, or a named list", call. = FALSE)
     }
   }
 
