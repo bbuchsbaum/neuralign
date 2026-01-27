@@ -119,6 +119,214 @@ alignment_feature_block <- function(x,
   )
 }
 
+.is_named_numeric_vector <- function(x) {
+  is.numeric(x) && length(x) > 0L && !is.null(names(x)) && all(nzchar(names(x)))
+}
+
+.normalize_weights <- function(w, normalize = c("median", "mean", "none")) {
+  normalize <- match.arg(normalize)
+  if (normalize == "none") return(w)
+  ok <- is.finite(w) & w > 0
+  if (!any(ok)) return(w)
+
+  center <- if (normalize == "median") stats::median(w[ok]) else mean(w[ok])
+  if (!is.finite(center) || center <= 0) return(w)
+  w / center
+}
+
+.validate_block_weights <- function(block_weights,
+                                   subjects = NULL,
+                                   arg = "block_weights") {
+  if (is.null(block_weights)) return(invisible(TRUE))
+
+  if (.is_named_numeric_vector(block_weights)) {
+    if (any(!is.finite(block_weights)) || any(block_weights < 0)) {
+      stop(sprintf("'%s' must contain finite non-negative values", arg), call. = FALSE)
+    }
+    return(invisible(TRUE))
+  }
+
+  if (!is.list(block_weights) || length(block_weights) < 1L) {
+    stop(
+      sprintf("'%s' must be a named numeric vector, a named list of such vectors, or NULL", arg),
+      call. = FALSE
+    )
+  }
+  if (is.null(names(block_weights)) || any(!nzchar(names(block_weights)))) {
+    stop(sprintf("'%s' list must be named by subject", arg), call. = FALSE)
+  }
+  if (!is.null(subjects)) {
+    missing <- setdiff(subjects, names(block_weights))
+    if (length(missing) > 0) {
+      stop(
+        sprintf("'%s' is missing subjects: %s", arg, paste(missing, collapse = ", ")),
+        call. = FALSE
+      )
+    }
+    block_weights <- block_weights[subjects]
+  }
+
+  bad <- names(block_weights)[!vapply(block_weights, .is_named_numeric_vector, logical(1))]
+  if (length(bad) > 0) {
+    stop(
+      sprintf("'%s' list entries must be named numeric vectors; invalid subjects: %s", arg, paste(bad, collapse = ", ")),
+      call. = FALSE
+    )
+  }
+  for (subj in names(block_weights)) {
+    w <- block_weights[[subj]]
+    if (any(!is.finite(w)) || any(w < 0)) {
+      stop(
+        sprintf("'%s' for subject '%s' must contain finite non-negative values", arg, subj),
+        call. = FALSE
+      )
+    }
+  }
+
+  invisible(TRUE)
+}
+
+.combine_weight_vectors <- function(a, b) {
+  if (is.null(a)) return(b)
+  if (is.null(b)) return(a)
+
+  out_names <- union(names(a), names(b))
+  out <- setNames(rep(1, length(out_names)), out_names)
+  out[names(a)] <- out[names(a)] * a
+  out[names(b)] <- out[names(b)] * b
+  out
+}
+
+.resolve_block_weights_for_subject <- function(block_weights, subject) {
+  if (is.null(block_weights)) return(NULL)
+  if (is.numeric(block_weights)) return(block_weights)
+  block_weights[[subject]]
+}
+
+#' Suggest Feature Block Weights
+#'
+#' Suggest additional block multipliers to mitigate dominance by large blocks
+#' when stacking heterogeneous correspondence signals via \code{\link{stack_feature_blocks}}.
+#'
+#' Note that \code{stack_feature_blocks()} scales each block by \code{sqrt(weight)}.
+#' Therefore, weights correspond to objective weights in a sum-of-squares sense.
+#'
+#' @param blocks_by_subject Either:
+#'   \itemize{
+#'     \item A list of \code{"alignment_feature_block"} objects (single subject), or
+#'     \item A named list of subjects, each containing such a list.
+#'   }
+#' @param method Weighting heuristic:
+#'   \itemize{
+#'     \item \code{"equalize_rows"}: weight \eqn{\propto 1 / n_{\mathrm{rows}}}
+#'     \item \code{"equalize_frobenius"}: weight \eqn{\propto 1 / ||X||_F^2}
+#'     \item \code{"equalize_rms"}: weight \eqn{\propto 1 / \mathrm{mean}(X^2)}
+#'   }
+#' @param per Whether to suggest weights globally across subjects (\code{"global"})
+#'   or separately per subject (\code{"per_subject"}).
+#' @param normalize How to normalize the returned weights for readability:
+#'   \code{"median"} (default) rescales so the median positive weight is 1;
+#'   \code{"mean"} rescales so the mean positive weight is 1; \code{"none"}
+#'   leaves raw proportional weights.
+#'
+#' @return If \code{per = "global"}, a named numeric vector. If
+#'   \code{per = "per_subject"}, a named list keyed by subject, each containing
+#'   a named numeric vector.
+#' @export
+suggest_block_weights <- function(blocks_by_subject,
+                                  method = c("equalize_rows", "equalize_frobenius", "equalize_rms"),
+                                  per = c("global", "per_subject"),
+                                  normalize = c("median", "mean", "none")) {
+  method <- match.arg(method)
+  per <- match.arg(per)
+  normalize <- match.arg(normalize)
+
+  if (!is.list(blocks_by_subject) || length(blocks_by_subject) < 1L) {
+    stop("'blocks_by_subject' must be a non-empty list", call. = FALSE)
+  }
+
+  if (all(vapply(blocks_by_subject, .is_feature_block, logical(1)))) {
+    # Single subject: ensure blocks are named.
+    bl <- blocks_by_subject
+    if (is.null(names(bl)) || any(!nzchar(names(bl)))) {
+      bl <- setNames(bl, vapply(bl, function(b) b$name, character(1)))
+    }
+    blocks_by_subject <- list(subject = bl)
+  }
+
+  meta <- .validate_blocks_by_subject(blocks_by_subject)
+  subjects <- meta$subjects
+  block_names <- meta$common_block_names
+  if (length(block_names) < 1L) {
+    stop("No common blocks available for weight suggestion", call. = FALSE)
+  }
+
+  compute_one <- function(blocks) {
+    denom <- vapply(block_names, function(bname) {
+      b <- blocks[[bname]]
+      x <- as.matrix(b$x)
+      if (any(!is.finite(x))) {
+        stop(sprintf("Block '%s' contains non-finite values", bname), call. = FALSE)
+      }
+      if (nrow(x) < 1L || ncol(x) < 1L) {
+        stop(sprintf("Block '%s' has invalid dimensions", bname), call. = FALSE)
+      }
+
+      if (method == "equalize_rows") {
+        as.numeric(nrow(x))
+      } else if (method == "equalize_frobenius") {
+        sum(x^2)
+      } else {
+        mean(x^2)
+      }
+    }, numeric(1))
+
+    w <- rep(0, length(block_names))
+    names(w) <- block_names
+    ok <- is.finite(denom) & denom > 0
+    w[ok] <- 1 / denom[ok]
+    w <- .normalize_weights(w, normalize = normalize)
+    w
+  }
+
+  if (per == "per_subject") {
+    out <- lapply(subjects, function(subj) compute_one(blocks_by_subject[[subj]]))
+    names(out) <- subjects
+    return(out)
+  }
+
+  # Global: use a robust typical denominator across subjects.
+  denom_by_subj <- lapply(subjects, function(subj) {
+    blocks <- blocks_by_subject[[subj]]
+    vapply(block_names, function(bname) {
+      x <- as.matrix(blocks[[bname]]$x)
+      if (any(!is.finite(x))) {
+        stop(sprintf("Block '%s' contains non-finite values", bname), call. = FALSE)
+      }
+      if (nrow(x) < 1L || ncol(x) < 1L) {
+        stop(sprintf("Block '%s' has invalid dimensions", bname), call. = FALSE)
+      }
+
+      if (method == "equalize_rows") {
+        as.numeric(nrow(x))
+      } else if (method == "equalize_frobenius") {
+        sum(x^2)
+      } else {
+        mean(x^2)
+      }
+    }, numeric(1))
+  })
+  denom_mat <- do.call(rbind, denom_by_subj)
+  colnames(denom_mat) <- block_names
+
+  denom <- apply(denom_mat, 2L, stats::median)
+  w <- rep(0, length(block_names))
+  names(w) <- block_names
+  ok <- is.finite(denom) & denom > 0
+  w[ok] <- 1 / denom[ok]
+  .normalize_weights(w, normalize = normalize)
+}
+
 #' Stack Feature Blocks
 #'
 #' Vertically stack (rbind) multiple feature blocks after scaling each by
@@ -301,8 +509,15 @@ harmonize_feature_blocks <- function(blocks_by_subject, min_features = 2L) {
 #'   `"intersection"`, this is the size of the common intersection. For
 #'   `"union_fill"`, blocks are dropped when any subject contributes fewer than
 #'   `min_features` observed features.
-#' @param block_weights Optional named numeric vector of additional multipliers
-#'   per block name (as in `stack_feature_blocks()`).
+#' @param block_weights Optional additional multipliers per block name (as in
+#'   `stack_feature_blocks()`). Either a named numeric vector (applied to all
+#'   subjects) or a named list keyed by subject, each containing a named numeric
+#'   vector.
+#' @param suggest_weights Optional weighting heuristic to apply before stacking.
+#'   If provided, this computes suggested weights from the harmonized blocks and
+#'   combines them multiplicatively with any explicit `block_weights`. One of
+#'   `"equalize_rows"`, `"equalize_frobenius"`, or `"equalize_rms"` (see
+#'   `suggest_block_weights()`).
 #' @param obs_crossfit Logical; set TRUE when blocks are constructed within an
 #'   observation-axis crossfit workflow (suppresses independence warnings).
 #' @param check_independence Logical; if TRUE (default), warn when any block has
@@ -343,6 +558,7 @@ build_alignment_features <- function(blocks_by_subject,
                                      harmonize = c("intersection", "union_fill"),
                                      min_features = 2L,
                                      block_weights = NULL,
+                                     suggest_weights = NULL,
                                      obs_crossfit = FALSE,
                                      check_independence = TRUE,
                                      check_identifiability = TRUE,
@@ -361,11 +577,7 @@ build_alignment_features <- function(blocks_by_subject,
     stop("'min_features' must be a positive integer", call. = FALSE)
   }
 
-  if (!is.null(block_weights)) {
-    if (!is.numeric(block_weights) || is.null(names(block_weights))) {
-      stop("'block_weights' must be a named numeric vector", call. = FALSE)
-    }
-  }
+  .validate_block_weights(block_weights, arg = "block_weights")
 
   check_independence <- isTRUE(check_independence)
   obs_crossfit <- isTRUE(obs_crossfit)
@@ -474,8 +686,29 @@ build_alignment_features <- function(blocks_by_subject,
   for (subj in subjects) {
     .validate_stackable_blocks(blocks_h[[subj]], subject = subj)
   }
+
+  .validate_block_weights(block_weights, subjects = subjects, arg = "block_weights")
+  if (!is.null(suggest_weights)) {
+    if (!is.character(suggest_weights) || length(suggest_weights) != 1L || is.na(suggest_weights)) {
+      stop("'suggest_weights' must be a non-NA character scalar", call. = FALSE)
+    }
+    suggested <- suggest_block_weights(blocks_h, method = suggest_weights, per = "global")
+    if (is.null(block_weights)) {
+      block_weights <- suggested
+    } else if (is.numeric(block_weights)) {
+      block_weights <- .combine_weight_vectors(block_weights, suggested)
+    } else {
+      block_weights <- lapply(subjects, function(subj) {
+        .combine_weight_vectors(block_weights[[subj]], suggested)
+      })
+      names(block_weights) <- subjects
+    }
+    .validate_block_weights(block_weights, subjects = subjects, arg = "block_weights")
+  }
+
   mats_by_subj <- lapply(subjects, function(subj) {
-    stack_feature_blocks(blocks_h[[subj]], block_weights = block_weights)
+    w_subj <- .resolve_block_weights_for_subject(block_weights, subj)
+    stack_feature_blocks(blocks_h[[subj]], block_weights = w_subj)
   })
   names(mats_by_subj) <- subjects
 

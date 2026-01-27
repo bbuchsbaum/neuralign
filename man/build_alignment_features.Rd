@@ -9,6 +9,7 @@ build_alignment_features(
   harmonize = c("intersection", "union_fill"),
   min_features = 2L,
   block_weights = NULL,
+  suggest_weights = NULL,
   obs_crossfit = FALSE,
   check_independence = TRUE,
   check_identifiability = TRUE,
@@ -35,8 +36,16 @@ Blocks missing from any subject are dropped in both modes.}
 \code{"union_fill"}, blocks are dropped when any subject contributes fewer than
 \code{min_features} observed features.}
 
-\item{block_weights}{Optional named numeric vector of additional multipliers
-per block name (as in \code{stack_feature_blocks()}).}
+\item{block_weights}{Optional additional multipliers per block name (as in
+\code{stack_feature_blocks()}). Either a named numeric vector (applied to all
+subjects) or a named list keyed by subject, each containing a named numeric
+vector.}
+
+\item{suggest_weights}{Optional weighting heuristic to apply before stacking.
+If provided, this computes suggested weights from the harmonized blocks and
+combines them multiplicatively with any explicit \code{block_weights}. One of
+\code{"equalize_rows"}, \code{"equalize_frobenius"}, or \code{"equalize_rms"} (see
+\code{suggest_block_weights()}).}
 
 \item{obs_crossfit}{Logical; set TRUE when blocks are constructed within an
 observation-axis crossfit workflow (suppresses independence warnings).}
