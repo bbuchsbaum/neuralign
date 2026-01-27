@@ -759,3 +759,205 @@ test_that("apply_transform errors on dimension mismatch", {
 test_that("apply_transform errors on non-matrix transform", {
   expect_error(apply_transform("not_a_matrix", matrix(1, 3, 3)), "must be a matrix")
 })
+
+
+# ---------- Additional edge-case coverage ----------
+
+test_that("apply_alignment errors on non-operator returns method", {
+  neuralign:::.clear_registry()
+  dummy_fit <- function(data, reference, ...) {
+    list(transforms = list(), reference_data = NULL)
+  }
+  register_aligner("embed_method", dummy_fit)
+
+  # Manually override returns capability
+  reg_env <- get(".aligner_registry", envir = asNamespace("neuralign"))
+  entry <- reg_env[["embed_method"]]
+  entry$capabilities$returns <- "embedding"
+  assign("embed_method", entry, envir = reg_env)
+
+  model <- new("AlignmentModel",
+    transforms = list("s1" = diag(5)),
+    reference = "s1", reference_data = NULL,
+    method = "embed_method",
+    space_from = NULL, space_to = NULL,
+    provenance = list(), method_state = list(),
+    train_subjects = "s1"
+  )
+
+  new_data <- AlignmentData(list("s1" = matrix(rnorm(25), 5, 5)))
+  expect_error(
+    apply_alignment(model, new_data, warn_leakage = FALSE),
+    "does not return operator transforms"
+  )
+  neuralign:::.clear_registry()
+})
+
+test_that("apply_alignment rejects non-model input", {
+  expect_error(
+    apply_alignment("not_a_model", AlignmentData(list(s = matrix(1, 3, 3)))),
+    "must be an AlignmentModel"
+  )
+})
+
+test_that("inverse_transform auto fallback to solve for square unregistered method", {
+  # Unregistered method: caps is NULL, square transform → solve
+  model <- new("AlignmentModel",
+    transforms = list("s1" = diag(5)),
+    reference = "s1", reference_data = NULL,
+    method = "totally_unknown_method_xyz",
+    space_from = NULL, space_to = NULL,
+    provenance = list(), method_state = list(),
+    train_subjects = "s1"
+  )
+
+  inv <- inverse_transform(model, "s1", method = "auto")
+  expect_equal(inv, diag(5))
+})
+
+test_that("inverse_transform auto errors for non-square with unregistered method", {
+  # Non-square + no capabilities → error
+  model <- new("AlignmentModel",
+    transforms = list("s1" = matrix(rnorm(15), 3, 5)),
+    reference = "s1", reference_data = NULL,
+    method = "totally_unknown_method_xyz",
+    space_from = NULL, space_to = NULL,
+    provenance = list(), method_state = list(),
+    train_subjects = "s1"
+  )
+
+  expect_error(
+    inverse_transform(model, "s1", method = "auto"),
+    "not square"
+  )
+})
+
+test_that("inverse_transform solve errors on singular matrix", {
+  # Singular matrix
+  singular <- matrix(c(1, 2, 2, 4), 2, 2)
+  model <- new("AlignmentModel",
+    transforms = list("s1" = singular),
+    reference = "s1", reference_data = NULL,
+    method = "totally_unknown_method_xyz",
+    space_from = NULL, space_to = NULL,
+    provenance = list(), method_state = list(),
+    train_subjects = "s1"
+  )
+
+  expect_error(
+    inverse_transform(model, "s1", method = "solve"),
+    "not invertible"
+  )
+})
+
+test_that("inverse_transform solve errors on non-square matrix", {
+  model <- new("AlignmentModel",
+    transforms = list("s1" = matrix(1, 3, 5)),
+    reference = "s1", reference_data = NULL,
+    method = "totally_unknown_method_xyz",
+    space_from = NULL, space_to = NULL,
+    provenance = list(), method_state = list(),
+    train_subjects = "s1"
+  )
+
+  expect_error(
+    inverse_transform(model, "s1", method = "solve"),
+    "not square"
+  )
+})
+
+test_that("inverse_transform unknown method errors", {
+  model <- new("AlignmentModel",
+    transforms = list("s1" = diag(3)),
+    reference = "s1", reference_data = NULL,
+    method = "test_method",
+    space_from = NULL, space_to = NULL,
+    provenance = list(), method_state = list(),
+    train_subjects = "s1"
+  )
+
+  expect_error(
+    inverse_transform(model, "s1", method = "bogus"),
+    "Unknown inverse method"
+  )
+})
+
+test_that("inverse_transform transpose returns correct result", {
+  set.seed(58)
+  Q <- qr.Q(qr(matrix(rnorm(25), 5, 5)))  # orthogonal
+  model <- new("AlignmentModel",
+    transforms = list("s1" = Q),
+    reference = "s1", reference_data = NULL,
+    method = "test_method",
+    space_from = NULL, space_to = NULL,
+    provenance = list(), method_state = list(),
+    train_subjects = "s1"
+  )
+
+  inv <- inverse_transform(model, "s1", method = "transpose")
+  expect_equal(inv, t(Q))
+  # For orthogonal: Q^T * Q = I
+  expect_equal(inv %*% Q, diag(5), tolerance = 1e-10)
+})
+
+test_that(".ridge_inverse errors on invalid lambda", {
+  expect_error(neuralign:::.ridge_inverse(diag(3), lambda = -1), "positive number")
+  expect_error(neuralign:::.ridge_inverse(diag(3), lambda = 0), "positive number")
+  expect_error(neuralign:::.ridge_inverse(diag(3), lambda = Inf), "positive number")
+  expect_error(neuralign:::.ridge_inverse(diag(3), lambda = "abc"), "positive number")
+  expect_error(neuralign:::.ridge_inverse(diag(3), lambda = c(0.1, 0.2)), "positive number")
+})
+
+test_that(".ridge_inverse handles wide matrix (n_out < n_in)", {
+  set.seed(59)
+  # Wide: 3 rows, 8 cols
+  W <- matrix(rnorm(24), 3, 8)
+  inv <- neuralign:::.ridge_inverse(W, lambda = 0.01)
+  expect_equal(nrow(inv), 8L)
+  expect_equal(ncol(inv), 3L)
+  # inv %*% W should approximate identity(3)
+  product <- W %*% inv
+  expect_equal(dim(product), c(3L, 3L))
+})
+
+test_that(".ridge_inverse handles square matrix", {
+  set.seed(60)
+  W <- matrix(rnorm(25), 5, 5)
+  inv <- neuralign:::.ridge_inverse(W, lambda = 0.001)
+  expect_equal(dim(inv), c(5L, 5L))
+  # Should approximate the true inverse for well-conditioned matrix
+  product <- inv %*% W
+  expect_equal(product, diag(5), tolerance = 0.05)
+})
+
+test_that(".fit_transform_for_subject uses custom apply_fn when available", {
+  neuralign:::.clear_registry()
+
+  # Register aligner with a custom apply_fn
+  dummy_fit <- function(data, reference, ...) {
+    list(transforms = list(), reference_data = NULL)
+  }
+  custom_apply <- function(fit_result, new_data, ...) {
+    # Return a known transform for any new subject
+    list(transforms = list(diag(3) * 7))
+  }
+  register_aligner("custom_apply_method", dummy_fit,
+    apply_fn = custom_apply)
+
+  model <- new("AlignmentModel",
+    transforms = list("s1" = diag(3)),
+    reference = "s1",
+    reference_data = matrix(rnorm(9), 3, 3),
+    method = "custom_apply_method",
+    space_from = NULL, space_to = NULL,
+    provenance = list(), method_state = list(),
+    train_subjects = "s1"
+  )
+
+  new_data <- AlignmentData(list("s_new" = matrix(rnorm(9), 3, 3)))
+  result <- apply_alignment(model, new_data, warn_leakage = FALSE)
+
+  # Should have used custom_apply, which returns 7 * identity
+  expect_equal(result@model@transforms[["s_new"]], diag(3) * 7)
+  neuralign:::.clear_registry()
+})

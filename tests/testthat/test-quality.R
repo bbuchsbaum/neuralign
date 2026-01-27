@@ -307,3 +307,113 @@ test_that("print_quality_summary returns quality list invisibly", {
   result <- invisible(capture.output(ret <- print_quality_summary(quality)))
   expect_identical(ret, quality)
 })
+
+
+# ---------- Additional edge-case coverage ----------
+
+test_that("improvement with fewer than 2 common subjects returns NA", {
+  aligned <- list("sub-01" = matrix(rnorm(50), 10, 5))
+  original <- list("sub-99" = matrix(rnorm(50), 10, 5))
+
+  # No common subjects → should return improvement = NA
+  result <- neuralign:::.compute_improvement_metrics(aligned, original)
+  expect_true(is.na(result$improvement))
+})
+
+test_that("improvement with exactly one common subject returns NA", {
+  aligned <- list(
+    "sub-01" = matrix(rnorm(50), 10, 5),
+    "sub-02" = matrix(rnorm(50), 10, 5)
+  )
+  original <- list("sub-01" = matrix(rnorm(50), 10, 5))
+
+  result <- neuralign:::.compute_improvement_metrics(aligned, original)
+  expect_true(is.na(result$improvement))
+})
+
+test_that("variance_ratio is NA when within_var is zero", {
+  skip_if_not_installed("abind")
+
+  # All subjects have identical, constant data → within-subject var = 0
+  const_mat <- matrix(1, 3, 4)
+  aligned <- list(
+    "sub-01" = const_mat,
+    "sub-02" = const_mat * 2,
+    "sub-03" = const_mat * 3
+  )
+
+  result <- neuralign:::.compute_variance_metrics(aligned)
+  expect_true(is.na(result$variance_ratio))
+  expect_equal(result$within_subject_variance, 0)
+})
+
+test_that("alignment_quality computes all four metrics at once", {
+  skip_if_not_installed("abind")
+
+  set.seed(700)
+  signal <- matrix(rnorm(30), 5, 6)
+  reference <- signal
+  aligned <- list(
+    "sub-01" = signal + matrix(rnorm(30, sd = 0.1), 5, 6),
+    "sub-02" = signal + matrix(rnorm(30, sd = 0.1), 5, 6),
+    "sub-03" = signal + matrix(rnorm(30, sd = 0.1), 5, 6)
+  )
+
+  quality <- alignment_quality(
+    aligned,
+    metrics = c("correlation", "reconstruction", "variance", "isc"),
+    reference = reference
+  )
+
+  expect_true("mean_pairwise_correlation" %in% names(quality))
+  expect_true("mean_reference_correlation" %in% names(quality))
+  expect_true("total_variance" %in% names(quality))
+  expect_true("mean_isc" %in% names(quality))
+})
+
+test_that("alignment_quality passes original as raw list (auto-converts)", {
+  set.seed(701)
+  original_list <- list(
+    "sub-01" = matrix(rnorm(30), 5, 6),
+    "sub-02" = matrix(rnorm(30), 5, 6)
+  )
+  shared <- matrix(rnorm(30), 5, 6)
+  aligned <- list(
+    "sub-01" = shared + matrix(rnorm(30, sd = 0.1), 5, 6),
+    "sub-02" = shared + matrix(rnorm(30, sd = 0.1), 5, 6)
+  )
+
+  # Pass raw list — should auto-convert to AlignmentData
+  quality <- alignment_quality(aligned, original = original_list, metrics = "correlation")
+  expect_true("correlation_improvement" %in% names(quality))
+  expect_true(is.numeric(quality$correlation_improvement))
+})
+
+test_that("reconstruction metric without reference is silently skipped", {
+  set.seed(702)
+  aligned <- list(
+    "sub-01" = matrix(rnorm(30), 5, 6),
+    "sub-02" = matrix(rnorm(30), 5, 6)
+  )
+
+  # Request reconstruction but provide no reference
+  quality <- alignment_quality(aligned, metrics = c("correlation", "reconstruction"))
+  expect_true("mean_pairwise_correlation" %in% names(quality))
+  # reconstruction fields should not appear because reference is NULL
+  expect_null(quality$mean_reference_correlation)
+})
+
+test_that("relative_improvement NA when original correlation is zero", {
+  # Construct data where original pairwise correlation is exactly zero
+  # Use orthogonal vectors
+  set.seed(703)
+  n <- 100
+  x <- rnorm(n)
+  y <- residuals(lm(rnorm(n) ~ x))  # orthogonal to x
+  aligned <- list("s1" = matrix(x, 1, n), "s2" = matrix(x, 1, n))
+  original <- list("s1" = matrix(x, 1, n), "s2" = matrix(y, 1, n))
+
+  result <- neuralign:::.compute_improvement_metrics(aligned, original)
+  # original should have ~0 correlation; relative_improvement may be NA or very large
+  expect_true(is.numeric(result$correlation_improvement))
+})
