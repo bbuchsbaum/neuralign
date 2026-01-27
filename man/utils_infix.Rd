@@ -5,7 +5,7 @@
 \alias{\%||\%}
 \title{Infix Helpers}
 \usage{
-a \%||\% b
+x \%||\% y
 }
 \description{
 Internal infix operators used throughout the package.

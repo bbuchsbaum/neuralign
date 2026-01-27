@@ -4,7 +4,7 @@
 \alias{.compute_gw_barycenter}
 \title{Compute GW Barycenter}
 \usage{
-.compute_gw_barycenter(data_list, epsilon, max_iter, tol)
+.compute_gw_barycenter(data, epsilon, max_iter, tol)
 }
 \description{
 Compute GW Barycenter

@@ -73,59 +73,6 @@ NULL
 }
 
 
-#' Procrustes Fit via manifoldalign
-#' @keywords internal
-.procrustes_fit_manifoldalign <- function(data_list, reference, train_data,
-                                          scale, reflection, tol, max_iter, ...) {
-  # Determine reference
-  if (is.character(reference) && reference == "consensus") {
-    # Use GPA to find consensus
-    # Convert to format expected by manifoldalign
-    X_array <- .list_to_array(data_list)
-
-    gpa_result <- manifoldalign::generalized_procrustes(
-      X_array,
-      scale = scale,
-      tol = tol,
-      maxiter = max_iter
-    )
-
-    # Extract transforms (need to transpose for left-multiply)
-    transforms <- lapply(seq_along(data_list), function(i) {
-      t(gpa_result$rotations[[i]])  # Transpose: (target x source)
-    })
-    names(transforms) <- names(data_list)
-
-    reference_data <- gpa_result$consensus
-  } else {
-    # Fixed reference
-    if (.is_matrixish(reference)) {
-      reference_data <- as.matrix(reference)
-    } else {
-      reference_data <- get_subject_data(train_data, reference)
-    }
-
-    # Align each subject to reference
-    transforms <- lapply(names(data_list), function(subj) {
-      if (is.character(reference) && subj == reference) {
-        # Reference subject gets identity
-        diag(nrow(data_list[[subj]]))
-      } else {
-        Q <- .procrustes_single(data_list[[subj]], reference_data, scale = scale, reflection = reflection)
-        attr(Q, "scale_factor") <- NULL
-        Q
-      }
-    })
-    names(transforms) <- names(data_list)
-  }
-
-  list(
-    transforms = transforms,
-    reference_data = reference_data
-  )
-}
-
-
 #' Built-in Procrustes Implementation
 #' @keywords internal
 .procrustes_fit_builtin <- function(data_list, reference, train_data,
