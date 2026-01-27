@@ -1,6 +1,5 @@
 test_that("lift_aligned + gpca: lifting to reference preserves latent coordinates", {
   skip_if_not_installed("manifoldalign")
-  skip_if_not_installed("multidesign")
 
   # Some tests clear the global aligner registry; snapshot and restore to
   # avoid ordering-dependent failures.
@@ -66,7 +65,6 @@ test_that("lift_aligned + gpca: lifting to reference preserves latent coordinate
 
 test_that("lift_aligned + gpca: lifting into a chosen subject space works", {
   skip_if_not_installed("manifoldalign")
-  skip_if_not_installed("multidesign")
 
   registry_env <- neuralign:::.aligner_registry
   clear_registry <- neuralign:::.clear_registry
