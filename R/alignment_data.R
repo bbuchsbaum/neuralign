@@ -100,7 +100,7 @@ AlignmentData <- function(data,
   # Validate data is a list
 
 if (!is.list(data)) {
-    stop("'data' must be a list of matrices or NeuroVec objects")
+    stop("'data' must be a list of matrices or NeuroVec objects", call. = FALSE)
   }
 
   # Extract subject IDs from names if not provided
@@ -114,14 +114,14 @@ if (!is.list(data)) {
   } else {
     # Ensure names match subjects
     if (length(subjects) != length(data)) {
-      stop("Length of 'subjects' must match length of 'data'")
+      stop("Length of 'subjects' must match length of 'data'", call. = FALSE)
     }
     names(data) <- subjects
   }
 
   # Validate subjects are unique
   if (anyDuplicated(subjects)) {
-    stop("Subject IDs must be unique")
+    stop("Subject IDs must be unique", call. = FALSE)
   }
 
   # Basic validation of data elements
@@ -339,7 +339,7 @@ validate_alignment_data <- function(object, check_features = TRUE,
                                     check_observations = FALSE,
                                     check_obs_labels = FALSE) {
   if (length(object) == 0) {
-    stop("AlignmentData contains no subjects")
+    stop("AlignmentData contains no subjects", call. = FALSE)
   }
 
   # If obs_labels are present, enforce basic consistency automatically.

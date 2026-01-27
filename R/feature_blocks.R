@@ -22,6 +22,16 @@ NULL
       call. = FALSE
     )
   }
+  dups <- feature_names[duplicated(feature_names)]
+  if (length(dups) > 0) {
+    stop(
+      sprintf(
+        "feature_names for block '%s' contain duplicates: %s",
+        block_name, paste(unique(dups), collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
   feature_names
 }
 

@@ -85,7 +85,17 @@ roi_anchor_projector <- function(roi,
     }
     roi <- roi[names(roi) != ""]
     roi_names <- names(roi)
-    if (is.null(anchors)) anchors <- roi_names
+    if (is.null(anchors)) {
+      anchors <- roi_names
+    } else {
+      missing <- setdiff(anchors, roi_names)
+      if (length(missing) > 0) {
+        stop(
+          sprintf("roi list is missing anchors: %s", paste(missing, collapse = ", ")),
+          call. = FALSE
+        )
+      }
+    }
 
     if (is.null(n_features)) {
       idx_all <- unlist(roi, use.names = FALSE)
