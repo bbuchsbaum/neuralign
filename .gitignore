@@ -10,3 +10,7 @@ neuralign.Rcheck/
 
 # pkgdown output
 docs/
+
+# Vignette build artifacts
+vignettes/*.html
+vignettes/*.R
