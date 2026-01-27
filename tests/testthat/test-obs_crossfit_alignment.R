@@ -136,3 +136,211 @@ test_that("run_obs_crossfit_alignment accepts per-subject obs_labels lists", {
   )
   expect_true(isTRUE(res$anchor_common))
 })
+
+
+# ---------- Additional obs crossfit tests ----------
+
+test_that("run_obs_crossfit_alignment train-only (no test data) returns NULL aligned_test", {
+  neuralign:::.register_procrustes()
+
+  set.seed(10)
+  d <- 3
+  Z <- matrix(rnorm(d * 6), d, 6)
+
+  train_data <- list(
+    f1 = list(s1 = Z[, 1:3, drop = FALSE], s2 = Z[, 1:3, drop = FALSE]),
+    f2 = list(s1 = Z[, 4:6, drop = FALSE], s2 = Z[, 4:6, drop = FALSE])
+  )
+
+  res <- run_obs_crossfit_alignment(
+    train_data_by_fold = train_data,
+    test_data_by_fold = NULL,
+    method = "procrustes",
+    reference = "s1"
+  )
+
+  expect_s3_class(res, "ObsCrossfitAlignment")
+  expect_null(res$aligned_test_by_fold)
+  expect_equal(length(res$transforms_by_fold), 2)
+})
+
+test_that("run_obs_crossfit_alignment errors on mismatched fold ids", {
+  neuralign:::.register_procrustes()
+
+  set.seed(11)
+  d <- 3
+  Z <- matrix(rnorm(d * 6), d, 6)
+
+  train_data <- list(
+    f1 = list(s1 = Z[, 1:3, drop = FALSE], s2 = Z[, 1:3, drop = FALSE])
+  )
+  test_data <- list(
+    f_wrong = list(s1 = Z[, 4:6, drop = FALSE], s2 = Z[, 4:6, drop = FALSE])
+  )
+
+  expect_error(
+    run_obs_crossfit_alignment(
+      train_data_by_fold = train_data,
+      test_data_by_fold = test_data,
+      method = "procrustes",
+      reference = "s1"
+    ),
+    "same fold ids"
+  )
+})
+
+test_that("run_obs_crossfit_alignment errors on mismatched subjects in test data", {
+  neuralign:::.register_procrustes()
+
+  set.seed(12)
+  d <- 3
+  Z <- matrix(rnorm(d * 6), d, 6)
+
+  train_data <- list(
+    f1 = list(s1 = Z[, 1:3, drop = FALSE], s2 = Z[, 1:3, drop = FALSE])
+  )
+  test_data <- list(
+    f1 = list(s1 = Z[, 4:6, drop = FALSE], s3 = Z[, 4:6, drop = FALSE])
+  )
+
+  expect_error(
+    run_obs_crossfit_alignment(
+      train_data_by_fold = train_data,
+      test_data_by_fold = test_data,
+      method = "procrustes",
+      reference = "s1"
+    ),
+    "same subject ids"
+  )
+})
+
+test_that("run_obs_crossfit_alignment errors on invalid min_overlap", {
+  expect_error(
+    run_obs_crossfit_alignment(
+      train_data_by_fold = list(f1 = list(s1 = matrix(1, 2, 2))),
+      method = "procrustes",
+      reference = "s1",
+      min_overlap = 0L
+    ),
+    "positive integer"
+  )
+})
+
+test_that("run_obs_crossfit_alignment errors on unnamed fold list", {
+  expect_error(
+    run_obs_crossfit_alignment(
+      train_data_by_fold = list(list(s1 = matrix(1, 2, 2))),
+      method = "procrustes",
+      reference = "s1"
+    ),
+    "named list"
+  )
+})
+
+test_that("run_obs_crossfit_alignment errors on missing subjects in fold", {
+  train_data <- list(
+    f1 = list(s1 = matrix(1, 2, 3), s2 = matrix(1, 2, 3)),
+    f2 = list(s1 = matrix(1, 2, 3))  # missing s2
+  )
+
+  expect_error(
+    run_obs_crossfit_alignment(
+      train_data_by_fold = train_data,
+      method = "procrustes",
+      reference = "s1"
+    ),
+    "missing subjects"
+  )
+})
+
+test_that("run_obs_crossfit_alignment errors on non-matrix fold entry", {
+  train_data <- list(
+    f1 = list(s1 = "not_a_matrix", s2 = matrix(1, 2, 3))
+  )
+
+  expect_error(
+    run_obs_crossfit_alignment(
+      train_data_by_fold = train_data,
+      method = "procrustes",
+      reference = "s1"
+    ),
+    "matrix-like"
+  )
+})
+
+test_that("run_obs_crossfit_alignment map_to_template errors without template", {
+  neuralign:::.register_procrustes()
+
+  set.seed(13)
+  d <- 3
+  Z <- matrix(rnorm(d * 4), d, 4)
+
+  train_data <- list(
+    f1 = list(s1 = Z[, 1:2, drop = FALSE], s2 = Z[, 1:2, drop = FALSE]),
+    f2 = list(s1 = Z[, 3:4, drop = FALSE], s2 = Z[, 3:4, drop = FALSE])
+  )
+
+  expect_error(
+    run_obs_crossfit_alignment(
+      train_data_by_fold = train_data,
+      method = "procrustes",
+      reference = "consensus",
+      anchor_policy = "map_to_template"
+    ),
+    "template"
+  )
+})
+
+test_that("run_obs_crossfit_alignment compute_quality returns quality_by_fold", {
+  neuralign:::.register_procrustes()
+
+  set.seed(14)
+  d <- 4
+  n <- 6
+  Z <- matrix(rnorm(d * n), d, n)
+  Q <- qr.Q(qr(matrix(rnorm(d * d), d, d)))
+  if (det(Q) < 0) Q[, 1] <- -Q[, 1]
+
+  train_data <- list(
+    f1 = list(s1 = Z[, 1:3, drop = FALSE], s2 = (Q %*% Z)[, 1:3, drop = FALSE]),
+    f2 = list(s1 = Z[, 4:6, drop = FALSE], s2 = (Q %*% Z)[, 4:6, drop = FALSE])
+  )
+
+  res <- run_obs_crossfit_alignment(
+    train_data_by_fold = train_data,
+    method = "procrustes",
+    reference = "s1",
+    compute_quality = TRUE
+  )
+
+  expect_true(!is.null(res$quality_by_fold))
+  expect_equal(length(res$quality_by_fold), 2)
+})
+
+test_that("run_obs_crossfit_alignment with per-fold obs_labels", {
+  neuralign:::.register_procrustes()
+
+  set.seed(15)
+  d <- 3
+  Z <- matrix(rnorm(d * 6), d, 6)
+
+  train_data <- list(
+    f1 = list(s1 = Z[, 1:3, drop = FALSE], s2 = Z[, 1:3, drop = FALSE]),
+    f2 = list(s1 = Z[, 4:6, drop = FALSE], s2 = Z[, 4:6, drop = FALSE])
+  )
+
+  per_fold_labels <- list(
+    f1 = c("a", "b", "c"),
+    f2 = c("d", "e", "f")
+  )
+
+  res <- run_obs_crossfit_alignment(
+    train_data_by_fold = train_data,
+    method = "procrustes",
+    reference = "s1",
+    obs_labels_train = per_fold_labels
+  )
+
+  expect_s3_class(res, "ObsCrossfitAlignment")
+  expect_equal(length(res$models_by_fold), 2)
+})

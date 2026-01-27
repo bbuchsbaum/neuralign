@@ -101,3 +101,130 @@ test_that("aligners can require guidance channels via capabilities", {
   expect_s4_class(res, "AlignmentResult")
 })
 
+
+# ---------- Additional guidance tests ----------
+
+test_that("guidance_channel validates inputs", {
+  expect_error(guidance_channel(type = "", value = 1), "non-empty")
+  expect_error(guidance_channel(type = 123, value = 1), "non-empty")
+  expect_error(guidance_channel(type = "coords", value = 1, name = ""), "non-empty")
+  expect_error(guidance_channel(type = "coords", value = 1, name = 42), "non-empty")
+
+  ch <- guidance_channel("projector", matrix(1, 2, 3), name = "roi")
+  expect_equal(ch$type, "projector")
+  expect_equal(ch$name, "roi")
+  expect_true(is.matrix(ch$value))
+})
+
+test_that("guidance_channel passes extra fields through", {
+  ch <- guidance_channel("coords", value = matrix(0, 5, 3), name = "geo", k = 3, normalized = TRUE)
+  expect_equal(ch$k, 3)
+  expect_true(ch$normalized)
+})
+
+test_that("get_guidance returns empty channels for no-guidance data", {
+  adat <- AlignmentData(list(
+    s1 = matrix(1, 4, 3),
+    s2 = matrix(1, 5, 3)
+  ))
+  g <- get_guidance(adat)
+  expect_equal(names(g), c("s1", "s2"))
+  expect_equal(length(g$s1), 0)
+  expect_equal(length(g$s2), 0)
+})
+
+test_that("get_guidance filters by type", {
+  adat <- AlignmentData(list(
+    s1 = matrix(1, 4, 3),
+    s2 = matrix(1, 5, 3)
+  ))
+  g <- list(
+    s1 = list(
+      roi = guidance_channel("projector", matrix(1, 2, 4)),
+      geo = guidance_channel("coords", matrix(1, 4, 2))
+    ),
+    s2 = list(
+      roi = guidance_channel("projector", matrix(1, 2, 5))
+    )
+  )
+  adat2 <- set_guidance(adat, g)
+
+  proj_only <- get_guidance(adat2, type = "projector")
+  expect_equal(length(proj_only$s1), 1)
+  expect_equal(proj_only$s1$roi$type, "projector")
+  expect_equal(length(proj_only$s2), 1)
+
+  coords_only <- get_guidance(adat2, type = "coords")
+  expect_equal(length(coords_only$s1), 1)
+  expect_equal(coords_only$s1$geo$type, "coords")
+  expect_equal(length(coords_only$s2), 0)
+})
+
+test_that("get_guidance filters by subject and type", {
+  adat <- AlignmentData(list(
+    s1 = matrix(1, 4, 3),
+    s2 = matrix(1, 5, 3)
+  ))
+  g <- list(
+    s1 = list(
+      roi = guidance_channel("projector", matrix(1, 2, 4)),
+      geo = guidance_channel("coords", matrix(1, 4, 2))
+    ),
+    s2 = list(
+      roi = guidance_channel("projector", matrix(1, 2, 5))
+    )
+  )
+  adat2 <- set_guidance(adat, g)
+
+  s1_proj <- get_guidance(adat2, subject = "s1", type = "projector")
+  expect_equal(length(s1_proj), 1)
+  expect_equal(s1_proj$roi$type, "projector")
+
+  s1_coords <- get_guidance(adat2, subject = "s1", type = "coords")
+  expect_equal(length(s1_coords), 1)
+})
+
+test_that("get_guidance errors on unknown subject", {
+  adat <- AlignmentData(list(s1 = matrix(1, 4, 3)))
+  expect_error(get_guidance(adat, subject = "s99"), "Unknown subject")
+})
+
+test_that("set_guidance errors on non-AlignmentData", {
+  expect_error(set_guidance("not_adat", list()), "AlignmentData")
+})
+
+test_that("set_guidance errors when guidance is missing subjects", {
+  adat <- AlignmentData(list(
+    s1 = matrix(1, 4, 3),
+    s2 = matrix(1, 5, 3)
+  ))
+  g <- list(s1 = list())
+  expect_error(set_guidance(adat, g), "missing subjects")
+})
+
+test_that("set_guidance warns on extra subjects in guidance", {
+  adat <- AlignmentData(list(s1 = matrix(1, 4, 3)))
+  g <- list(
+    s1 = list(geo = guidance_channel("coords", matrix(1, 4, 2))),
+    s_extra = list(ch = guidance_channel("coords", matrix(1, 4, 2)))
+  )
+  expect_warning(set_guidance(adat, g), "unknown subjects")
+})
+
+test_that("set_guidance validates coords dimension mismatch", {
+  adat <- AlignmentData(list(s1 = matrix(1, 4, 3)))
+  bad <- list(
+    s1 = list(geo = guidance_channel("coords", matrix(1, 5, 2)))  # nrow=5, but subject has 4 features
+  )
+  expect_error(set_guidance(adat, bad), "dimension mismatch")
+})
+
+test_that("set_guidance with validate=FALSE skips dimension check", {
+  adat <- AlignmentData(list(s1 = matrix(1, 4, 3)))
+  bad <- list(
+    s1 = list(geo = guidance_channel("coords", matrix(1, 99, 2)))
+  )
+  adat2 <- set_guidance(adat, bad, validate = FALSE)
+  expect_equal(nrow(get_guidance(adat2, subject = "s1")$geo$value), 99)
+})
+

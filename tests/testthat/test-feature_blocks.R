@@ -99,3 +99,130 @@ test_that("harmonize_feature_blocks drops missing/low-overlap blocks", {
   expect_true(is.null(out$sub1$a))
   expect_true(is.null(out$sub2$a))
 })
+
+
+# ---------- Additional feature block tests ----------
+
+test_that("alignment_feature_block errors on non-matrix input", {
+  expect_error(alignment_feature_block("text", name = "blk"), "matrix-like")
+})
+
+test_that("alignment_feature_block with NULL meta is ok", {
+  b <- alignment_feature_block(matrix(1, 2, 3), name = "blk", meta = NULL)
+  expect_null(b$meta)
+})
+
+test_that("stack_feature_blocks errors on empty list", {
+  expect_error(stack_feature_blocks(list()), "non-empty")
+})
+
+test_that("stack_feature_blocks errors on non-block items", {
+  expect_error(stack_feature_blocks(list(list(x = 1))), "alignment_feature_block")
+})
+
+test_that("stack_feature_blocks errors on unnamed block_weights", {
+  b <- alignment_feature_block(matrix(1, 2, 3), name = "b")
+  expect_error(stack_feature_blocks(list(b), block_weights = c(1)), "named numeric")
+})
+
+test_that("stack_feature_blocks rownames include block prefix", {
+  b1 <- alignment_feature_block(matrix(1, 2, 3), name = "alpha", feature_names = c("f1", "f2"))
+  b2 <- alignment_feature_block(matrix(2, 1, 3), name = "beta", feature_names = c("g1"))
+  stacked <- stack_feature_blocks(list(b1, b2))
+  expect_equal(rownames(stacked), c("alpha:f1", "alpha:f2", "beta:g1"))
+})
+
+test_that("stack_feature_blocks uses existing rownames when feature_names is NULL", {
+  x <- matrix(1, 2, 3)
+  rownames(x) <- c("r1", "r2")
+  b <- alignment_feature_block(x, name = "blk")
+  stacked <- stack_feature_blocks(list(b))
+  expect_equal(rownames(stacked), c("blk:r1", "blk:r2"))
+})
+
+test_that("stack_feature_blocks with weight=0 zeroes the block", {
+  b <- alignment_feature_block(matrix(5, 2, 3), name = "b", weight = 0)
+  stacked <- stack_feature_blocks(list(b))
+  expect_equal(max(abs(stacked)), 0)
+})
+
+test_that("harmonize_feature_blocks errors on unnamed subject list", {
+  expect_error(harmonize_feature_blocks(list()), "non-empty")
+  b <- alignment_feature_block(matrix(1, 2, 3), name = "a", feature_names = c("f1", "f2"))
+  expect_error(harmonize_feature_blocks(list(list(a = b))), "named list")
+})
+
+test_that("harmonize_feature_blocks errors on invalid min_features", {
+  b <- alignment_feature_block(matrix(1, 2, 3), name = "a", feature_names = c("f1", "f2"))
+  expect_error(harmonize_feature_blocks(list(sub1 = list(a = b)), min_features = 0), "positive integer")
+})
+
+test_that("harmonize_feature_blocks errors when feature names are missing", {
+  b1 <- alignment_feature_block(matrix(1, 2, 3), name = "a")  # no feature_names, no rownames
+  b2 <- alignment_feature_block(matrix(1, 2, 3), name = "a")
+  expect_error(
+    harmonize_feature_blocks(list(sub1 = list(a = b1), sub2 = list(a = b2))),
+    "feature names are missing"
+  )
+})
+
+test_that("feature_block_diagnostics returns per_block and stacked summaries", {
+  b1 <- alignment_feature_block(matrix(rnorm(12), 3, 4), name = "func", weight = 1,
+                                  feature_names = c("f1", "f2", "f3"))
+  b2 <- alignment_feature_block(matrix(rnorm(8), 2, 4), name = "anat", weight = 2,
+                                  feature_names = c("g1", "g2"))
+
+  diag <- feature_block_diagnostics(list(b1, b2), convention = "left")
+  expect_s3_class(diag, "feature_block_diagnostics")
+  expect_equal(nrow(diag$per_block), 2)
+  expect_equal(diag$per_block$block, c("func", "anat"))
+  expect_true(!is.null(diag$stacked$numeric_rank))
+  expect_true(!is.null(diag$stacked$effective_rank))
+})
+
+test_that("feature_block_diagnostics with right convention", {
+  b1 <- alignment_feature_block(matrix(rnorm(12), 3, 4), name = "func",
+                                  feature_names = c("f1", "f2", "f3"))
+
+  diag_l <- feature_block_diagnostics(list(b1), convention = "left")
+  diag_r <- feature_block_diagnostics(list(b1), convention = "right")
+
+  # Left convention: transform_dim = nrow = 3
+  expect_equal(diag_l$per_block$transform_dim, 3L)
+  # Right convention: transform_dim = ncol = 4
+  expect_equal(diag_r$per_block$transform_dim, 4L)
+})
+
+test_that("feature_block_diagnostics include_singular_values", {
+  b <- alignment_feature_block(matrix(rnorm(12), 3, 4), name = "blk",
+                                feature_names = c("f1", "f2", "f3"))
+  diag_no <- feature_block_diagnostics(list(b), include_singular_values = FALSE)
+  expect_null(diag_no$stacked$singular_values)
+
+  diag_yes <- feature_block_diagnostics(list(b), include_singular_values = TRUE)
+  expect_true(!is.null(diag_yes$stacked$singular_values))
+  expect_equal(length(diag_yes$stacked$singular_values), min(3, 4))
+})
+
+test_that("feature_block_diagnostics with per-subject input", {
+  b <- alignment_feature_block(matrix(rnorm(12), 3, 4), name = "blk",
+                                feature_names = c("f1", "f2", "f3"))
+  per_subj <- list(
+    s1 = list(b),
+    s2 = list(b)
+  )
+  diag <- feature_block_diagnostics(per_subj, convention = "left")
+  expect_s3_class(diag, "feature_block_diagnostics_by_subject")
+  expect_equal(names(diag), c("s1", "s2"))
+  expect_s3_class(diag$s1, "feature_block_diagnostics")
+})
+
+test_that("feature_block_diagnostics errors on empty blocks", {
+  expect_error(feature_block_diagnostics(list()), "non-empty")
+})
+
+test_that("feature_block_diagnostics errors on bad tol", {
+  b <- alignment_feature_block(matrix(1, 2, 3), name = "a", feature_names = c("f1", "f2"))
+  expect_error(feature_block_diagnostics(list(b), tol = 0), "\\(0, 1\\)")
+  expect_error(feature_block_diagnostics(list(b), tol = 1), "\\(0, 1\\)")
+})
