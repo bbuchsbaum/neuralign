@@ -74,17 +74,35 @@ test_that("FPGW fit function requires manifoldalign", {
   )
 })
 
-test_that("GW barycenter falls back to arithmetic mean", {
+test_that("GW consensus reference uses arithmetic mean", {
+  skip_if_not_installed("manifoldalign")
+
   data_list <- list(
-    matrix(1:4, 2, 2),
-    matrix(5:8, 2, 2)
+    s1 = matrix(1:4, 2, 2),
+    s2 = matrix(5:8, 2, 2)
+  )
+  adat <- AlignmentData(data_list)
+
+  result <- neuralign:::.gw_fit(
+    adat,
+    reference = "consensus",
+    epsilon = 0.1,
+    max_iter = 2
   )
 
-  expect_warning(
-    result <- neuralign:::.compute_gw_barycenter(data_list, 0.01, 100, 1e-6),
-    "arithmetic mean"
+  expect_equal(result$reference_data, (data_list$s1 + data_list$s2) / 2)
+})
+
+test_that("GW barycenter reference errors (not implemented)", {
+  skip_if_not_installed("manifoldalign")
+
+  data_list <- make_test_data_list(n_subjects = 2, n_features = 6, n_obs = 3)
+  adat <- AlignmentData(data_list)
+
+  expect_error(
+    neuralign:::.gw_fit(adat, reference = "barycenter", epsilon = 0.1, max_iter = 2),
+    "barycenter reference is not implemented"
   )
-  expect_equal(result, Reduce(`+`, data_list) / length(data_list))
 })
 
 test_that(".extract_pair_plan indexes packed pairs correctly", {
@@ -328,7 +346,7 @@ test_that(".gw_capabilities has all required fields", {
   expect_false(caps$needs_design)
   expect_true(caps$supports_new_subject)
   expect_true(caps$supports_new_data)
-  expect_true("barycenter" %in% caps$reference_types)
+  expect_true("consensus" %in% caps$reference_types)
 })
 
 test_that(".fpgw_capabilities has all required fields", {

@@ -677,9 +677,9 @@ test_that(".reference_type_for_validation classifies consensus", {
   expect_equal(neuralign:::.reference_type_for_validation("consensus", adat), "consensus")
 })
 
-test_that(".reference_type_for_validation classifies barycenter", {
+test_that(".reference_type_for_validation returns unknown for barycenter", {
   adat <- AlignmentData(list(s1 = matrix(1, 3, 3)))
-  expect_equal(neuralign:::.reference_type_for_validation("barycenter", adat), "barycenter")
+  expect_equal(neuralign:::.reference_type_for_validation("barycenter", adat), "unknown")
 })
 
 test_that(".reference_type_for_validation classifies subject ID", {

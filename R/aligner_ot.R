@@ -99,15 +99,6 @@ NULL
 }
 
 
-#' Compute GW Barycenter
-#' @keywords internal
-.compute_gw_barycenter <- function(data, epsilon, max_iter, tol) {
-  # Fallback: use mean as approximate barycenter (requires matched feature dims).
-  warning("GW barycenter not implemented; using arithmetic mean", call. = FALSE)
-  compute_centroid(data)
-}
-
-
 .ot_fit_common <- function(data,
                            reference,
                            train_idx = NULL,
@@ -130,13 +121,13 @@ NULL
       ref_subj <- select_reference(train_data, method = reference)
       reference_name <- ref_subj
       reference_data <- get_subject_data(train_data, ref_subj)
+    } else if (identical(reference, "consensus")) {
+      reference_name <- "consensus"
+      reference_data <- compute_centroid(train_data)
     } else if (identical(reference, "barycenter")) {
-      reference_name <- "barycenter"
-      reference_data <- .compute_gw_barycenter(
-        train_data,
-        epsilon = solver_args$epsilon %||% NA_real_,
-        max_iter = solver_args$max_iter %||% NA_integer_,
-        tol = solver_args$tol %||% NA_real_
+      stop(
+        "GW barycenter reference is not implemented. Use reference='consensus' (arithmetic mean), a subject id, or a template matrix.",
+        call. = FALSE
       )
     } else {
       reference_name <- reference
@@ -228,7 +219,7 @@ NULL
   returns = "operator",  # Couplings converted to operators via .coupling_to_operator
   supports_new_subject = TRUE,
   supports_new_data = TRUE,
-  reference_types = c("subject", "barycenter", "template")
+  reference_types = c("subject", "consensus", "template")
 )
 
 
@@ -327,7 +318,7 @@ NULL
   returns = "operator",  # Couplings converted to operators via .coupling_to_operator
   supports_new_subject = TRUE,
   supports_new_data = TRUE,
-  reference_types = c("subject", "barycenter", "template")
+  reference_types = c("subject", "consensus", "template")
 )
 
 

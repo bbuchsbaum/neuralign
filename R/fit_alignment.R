@@ -512,7 +512,7 @@ fit_alignment <- function(data,
   }
 
   if (is.character(reference) && length(reference) == 1) {
-    if (reference %in% c("medoid", "centroid", "consensus", "barycenter")) {
+    if (reference %in% c("medoid", "centroid", "consensus")) {
       return("data_driven")
     }
     return("fixed_subject")
@@ -536,9 +536,6 @@ fit_alignment <- function(data,
   if (reference %in% c("consensus")) {
     return("consensus")
   }
-  if (reference %in% c("barycenter")) {
-    return("barycenter")
-  }
 
   if (reference %in% data@subjects) {
     return("subject")
@@ -558,7 +555,7 @@ fit_alignment <- function(data,
     if (is.character(reference) && length(reference) == 1L) {
       stop(
         sprintf(
-          "Unknown reference '%s'. Expected a subject id in the data, one of {medoid, centroid, consensus, barycenter}, or a template matrix.",
+          "Unknown reference '%s'. Expected a subject id in the data, one of {medoid, centroid, consensus}, or a template matrix.",
           reference
         ),
         call. = FALSE
@@ -636,8 +633,7 @@ fit_alignment <- function(data,
         reference_spec = ref_subj
       ))
     } else {
-      # Treat as a subject id when it matches the data; otherwise pass through
-      # (some aligners accept special reference tokens like "barycenter").
+      # Treat as a subject id when it matches the data; otherwise pass through.
       if (reference %in% subjects && !reference %in% train_subjects) {
         warning(
           sprintf("Reference subject '%s' not in training set; potential leakage", reference),
