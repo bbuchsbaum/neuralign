@@ -120,6 +120,30 @@ test_that("AlignmentResult subsetting works", {
   expect_error(result["sub-99"], "Unknown subjects")
 })
 
+test_that("AlignmentResult subsetting validates index bounds and types", {
+  transforms <- list(
+    "sub-01" = diag(3),
+    "sub-02" = diag(3),
+    "sub-03" = diag(3)
+  )
+  model <- AlignmentModel(transforms = transforms, reference = "consensus", method = "test")
+  aligned <- list(
+    "sub-01" = matrix(1, 3, 2),
+    "sub-02" = matrix(2, 3, 2),
+    "sub-03" = matrix(3, 3, 2)
+  )
+  result <- AlignmentResult(model = model, aligned = aligned)
+
+  expect_error(result[4], "out of bounds")
+  expect_error(result[-4], "out of bounds")
+  expect_error(result[c(-1, 2)], "cannot mix negative and positive")
+  expect_error(result[1.5], "integer-valued")
+
+  empty <- result[0]
+  expect_s4_class(empty, "AlignmentResult")
+  expect_equal(length(empty), 0)
+})
+
 test_that("AlignmentResult show method works", {
   transforms <- list("sub-01" = diag(10), "sub-02" = diag(10))
   model <- AlignmentModel(transforms = transforms, reference = "consensus", method = "procrustes")

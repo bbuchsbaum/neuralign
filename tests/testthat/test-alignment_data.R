@@ -54,6 +54,19 @@ test_that("AlignmentData subsetting works", {
   expect_error(adat["sub-99"], "Unknown")
 })
 
+test_that("AlignmentData subsetting validates index bounds and types", {
+  adat <- AlignmentData(make_test_data_list(n_subjects = 3, n_features = 5, n_obs = 4))
+
+  expect_error(adat[4], "out of bounds")
+  expect_error(adat[-4], "out of bounds")
+  expect_error(adat[c(-1, 2)], "cannot mix negative and positive")
+  expect_error(adat[1.5], "integer-valued")
+
+  empty <- adat[0]
+  expect_s4_class(empty, "AlignmentData")
+  expect_equal(length(empty), 0)
+})
+
 test_that("get_subject_data works", {
   data_list <- list(
     "sub-01" = matrix(1, 10, 10),

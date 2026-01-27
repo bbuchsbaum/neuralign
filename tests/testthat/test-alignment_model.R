@@ -97,6 +97,24 @@ test_that("AlignmentModel subsetting works", {
   expect_error(model["sub-99"], "Unknown subjects")
 })
 
+test_that("AlignmentModel subsetting validates index bounds and types", {
+  transforms <- list(
+    "sub-01" = diag(3),
+    "sub-02" = diag(3),
+    "sub-03" = diag(3)
+  )
+  model <- AlignmentModel(transforms = transforms, reference = "consensus", method = "test")
+
+  expect_error(model[4], "out of bounds")
+  expect_error(model[-4], "out of bounds")
+  expect_error(model[c(-1, 2)], "cannot mix negative and positive")
+  expect_error(model[1.5], "integer-valued")
+
+  empty <- model[0]
+  expect_s4_class(empty, "AlignmentModel")
+  expect_equal(length(empty), 0)
+})
+
 test_that("add_transform creates new model", {
   transforms <- list("sub-01" = diag(3))
 
