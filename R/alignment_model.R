@@ -247,6 +247,10 @@ spaces_compatible <- function(a, b) {
 #'
 #' @export
 get_transform <- function(model, subject) {
+  model <- .ensure_model(model, what = "model")
+  if (!is.character(subject) || length(subject) != 1L || is.na(subject) || !nzchar(subject)) {
+    stop("'subject' must be a non-empty character scalar", call. = FALSE)
+  }
   if (!subject %in% names(model@transforms)) {
     stop(sprintf("Subject '%s' not found in model", subject), call. = FALSE)
   }
@@ -262,6 +266,7 @@ get_transform <- function(model, subject) {
 #'
 #' @export
 get_transforms <- function(model) {
+  model <- .ensure_model(model, what = "model")
   model@transforms
 }
 
@@ -274,7 +279,14 @@ get_transforms <- function(model) {
 #'
 #' @export
 model_subjects <- function(model) {
+  model <- .ensure_model(model, what = "model")
   names(model@transforms)
+}
+
+#' @rdname model_subjects
+#' @export
+get_model_subjects <- function(model) {
+  model_subjects(model)
 }
 
 
@@ -287,6 +299,10 @@ model_subjects <- function(model) {
 #'
 #' @export
 has_transform <- function(model, subject) {
+  model <- .ensure_model(model, what = "model")
+  if (!is.character(subject) || length(subject) != 1L || is.na(subject) || !nzchar(subject)) {
+    stop("'subject' must be a non-empty character scalar", call. = FALSE)
+  }
   subject %in% names(model@transforms)
 }
 
@@ -300,6 +316,7 @@ has_transform <- function(model, subject) {
 #'
 #' @export
 get_reference <- function(model) {
+  model <- .ensure_model(model, what = "model")
   model@reference_data
 }
 

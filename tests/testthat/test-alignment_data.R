@@ -83,6 +83,12 @@ test_that("get_subject_data works", {
   expect_error(get_subject_data(adat, "sub-99"), "Unknown")
 })
 
+test_that("AlignmentData accessors validate input class", {
+  expect_error(get_data_list(matrix(1, 1, 1)), "AlignmentData")
+  expect_error(get_obs_labels(matrix(1, 1, 1)), "AlignmentData")
+  expect_error(get_subject_data(matrix(1, 1, 1), 1), "AlignmentData")
+})
+
 test_that("validate_alignment_data works", {
   # Valid data with same features
   data_list <- list(

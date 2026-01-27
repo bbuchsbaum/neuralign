@@ -251,6 +251,22 @@ setValidity("AlignmentData", function(object) {
   x
 }
 
+.set_obs_labels_if_missing <- function(data, obs_labels) {
+  data <- .ensure_alignment_data(data, what = "data")
+  if (is.null(obs_labels)) return(data)
+
+  if (!is.null(data@obs_labels) &&
+      !identical(as.character(data@obs_labels), as.character(obs_labels))) {
+    stop("obs_labels supplied but AlignmentData already has different obs_labels", call. = FALSE)
+  }
+  if (is.null(data@obs_labels)) {
+    data@obs_labels <- obs_labels
+    validObject(data)
+  }
+
+  data
+}
+
 #' Create an AlignmentData Object
 #'
 #' @param data A named list of matrices or NeuroVec objects, one per subject.

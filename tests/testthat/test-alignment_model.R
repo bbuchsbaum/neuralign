@@ -58,6 +58,7 @@ test_that("AlignmentModel accessors work correctly", {
 
   # model_subjects
   expect_equal(model_subjects(model), c("sub-01", "sub-02", "sub-03"))
+  expect_equal(get_model_subjects(model), c("sub-01", "sub-02", "sub-03"))
 
   # has_transform
   expect_true(has_transform(model, "sub-01"))
@@ -68,6 +69,14 @@ test_that("AlignmentModel accessors work correctly", {
 
   # length
   expect_equal(length(model), 3)
+})
+
+test_that("AlignmentModel accessors validate input class", {
+  expect_error(get_transforms(matrix(1, 1, 1)), "AlignmentModel")
+  expect_error(model_subjects(matrix(1, 1, 1)), "AlignmentModel")
+  expect_error(get_reference(matrix(1, 1, 1)), "AlignmentModel")
+  expect_error(get_transform(matrix(1, 1, 1), "sub-01"), "AlignmentModel")
+  expect_error(has_transform(matrix(1, 1, 1), "sub-01"), "AlignmentModel")
 })
 
 test_that("AlignmentModel subsetting works", {

@@ -325,6 +325,12 @@ available_aligners <- function(details = FALSE) {
   do.call(rbind, info)
 }
 
+#' @rdname available_aligners
+#' @export
+list_aligners <- function(details = FALSE) {
+  available_aligners(details = details)
+}
+
 
 #' Get Information About an Aligner
 #'

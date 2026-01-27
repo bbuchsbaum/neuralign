@@ -49,6 +49,19 @@ test_that("available_aligners returns registered methods", {
   expect_true("package" %in% names(details))
 })
 
+test_that("list_aligners is an alias for available_aligners", {
+  neuralign:::.clear_registry()
+
+  dummy_fit <- function(data, reference, train_idx = NULL, ...) {
+    list(transforms = list(), reference_data = NULL, space_from = NULL, space_to = NULL)
+  }
+
+  register_aligner("method_a", dummy_fit, package = "pkg_a")
+
+  expect_identical(list_aligners(), available_aligners())
+  expect_identical(list_aligners(details = TRUE), available_aligners(details = TRUE))
+})
+
 test_that("get_aligner returns aligner info", {
   neuralign:::.clear_registry()
 

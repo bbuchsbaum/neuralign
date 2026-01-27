@@ -88,15 +88,7 @@ fit_alignment <- function(data,
 
   # Coerce data to AlignmentData if needed
   if (inherits(data, "AlignmentData")) {
-    if (!is.null(obs_labels)) {
-      if (!is.null(data@obs_labels) &&
-          !identical(as.character(data@obs_labels), as.character(obs_labels))) {
-        stop("obs_labels supplied but AlignmentData already has different obs_labels", call. = FALSE)
-      }
-      if (is.null(data@obs_labels)) {
-        data@obs_labels <- obs_labels
-      }
-    }
+    data <- .set_obs_labels_if_missing(data, obs_labels)
   } else {
     data <- as_alignment_data(data, obs_labels = obs_labels)
   }

@@ -20,7 +20,7 @@
 \arguments{
 \item{data}{AlignmentData object.}
 
-\item{reference}{Reference specification (subject id, "medoid", "consensus").}
+\item{reference}{Reference specification (subject id, "medoid", or "centroid").}
 
 \item{train_idx}{Indices of subjects to use for fitting.}
 

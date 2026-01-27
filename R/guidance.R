@@ -187,6 +187,9 @@ set_guidance <- function(data, guidance, validate = TRUE) {
   }
 
   data@metadata$guidance <- g_by_subj
+  if (isTRUE(validate)) {
+    validObject(data)
+  }
   data
 }
 

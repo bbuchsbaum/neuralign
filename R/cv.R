@@ -436,15 +436,7 @@ run_cv_alignment <- function(data,
   if (!inherits(data, "AlignmentData")) {
     data <- as_alignment_data(data, obs_labels = obs_labels)
   } else {
-    if (!is.null(obs_labels)) {
-      if (!is.null(data@obs_labels) &&
-          !identical(as.character(data@obs_labels), as.character(obs_labels))) {
-        stop("obs_labels supplied but AlignmentData already has different obs_labels", call. = FALSE)
-      }
-      if (is.null(data@obs_labels)) {
-        data@obs_labels <- obs_labels
-      }
-    }
+    data <- .set_obs_labels_if_missing(data, obs_labels)
   }
 
   # Create folds if needed

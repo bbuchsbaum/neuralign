@@ -2,9 +2,12 @@
 % Please edit documentation in R/registry.R
 \name{available_aligners}
 \alias{available_aligners}
+\alias{list_aligners}
 \title{List Available Alignment Methods}
 \usage{
 available_aligners(details = FALSE)
+
+list_aligners(details = FALSE)
 }
 \arguments{
 \item{details}{Logical; if TRUE, return detailed information as a data frame.}

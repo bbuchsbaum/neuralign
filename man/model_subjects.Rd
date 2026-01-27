@@ -2,9 +2,12 @@
 % Please edit documentation in R/alignment_model.R
 \name{model_subjects}
 \alias{model_subjects}
+\alias{get_model_subjects}
 \title{Get Subjects in Model}
 \usage{
 model_subjects(model)
+
+get_model_subjects(model)
 }
 \arguments{
 \item{model}{An AlignmentModel object.}

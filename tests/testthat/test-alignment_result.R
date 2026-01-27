@@ -71,6 +71,14 @@ test_that("AlignmentResult accessors work correctly", {
   expect_equal(length(result), 2)
 })
 
+test_that("AlignmentResult accessors validate input class", {
+  expect_error(get_aligned(matrix(1, 1, 1)), "AlignmentResult")
+  expect_error(aligned_data(matrix(1, 1, 1)), "AlignmentResult")
+  expect_error(get_quality(matrix(1, 1, 1)), "AlignmentResult")
+  expect_error(get_model(matrix(1, 1, 1)), "AlignmentResult")
+  expect_error(get_cv_info(matrix(1, 1, 1)), "AlignmentResult")
+})
+
 test_that("as_aligned_matrix works", {
   transforms <- list("sub-01" = diag(3), "sub-02" = diag(3))
   model <- AlignmentModel(transforms = transforms, reference = "consensus", method = "test")
