@@ -274,7 +274,8 @@ get_model <- function(result) {
 #'   s2 = matrix(rnorm(20), 4, 5),
 #'   s3 = matrix(rnorm(20), 4, 5)
 #' ))
-#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", cv = "loso",
+#' # Use a train-only reference (e.g., "medoid") for subject-axis CV to avoid leakage.
+#' res <- fit_alignment(adat, method = "procrustes", reference = "medoid", cv = "loso",
 #'   compute_quality = FALSE, return_aligned = FALSE
 #' )
 #' info <- get_cv_info(res)
