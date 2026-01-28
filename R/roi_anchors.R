@@ -26,144 +26,118 @@ NULL
   P
 }
 
-#' ROI Anchor Projector
-#'
-#' Construct an (anchors x features) projector `P` for a single subject.
-#' If `X` is a subject data matrix `(features x observations)`, then
-#' `P %*% X` yields `(anchors x observations)` anchor summaries.
-#'
-#' `roi` can be:
-#' - an atomic vector of length `n_features` giving an ROI label per feature
-#' - a named list mapping ROI names to integer feature indices
-#' - an (anchors x features) weight matrix (used as-is, optionally normalized)
-#'
-#' @param roi ROI specification (see details).
-#' @param anchors Optional character vector of anchor names to include and order.
-#' @param n_features Optional feature count (useful for list-of-indices input).
-#' @param normalize Logical; if `TRUE`, normalize each anchor row to sum to 1.
-#' @param sparse Logical; if `TRUE`, return a sparse `Matrix` when possible.
-#'
-#' @return An (anchors x features) projector matrix/Matrix.
-#' @export
-roi_anchor_projector <- function(roi,
-                                 anchors = NULL,
-                                 n_features = NULL,
-                                 normalize = TRUE,
-                                 sparse = TRUE) {
-  anchors <- .as_character_vector(anchors)
+.roi_projector_from_weight_matrix <- function(roi, anchors, normalize) {
+  P <- if (inherits(roi, "Matrix")) roi else as.matrix(roi)
 
-  if (.is_matrixish(roi)) {
-    P <- if (inherits(roi, "Matrix")) roi else as.matrix(roi)
-    if (!is.null(anchors)) {
-      if (is.null(rownames(P))) {
-        stop("roi weight matrix must have rownames when 'anchors' is supplied", call. = FALSE)
-      }
-      missing <- setdiff(anchors, rownames(P))
-      if (length(missing) > 0) {
-        stop(
-          sprintf("roi weight matrix is missing anchors: %s", paste(missing, collapse = ", ")),
-          call. = FALSE
-        )
-      }
-      P <- P[anchors, , drop = FALSE]
-    } else if (!is.null(rownames(P))) {
-      anchors <- rownames(P)
-    } else {
-      anchors <- paste0("anchor-", seq_len(nrow(P)))
-      rownames(P) <- anchors
+  if (!is.null(anchors)) {
+    if (is.null(rownames(P))) {
+      stop("roi weight matrix must have rownames when 'anchors' is supplied", call. = FALSE)
     }
-
-    if (isTRUE(normalize)) {
-      P <- .normalize_projector_rows(P)
-    }
-    return(P)
-  }
-
-  if (is.list(roi)) {
-    if (is.null(names(roi)) || any(!nzchar(names(roi)))) {
-      stop("roi list must be named by anchor", call. = FALSE)
-    }
-    roi <- roi[names(roi) != ""]
-    roi_names <- names(roi)
-    if (is.null(anchors)) {
-      anchors <- roi_names
-    } else {
-      missing <- setdiff(anchors, roi_names)
-      if (length(missing) > 0) {
-        stop(
-          sprintf("roi list is missing anchors: %s", paste(missing, collapse = ", ")),
-          call. = FALSE
-        )
-      }
-    }
-
-    if (is.null(n_features)) {
-      idx_all <- unlist(roi, use.names = FALSE)
-      if (length(idx_all) == 0) {
-        stop("Cannot infer n_features from empty roi index list; supply n_features", call. = FALSE)
-      }
-      n_features <- max(as.integer(idx_all), na.rm = TRUE)
-    }
-    n_features <- as.integer(n_features)
-    if (!is.finite(n_features) || n_features < 1L) {
-      stop("'n_features' must be a positive integer", call. = FALSE)
-    }
-
-    rows <- match(roi_names, anchors)
-    keep <- !is.na(rows)
-    roi <- roi[keep]
-    roi_names <- names(roi)
-    rows <- match(roi_names, anchors)
-
-    i <- integer(0)
-    j <- integer(0)
-    x <- numeric(0)
-
-    for (k in seq_along(roi_names)) {
-      nm <- roi_names[[k]]
-      idx <- as.integer(roi[[nm]])
-      idx <- idx[is.finite(idx)]
-      idx <- idx[idx >= 1L & idx <= n_features]
-      idx <- unique(idx)
-      if (length(idx) == 0) next
-      w <- if (isTRUE(normalize)) rep(1 / length(idx), length(idx)) else rep(1, length(idx))
-      i <- c(i, rep(rows[[k]], length(idx)))
-      j <- c(j, idx)
-      x <- c(x, w)
-    }
-
-    if (length(anchors) == 0) {
-      stop("No anchors available to build projector", call. = FALSE)
-    }
-
-    if (isTRUE(sparse)) {
-      P <- Matrix::sparseMatrix(
-        i = i, j = j, x = x,
-        dims = c(length(anchors), n_features),
-        dimnames = list(anchors, NULL),
-        repr = "C"
+    missing <- setdiff(anchors, rownames(P))
+    if (length(missing) > 0) {
+      stop(
+        sprintf("roi weight matrix is missing anchors: %s", paste(missing, collapse = ", ")),
+        call. = FALSE
       )
-      return(P)
     }
-
-    P <- matrix(0, nrow = length(anchors), ncol = n_features, dimnames = list(anchors, NULL))
-    if (length(i) > 0) {
-      P[cbind(i, j)] <- x
-    }
-    return(P)
+    P <- P[anchors, , drop = FALSE]
+  } else if (!is.null(rownames(P))) {
+    anchors <- rownames(P)
+  } else {
+    anchors <- paste0("anchor-", seq_len(nrow(P)))
+    rownames(P) <- anchors
   }
 
-  roi_vec <- .as_character_vector(roi)
-  if (is.null(roi_vec)) {
-    stop("'roi' must be a vector, list, or matrix-like object", call. = FALSE)
+  if (isTRUE(normalize)) {
+    P <- .normalize_projector_rows(P)
   }
 
+  P
+}
+
+.roi_projector_from_index_list <- function(roi, anchors, n_features, normalize, sparse) {
+  if (is.null(names(roi)) || any(!nzchar(names(roi)))) {
+    stop("roi list must be named by anchor", call. = FALSE)
+  }
+  roi <- roi[names(roi) != ""]
+  roi_names <- names(roi)
+
+  if (is.null(anchors)) {
+    anchors <- roi_names
+  } else {
+    missing <- setdiff(anchors, roi_names)
+    if (length(missing) > 0) {
+      stop(
+        sprintf("roi list is missing anchors: %s", paste(missing, collapse = ", ")),
+        call. = FALSE
+      )
+    }
+  }
+
+  if (is.null(n_features)) {
+    idx_all <- unlist(roi, use.names = FALSE)
+    if (length(idx_all) == 0) {
+      stop("Cannot infer n_features from empty roi index list; supply n_features", call. = FALSE)
+    }
+    n_features <- max(as.integer(idx_all), na.rm = TRUE)
+  }
+  n_features <- as.integer(n_features)
+  if (!is.finite(n_features) || n_features < 1L) {
+    stop("'n_features' must be a positive integer", call. = FALSE)
+  }
+
+  rows <- match(roi_names, anchors)
+  keep <- !is.na(rows)
+  roi <- roi[keep]
+  roi_names <- names(roi)
+  rows <- match(roi_names, anchors)
+
+  if (length(anchors) == 0) {
+    stop("No anchors available to build projector", call. = FALSE)
+  }
+
+  i <- integer(0)
+  j <- integer(0)
+  x <- numeric(0)
+
+  for (k in seq_along(roi_names)) {
+    nm <- roi_names[[k]]
+    idx <- as.integer(roi[[nm]])
+    idx <- idx[is.finite(idx)]
+    idx <- idx[idx >= 1L & idx <= n_features]
+    idx <- unique(idx)
+    if (length(idx) == 0) next
+    w <- if (isTRUE(normalize)) rep(1 / length(idx), length(idx)) else rep(1, length(idx))
+    i <- c(i, rep(rows[[k]], length(idx)))
+    j <- c(j, idx)
+    x <- c(x, w)
+  }
+
+  if (isTRUE(sparse)) {
+    return(Matrix::sparseMatrix(
+      i = i, j = j, x = x,
+      dims = c(length(anchors), n_features),
+      dimnames = list(anchors, NULL),
+      repr = "C"
+    ))
+  }
+
+  P <- matrix(0, nrow = length(anchors), ncol = n_features, dimnames = list(anchors, NULL))
+  if (length(i) > 0) {
+    P[cbind(i, j)] <- x
+  }
+  P
+}
+
+.roi_projector_from_label_vector <- function(roi_vec, anchors, normalize, sparse) {
   n_features <- length(roi_vec)
+
   if (is.null(anchors)) {
     anchors <- sort(unique(roi_vec[!is.na(roi_vec) & nzchar(roi_vec)]))
-    if (length(anchors) == 0) {
-      stop("No anchors available to build projector", call. = FALSE)
-    }
+  }
+
+  if (length(anchors) == 0) {
+    stop("No anchors available to build projector", call. = FALSE)
   }
 
   i <- integer(0)
@@ -194,6 +168,53 @@ roi_anchor_projector <- function(roi,
     P[cbind(i, j)] <- x
   }
   P
+}
+
+#' ROI Anchor Projector
+#'
+#' Construct an (anchors x features) projector `P` for a single subject.
+#' If `X` is a subject data matrix `(features x observations)`, then
+#' `P %*% X` yields `(anchors x observations)` anchor summaries.
+#'
+#' `roi` can be:
+#' - an atomic vector of length `n_features` giving an ROI label per feature
+#' - a named list mapping ROI names to integer feature indices
+#' - an (anchors x features) weight matrix (used as-is, optionally normalized)
+#'
+#' @param roi ROI specification (see details).
+#' @param anchors Optional character vector of anchor names to include and order.
+#' @param n_features Optional feature count (useful for list-of-indices input).
+#' @param normalize Logical; if `TRUE`, normalize each anchor row to sum to 1.
+#' @param sparse Logical; if `TRUE`, return a sparse `Matrix` when possible.
+#'
+#' @return An (anchors x features) projector matrix/Matrix.
+#' @export
+roi_anchor_projector <- function(roi,
+                                 anchors = NULL,
+                                 n_features = NULL,
+                                 normalize = TRUE,
+                                 sparse = TRUE) {
+  anchors <- .as_character_vector(anchors)
+
+  if (.is_matrixish(roi)) {
+    return(.roi_projector_from_weight_matrix(roi, anchors = anchors, normalize = normalize))
+  }
+
+  if (is.list(roi)) {
+    return(.roi_projector_from_index_list(
+      roi,
+      anchors = anchors,
+      n_features = n_features,
+      normalize = normalize,
+      sparse = sparse
+    ))
+  }
+
+  roi_vec <- .as_character_vector(roi)
+  if (is.null(roi_vec)) {
+    stop("'roi' must be a vector, list, or matrix-like object", call. = FALSE)
+  }
+  .roi_projector_from_label_vector(roi_vec, anchors = anchors, normalize = normalize, sparse = sparse)
 }
 
 #' ROI Anchor Projectors (Per Subject)
