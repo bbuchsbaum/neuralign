@@ -107,7 +107,7 @@ apply_alignment <- function(model,
       warning(sprintf(
         "No transforms for subjects: %s (fit_new=FALSE)",
         paste(new_subjects, collapse = ", ")
-      ))
+      ), call. = FALSE)
     } else {
       # Get the aligner
       aligner <- get_aligner(model@method)
