@@ -14,7 +14,9 @@ NULL
 #' @param train_idx Indices of subjects to use for fitting.
 #' @param ncomp Number of components.
 #' @param mu Balance between low-rank and similarity (0-1).
-#' @param ... Additional arguments forwarded to manifoldalign::lowrank_align().
+#' @param ... Additional arguments forwarded to manifoldalign::lowrank_align()
+#'   (except \code{preproc}; neuralign forces \code{preproc=multivarious::pass()}
+#'   to keep transforms linear).
 #'
 #' @return List with transforms, reference_data, etc.
 #' @keywords internal
@@ -29,6 +31,14 @@ NULL
   .ma_require_manifoldalign("low-rank")
 
   dots <- list(...)
+  if ("preproc" %in% names(dots)) {
+    stop(
+      "manifoldalign 'preproc' is not supported via neuralign adapters. ",
+      "neuralign forces preproc=multivarious::pass() to keep transforms linear. ",
+      "Preprocess your inputs explicitly (e.g. preprocess_alignment_data(center='rows')) before fit_alignment().",
+      call. = FALSE
+    )
+  }
 
   if (is.null(train_idx)) {
     train_idx <- seq_along(data@subjects)
@@ -42,7 +52,7 @@ NULL
   hd <- .ma_build_hyperdesign_obs(train_data, labels = labels, label_name = label_name)
 
   lr_args <- utils::modifyList(
-    list(y = y_sym, ncomp = ncomp, mu = mu, simfun = simfun),
+    list(y = y_sym, preproc = multivarious::pass(), ncomp = ncomp, mu = mu, simfun = simfun),
     dots
   )
 

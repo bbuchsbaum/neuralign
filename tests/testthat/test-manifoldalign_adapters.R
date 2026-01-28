@@ -60,6 +60,36 @@ test_that("projection manifoldalign adapters fit and apply to new subjects", {
   }
 })
 
+test_that("projection manifoldalign adapters reject manifoldalign preproc argument", {
+  skip_if_not_installed("manifoldalign")
+  skip_if_not_installed("multivarious")
+
+  set.seed(10)
+  p <- 8
+  n <- 12
+  k <- 3
+
+  X1 <- matrix(rnorm(p * n), p, n)
+  X2 <- matrix(rnorm(p * n), p, n)
+  labs <- factor(rep(c("A", "B"), length.out = n))
+
+  data <- neuralign::AlignmentData(list(s1 = X1, s2 = X2), obs_labels = labs)
+
+  with_temp_registry(list(neuralign:::.register_gpca), {
+    expect_error(
+      neuralign::fit_alignment(
+        data,
+        method = "gpca",
+        reference = "s1",
+        ncomp = k,
+        preproc = multivarious::center(),
+        compute_quality = FALSE
+      ),
+      "preproc"
+    )
+  })
+})
+
 test_that("graph manifoldalign adapters return sparse assignment operators and can apply to new subjects", {
   skip_if_not_installed("manifoldalign")
 

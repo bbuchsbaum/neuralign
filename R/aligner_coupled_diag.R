@@ -22,7 +22,9 @@ NULL
 #' @param max_iter Maximum optimisation iterations.
 #' @param tol Convergence tolerance.
 #' @param ... Additional arguments forwarded to
-#'   manifoldalign::coupled_diagonalization().
+#'   manifoldalign::coupled_diagonalization()
+#'   (except \code{preproc}; neuralign forces \code{preproc=multivarious::pass()}
+#'   to keep transforms linear).
 #'
 #' @return List with transforms, reference_data, etc.
 #'
@@ -42,6 +44,14 @@ NULL
   .ma_require_manifoldalign("coupled diagonalization")
 
   dots <- list(...)
+  if ("preproc" %in% names(dots)) {
+    stop(
+      "manifoldalign 'preproc' is not supported via neuralign adapters. ",
+      "neuralign forces preproc=multivarious::pass() to keep transforms linear. ",
+      "Preprocess your inputs explicitly (e.g. preprocess_alignment_data(center='rows')) before fit_alignment().",
+      call. = FALSE
+    )
+  }
 
   if (is.null(train_idx)) {
     train_idx <- seq_along(data@subjects)
@@ -55,6 +65,7 @@ NULL
 
   cd_args <- utils::modifyList(
     list(
+      preproc          = multivarious::pass(),
       ncomp            = ncomp,
       ncomp_per_domain = ncomp_per_domain,
       mu_coupling      = mu_coupling,

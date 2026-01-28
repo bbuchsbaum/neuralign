@@ -19,7 +19,9 @@ NULL
 #' @param u Trade-off between manifold and class alignment (0-1).
 #' @param solver KEMA solver: "regression" or "exact".
 #' @param lambda Regularisation parameter.
-#' @param ... Additional arguments forwarded to manifoldalign::kema().
+#' @param ... Additional arguments forwarded to manifoldalign::kema()
+#'   (except \code{preproc}; neuralign forces \code{preproc=multivarious::pass()}
+#'   to keep transforms linear).
 #'
 #' @return List with transforms, reference_data, etc.
 #'
@@ -37,6 +39,14 @@ NULL
   .ma_require_manifoldalign("KEMA")
 
   dots <- list(...)
+  if ("preproc" %in% names(dots)) {
+    stop(
+      "manifoldalign 'preproc' is not supported via neuralign adapters. ",
+      "neuralign forces preproc=multivarious::pass() to keep transforms linear. ",
+      "Preprocess your inputs explicitly (e.g. preprocess_alignment_data(center='rows')) before fit_alignment().",
+      call. = FALSE
+    )
+  }
 
   if (is.null(train_idx)) {
     train_idx <- seq_along(data@subjects)
@@ -54,6 +64,7 @@ NULL
   kema_args <- utils::modifyList(
     list(
       y     = y_sym,
+      preproc = multivarious::pass(),
       ncomp = ncomp,
       knn   = knn,
       sigma = sigma,

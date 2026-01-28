@@ -16,7 +16,9 @@ NULL
 #' @param ncomp Number of components.
 #' @param u Trade-off parameter (0-1).
 #' @param lambda Regularisation.
-#' @param ... Additional arguments forwarded to manifoldalign::gpca_align().
+#' @param ... Additional arguments forwarded to manifoldalign::gpca_align()
+#'   (except \code{preproc}; neuralign forces \code{preproc=multivarious::pass()}
+#'   to keep transforms linear).
 #'
 #' @return List with transforms, reference_data, etc.
 #' @keywords internal
@@ -30,6 +32,14 @@ NULL
   .ma_require_manifoldalign("GPCA")
 
   dots <- list(...)
+  if ("preproc" %in% names(dots)) {
+    stop(
+      "manifoldalign 'preproc' is not supported via neuralign adapters. ",
+      "neuralign forces preproc=multivarious::pass() to keep transforms linear. ",
+      "Preprocess your inputs explicitly (e.g. preprocess_alignment_data(center='rows')) before fit_alignment().",
+      call. = FALSE
+    )
+  }
 
   if (is.null(train_idx)) {
     train_idx <- seq_along(data@subjects)
@@ -43,7 +53,7 @@ NULL
   hd <- .ma_build_hyperdesign_obs(train_data, labels = labels, label_name = label_name)
 
   gpca_args <- utils::modifyList(
-    list(y = y_sym, ncomp = ncomp, u = u, lambda = lambda),
+    list(y = y_sym, preproc = multivarious::pass(), ncomp = ncomp, u = u, lambda = lambda),
     dots
   )
 
