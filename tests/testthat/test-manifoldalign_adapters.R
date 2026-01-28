@@ -118,3 +118,43 @@ test_that("graph manifoldalign adapters return sparse assignment operators and c
     })
   }
 })
+
+test_that("manifoldalign method name aliases work", {
+  skip_if_not_installed("manifoldalign")
+
+  set.seed(3)
+  p <- 12
+  n <- 10
+  k <- 3
+
+  X1 <- matrix(rnorm(p * n), p, n)
+  X2 <- matrix(rnorm(p * n), p, n)
+  labs <- factor(rep(c("A", "B"), length.out = n))
+
+  data <- neuralign::AlignmentData(list(s1 = X1, s2 = X2), obs_labels = labs)
+
+  with_temp_registry(list(neuralign:::.register_coupled_diag), {
+    res <- neuralign::fit_alignment(
+      data,
+      method = "coupled_diagonalization",
+      reference = "s1",
+      ncomp = k,
+      ncomp_per_domain = 6L,
+      max_iter = 10L,
+      compute_quality = FALSE
+    )
+    expect_true("s1" %in% names(neuralign::get_aligned(res)))
+  })
+
+  with_temp_registry(list(neuralign:::.register_cone), {
+    res <- neuralign::fit_alignment(
+      data,
+      method = "cone_align",
+      reference = "s1",
+      ncomp = 5L,
+      max_iter = 5L,
+      compute_quality = FALSE
+    )
+    expect_true("s1" %in% names(neuralign::get_aligned(res)))
+  })
+})

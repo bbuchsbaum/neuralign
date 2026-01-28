@@ -130,4 +130,15 @@ NULL
     description  = "CONE-Align graph alignment",
     version      = "0.1.0"
   )
+
+  # Terminology alias: mirror manifoldalign function name
+  register_aligner(
+    name         = "cone_align",
+    fit_fn       = .cone_fit,
+    apply_fn     = .cone_apply,
+    capabilities = .cone_capabilities,
+    package      = "manifoldalign",
+    description  = "CONE-Align graph alignment (alias)",
+    version      = "0.1.0"
+  )
 }

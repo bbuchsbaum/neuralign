@@ -259,8 +259,30 @@ NULL
   labs <- data@obs_labels
   if (is.null(labs)) return(NULL)
   if (is.atomic(labs) || is.factor(labs)) return(labs)
-  if (is.list(labs) && length(labs) >= 1L) return(labs[[1L]])
-  NULL
+  if (!is.list(labs)) return(NULL)
+
+  if (length(data@subjects) != 1L) {
+    stop(
+      "Expected AlignmentData with exactly one subject when resolving per-subject obs_labels",
+      call. = FALSE
+    )
+  }
+  subj <- data@subjects[[1L]]
+
+  if (!is.null(names(labs)) && subj %in% names(labs)) {
+    return(labs[[subj]])
+  }
+  if (length(labs) == 1L) {
+    return(labs[[1L]])
+  }
+
+  stop(
+    sprintf(
+      "AlignmentData@obs_labels is a list but does not contain subject '%s' and has length %d",
+      subj, length(labs)
+    ),
+    call. = FALSE
+  )
 }
 
 

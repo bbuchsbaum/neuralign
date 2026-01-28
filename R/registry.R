@@ -418,9 +418,11 @@ unregister_aligner <- function(name) {
     "fpgw"          = "manifoldalign",
     "kema"          = "manifoldalign",
     "coupled_diag"  = "manifoldalign",
+    "coupled_diagonalization" = "manifoldalign",
     "gpca"          = "manifoldalign",
     "grasp"         = "manifoldalign",
     "cone"          = "manifoldalign",
+    "cone_align"    = "manifoldalign",
     "lowrank"       = "manifoldalign",
     "dkge"          = "dkge",
     "nef"           = "fmrireg.gnef"

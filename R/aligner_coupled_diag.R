@@ -164,4 +164,15 @@ NULL
     description  = "Coupled Diagonalization alignment",
     version      = "0.1.0"
   )
+
+  # Backwards/terminology alias: mirror manifoldalign function name
+  register_aligner(
+    name         = "coupled_diagonalization",
+    fit_fn       = .coupled_diag_fit,
+    apply_fn     = .coupled_diag_apply,
+    capabilities = .coupled_diag_capabilities,
+    package      = "manifoldalign",
+    description  = "Coupled Diagonalization alignment (alias)",
+    version      = "0.1.0"
+  )
 }
