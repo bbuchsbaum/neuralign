@@ -15,3 +15,14 @@ Named vector of fold assignments, or NULL if not CV.
 \description{
 Get Fold Assignments from Result
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 4, 5),
+  s2 = matrix(rnorm(20), 4, 5),
+  s3 = matrix(rnorm(20), 4, 5)
+), obs_labels = paste0("obs", 1:5))
+cv <- run_cv_alignment(adat, method = "procrustes", cv_folds = "kfold", k = 2, reference = "medoid")
+get_fold_assignments(cv$result)
+
+}

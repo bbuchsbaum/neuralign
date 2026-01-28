@@ -15,6 +15,27 @@ Invisibly returns TRUE if removed, FALSE if not found.
 \description{
 Remove an aligner from the registry. Primarily useful for testing.
 }
+\examples{
+tmp_fit <- function(data, reference, ...) {
+  list(
+    transforms = list(),
+    reference_data = NULL,
+    space_from = NULL,
+    space_to = NULL,
+    method_state = list()
+  )
+}
+if (is_aligner_registered("tmp_registry_example")) {
+  unregister_aligner("tmp_registry_example")
+}
+register_aligner(
+  name = "tmp_registry_example",
+  fit_fn = tmp_fit,
+  capabilities = list(transform_type = "orthogonal")
+)
+unregister_aligner("tmp_registry_example")
+
+}
 \seealso{
 Other registry: 
 \code{\link{aligner_capabilities}()},

@@ -20,3 +20,12 @@ zero; \code{"identity"} uses identity on the complement.}
 \description{
 Lift a Subspace Operator to Full Space
 }
+\examples{
+set.seed(1)
+X <- matrix(rnorm(12), 3, 4)
+sb <- identified_subspace_basis(X, convention = "right")
+Q_sub <- diag(ncol(sb$basis))
+Q_full <- lift_operator_from_subspace(Q_sub, sb$basis, fill = "identity")
+dim(Q_full)
+
+}

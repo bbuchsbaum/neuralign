@@ -17,3 +17,9 @@ Transformed data.
 \description{
 Apply a single transform operator to data using left-multiply convention.
 }
+\examples{
+X <- matrix(1:6, 3, 2)
+Q <- diag(3)
+apply_transform(Q, X)
+
+}

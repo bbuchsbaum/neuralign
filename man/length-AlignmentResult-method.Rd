@@ -15,3 +15,13 @@ Integer number of aligned subjects.
 \description{
 Get Number of Aligned Subjects
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 4, 5),
+  s2 = matrix(rnorm(20), 4, 5)
+))
+res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+length(res)
+
+}

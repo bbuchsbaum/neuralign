@@ -18,3 +18,14 @@ A new AlignmentResult with only selected subjects.
 \description{
 Subset AlignmentResult by Subject
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 4, 5),
+  s2 = matrix(rnorm(20), 4, 5),
+  s3 = matrix(rnorm(20), 4, 5)
+))
+res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+res[c("s1", "s3")]
+
+}

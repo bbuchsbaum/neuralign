@@ -15,6 +15,10 @@ List with aligner information, or NULL if not found.
 \description{
 Get Information About an Aligner
 }
+\examples{
+get_aligner("procrustes")$description
+
+}
 \seealso{
 Other registry: 
 \code{\link{aligner_capabilities}()},

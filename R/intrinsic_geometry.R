@@ -191,6 +191,20 @@ laplacian_eigenmodes <- function(adj,
 #' @param validate Logical; if `TRUE`, validate dimensional compatibility.
 #'
 #' @return The modified `AlignmentData`.
+#'
+#' @examples
+#' set.seed(1)
+#' # Line-graph adjacency for 5 nodes
+#' A <- matrix(0, 5, 5)
+#' A[cbind(1:4, 2:5)] <- 1
+#' A[cbind(2:5, 1:4)] <- 1
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 5, 4),
+#'   s2 = matrix(rnorm(20), 5, 4)
+#' ))
+#' adat2 <- set_intrinsic_geometry_guidance(adat, list(s1 = A, s2 = A), k = 2, method = "eigen")
+#' Z1 <- get_guidance(adat2, subject = "s1")$intrinsic$value
+#' dim(Z1)
 #' @export
 set_intrinsic_geometry_guidance <- function(data,
                                             adjacency_by_subject,

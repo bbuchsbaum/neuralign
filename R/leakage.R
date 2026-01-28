@@ -92,6 +92,16 @@ NULL
 #'
 #' @return TRUE if valid, otherwise throws error.
 #'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5),
+#'   s3 = matrix(rnorm(20), 4, 5)
+#' ))
+#' folds <- create_cv_folds(adat, method = "loso")
+#' validate_cv_setup(folds, reference = "medoid")
+#'
 #' @export
 validate_cv_setup <- function(cv_folds, reference = "medoid") {
   # Check train/test disjointness for every fold
@@ -153,6 +163,18 @@ validate_cv_setup <- function(cv_folds, reference = "medoid") {
 #' @param test_subjects Optional character vector of intended test subjects.
 #'
 #' @return List with leakage risk assessment.
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5),
+#'   s3 = matrix(rnorm(20), 4, 5)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "medoid", cv = "loso",
+#'   compute_quality = FALSE
+#' )
+#' assess_leakage_risk(res)$overall_risk
 #'
 #' @export
 assess_leakage_risk <- function(model, test_subjects = NULL) {
@@ -226,6 +248,11 @@ assess_leakage_risk <- function(model, test_subjects = NULL) {
 #'
 #' @return Invisibly returns list with leakage info per subject.
 #'
+#' @examples
+#' train_obs <- list(s1 = 1:3, s2 = 1:3)
+#' test_obs <- list(s1 = 4:5, s2 = 4:5)
+#' check_obs_leakage(train_obs, test_obs)
+#'
 #' @export
 check_obs_leakage <- function(train_obs, test_obs,
                               action = c("warn", "error", "silent")) {
@@ -276,6 +303,18 @@ check_obs_leakage <- function(train_obs, test_obs,
 #' Print Leakage Risk Assessment
 #'
 #' @param risk Risk assessment from assess_leakage_risk.
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5),
+#'   s3 = matrix(rnorm(20), 4, 5)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "medoid", cv = "loso",
+#'   compute_quality = FALSE
+#' )
+#' print_leakage_assessment(assess_leakage_risk(res))
 #'
 #' @export
 print_leakage_assessment <- function(risk) {

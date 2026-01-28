@@ -26,6 +26,14 @@ NULL
 #'   occurrence order within each label.
 #' @slot metadata Named list for additional method-specific information.
 #'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5)
+#' ), obs_labels = paste0("obs", 1:5))
+#' adat
+#'
 #' @export
 setClass("AlignmentData",
   slots = c(
@@ -352,6 +360,15 @@ AlignmentData <- function(data,
 #'
 #' @return A new AlignmentData object containing only the selected subjects.
 #'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(12), 3, 4),
+#'   s2 = matrix(rnorm(12), 3, 4),
+#'   s3 = matrix(rnorm(12), 3, 4)
+#' ))
+#' adat[c("s1", "s3")]
+#'
 #' @export
 setMethod("[", c("AlignmentData", "ANY"),
   function(x, i) {
@@ -377,6 +394,14 @@ setMethod("[", c("AlignmentData", "ANY"),
 #'
 #' @return Integer number of subjects.
 #'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(12), 3, 4),
+#'   s2 = matrix(rnorm(12), 3, 4)
+#' ))
+#' length(adat)
+#'
 #' @export
 setMethod("length", "AlignmentData", function(x) length(x@subjects))
 
@@ -384,6 +409,13 @@ setMethod("length", "AlignmentData", function(x) length(x@subjects))
 #' Print Method for AlignmentData
 #'
 #' @param object An AlignmentData object.
+#'
+#' @examples
+#' set.seed(1)
+#' AlignmentData(list(
+#'   s1 = matrix(rnorm(12), 3, 4),
+#'   s2 = matrix(rnorm(12), 3, 4)
+#' ))
 #'
 #' @export
 setMethod("show", "AlignmentData", function(object) {
@@ -654,6 +686,14 @@ get_obs_labels <- function(object) {
 #' @return `TRUE` invisibly if valid, otherwise throws an error.
 #'
 #' @family alignment_data
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5)
+#' ))
+#' validate_alignment_data(adat)
 #'
 #' @export
 validate_alignment_data <- function(object, check_features = TRUE,

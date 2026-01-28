@@ -17,3 +17,10 @@ List with \code{compatible} logical and \code{message} string.
 \description{
 Check if two models can be composed.
 }
+\examples{
+Q <- diag(3)
+m1 <- AlignmentModel(list(s1 = Q), reference = "s1", method = "procrustes")
+m2 <- AlignmentModel(list(s1 = Q), reference = "s1", method = "procrustes")
+check_composition(m1, m2)$compatible
+
+}

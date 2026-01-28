@@ -31,6 +31,15 @@ match each subject's observation count.}
 \description{
 Check that all subjects have compatible dimensions for alignment.
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 4, 5),
+  s2 = matrix(rnorm(20), 4, 5)
+))
+validate_alignment_data(adat)
+
+}
 \seealso{
 Other alignment_data: 
 \code{\link{AlignmentData}},

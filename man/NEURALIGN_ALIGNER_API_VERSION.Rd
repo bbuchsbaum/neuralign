@@ -15,4 +15,8 @@ The current version of the aligner registration API. Third-party packages
 should declare which API version they implement. This allows detection of
 incompatible changes as the interface evolves.
 }
+\examples{
+NEURALIGN_ALIGNER_API_VERSION
+
+}
 \keyword{datasets}

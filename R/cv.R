@@ -433,6 +433,16 @@ create_obs_folds <- function(obs_ids,
 #'     \item cv_info - CV configuration info
 #'   }
 #'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5),
+#'   s3 = matrix(rnorm(20), 4, 5)
+#' ), obs_labels = paste0("obs", 1:5))
+#' cv <- run_cv_alignment(adat, method = "procrustes", cv_folds = "kfold", k = 2, reference = "medoid")
+#' is_cv_result(cv$result)
+#'
 #' @export
 run_cv_alignment <- function(data,
                              method = "procrustes",
@@ -527,6 +537,16 @@ run_cv_alignment <- function(data,
 #'
 #' @return Logical indicating if result used CV.
 #'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5),
+#'   s3 = matrix(rnorm(20), 4, 5)
+#' ), obs_labels = paste0("obs", 1:5))
+#' cv <- run_cv_alignment(adat, method = "procrustes", cv_folds = "loso", reference = "medoid")
+#' is_cv_result(cv$result)
+#'
 #' @export
 is_cv_result <- function(result) {
   cv_info <- get_cv_info(result)
@@ -539,6 +559,16 @@ is_cv_result <- function(result) {
 #' @param result An AlignmentResult.
 #'
 #' @return Named vector of fold assignments, or NULL if not CV.
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5),
+#'   s3 = matrix(rnorm(20), 4, 5)
+#' ), obs_labels = paste0("obs", 1:5))
+#' cv <- run_cv_alignment(adat, method = "procrustes", cv_folds = "kfold", k = 2, reference = "medoid")
+#' get_fold_assignments(cv$result)
 #'
 #' @export
 get_fold_assignments <- function(result) {
@@ -558,6 +588,16 @@ get_fold_assignments <- function(result) {
 #' @param x An \code{AlignmentResult} or \code{AlignmentModel}.
 #'
 #' @return Logical; TRUE if outputs are expressed in a single anchor space.
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5),
+#'   s3 = matrix(rnorm(20), 4, 5)
+#' ), obs_labels = paste0("obs", 1:5))
+#' cv <- run_cv_alignment(adat, method = "procrustes", cv_folds = "loso", reference = "medoid")
+#' has_common_anchor(cv$result)
 #'
 #' @export
 has_common_anchor <- function(x) {
@@ -600,6 +640,15 @@ has_common_anchor <- function(x) {
 #' @param context Short context string used in messages.
 #'
 #' @return Invisibly returns TRUE if valid; otherwise warns/errors.
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5)
+#' ), obs_labels = paste0("obs", 1:5))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#' validate_common_anchor(res, action = "error")
 #'
 #' @export
 validate_common_anchor <- function(x,

@@ -39,3 +39,16 @@ The modified \code{AlignmentData}.
 Convenience wrapper that builds ROI anchor projectors and stores them as
 \code{"projector"} guidance channels on an \code{AlignmentData} object.
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 5, 4),
+  s2 = matrix(rnorm(20), 5, 4)
+))
+roi_by_subject <- list(
+  s1 = list(V1 = 1:2, MT = 3:5),
+  s2 = list(V1 = 1:3, MT = 4:5)
+)
+adat2 <- set_roi_guidance(adat, roi_by_subject, anchor_policy = "intersection")
+names(get_guidance(adat2, subject = "s1"))
+}

@@ -17,3 +17,13 @@ Matrix representing the reference data.
 \description{
 Get the data for a reference subject, or compute reference if "consensus".
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 4, 5),
+  s2 = matrix(rnorm(20), 4, 5)
+))
+dim(get_reference_data(adat, "s1"))
+dim(get_reference_data(adat, "consensus"))
+
+}

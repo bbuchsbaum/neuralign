@@ -15,6 +15,17 @@ The reference data (matrix or template object).
 \description{
 Get Reference Data from Model
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(12), 3, 4),
+  s2 = matrix(rnorm(12), 3, 4)
+))
+res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+ref <- get_reference(get_model(res))
+is.null(ref) || is.matrix(ref)
+
+}
 \seealso{
 \code{\link{get_reference_spec}} for the reference specification.
 

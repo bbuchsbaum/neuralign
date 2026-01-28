@@ -20,3 +20,12 @@ but with preprocessed \code{$x} matrices.
 Apply \code{\link{preprocess_matrix}} to the \code{$x} matrix of each
 \code{\link{alignment_feature_block}} in a \code{blocks_by_subject} structure.
 }
+\examples{
+set.seed(1)
+b1 <- alignment_feature_block(matrix(rnorm(6), 3, 2), "b1",
+  feature_names = c("a", "b", "c")
+)
+blocks <- list(s1 = list(b1 = b1))
+blocks2 <- preprocess_feature_blocks(blocks, center = "rows")
+dim(blocks2$s1$b1$x)
+}

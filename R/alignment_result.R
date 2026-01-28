@@ -10,6 +10,14 @@
 #' @slot quality List of quality diagnostics.
 #' @slot cv_info Cross-validation information (fold assignments, etc.).
 #'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5)
+#' ))
+#' fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#'
 #' @export
 setClass("AlignmentResult",
   slots = c(
@@ -54,6 +62,15 @@ setValidity("AlignmentResult", function(object) {
 #'
 #' @family alignment_result
 #'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#' AlignmentResult(model = get_model(res), aligned = get_aligned(res))
+#'
 #' @export
 AlignmentResult <- function(model,
                             aligned,
@@ -79,6 +96,14 @@ AlignmentResult <- function(model,
 #' Print Method for AlignmentResult
 #'
 #' @param object An AlignmentResult object.
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5)
+#' ))
+#' fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
 #'
 #' @export
 setMethod("show", "AlignmentResult", function(object) {
@@ -331,6 +356,16 @@ as_aligned_matrix <- function(result, by = c("subject", "observation")) {
 #'
 #' @return A new AlignmentResult with only selected subjects.
 #'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5),
+#'   s3 = matrix(rnorm(20), 4, 5)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#' res[c("s1", "s3")]
+#'
 #' @export
 setMethod("[", c("AlignmentResult", "ANY"),
   function(x, i) {
@@ -352,6 +387,15 @@ setMethod("[", c("AlignmentResult", "ANY"),
 #' @param x An AlignmentResult object.
 #'
 #' @return Integer number of aligned subjects.
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#' length(res)
 #'
 #' @export
 setMethod("length", "AlignmentResult", function(x) length(x@aligned))

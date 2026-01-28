@@ -30,6 +30,16 @@ Separates fit from apply to enable cross-validation workflows.
 \item{\code{train_subjects}}{Character vector of subjects used for training (for CV).}
 }}
 
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(12), 3, 4),
+  s2 = matrix(rnorm(12), 3, 4)
+))
+res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+get_model(res)
+
+}
 \seealso{
 Other alignment_model: 
 \code{\link{AlignmentModel}},

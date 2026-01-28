@@ -39,6 +39,23 @@ If provided, \code{apply_fn} must accept at minimum: \code{fit_result},
 \code{new_data}, and \code{...}. It should return a list with a
 \code{transforms} element (named list of operators).
 }
+\examples{
+dummy_fit <- function(data, reference, ...) {
+  list(
+    transforms = list(),
+    reference_data = NULL,
+    space_from = NULL,
+    space_to = NULL,
+    method_state = list()
+  )
+}
+validate_aligner_contract(
+  name = "dummy",
+  fit_fn = dummy_fit,
+  capabilities = list(transform_type = "orthogonal")
+)
+
+}
 \seealso{
 Other registry: 
 \code{\link{aligner_capabilities}()},

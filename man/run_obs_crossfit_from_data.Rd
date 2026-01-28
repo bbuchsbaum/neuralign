@@ -39,3 +39,15 @@ Convenience wrapper around \code{\link{run_obs_crossfit_alignment}} that
 slices an \code{\link{AlignmentData}} object into per-fold train/test matrices
 using a fold specification produced by \code{\link{create_obs_folds}}.
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(12), 3, 4),
+  s2 = matrix(rnorm(12), 3, 4)
+), obs_labels = paste0("t", 1:4))
+runs <- c("r1", "r1", "r2", "r2")
+folds <- create_obs_folds(runs, method = "run")
+cf <- run_obs_crossfit_from_data(adat, folds, method = "procrustes", reference = "s1")
+names(cf$transforms_by_fold)
+
+}

@@ -15,6 +15,10 @@ Logical indicating if the aligner is registered.
 \description{
 Check if Aligner is Registered
 }
+\examples{
+is_aligner_registered("procrustes")
+
+}
 \seealso{
 Other registry: 
 \code{\link{aligner_capabilities}()},

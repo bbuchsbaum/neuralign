@@ -21,6 +21,16 @@ An AlignmentResult object.
 \description{
 Create an AlignmentResult Object
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 4, 5),
+  s2 = matrix(rnorm(20), 4, 5)
+))
+res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+AlignmentResult(model = get_model(res), aligned = get_aligned(res))
+
+}
 \seealso{
 Other alignment_result: 
 \code{\link{AlignmentResult-class}},

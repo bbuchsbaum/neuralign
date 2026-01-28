@@ -19,6 +19,14 @@ A named logical vector keyed by block name.
 \description{
 Feature Block Independence Requirements
 }
+\examples{
+blk <- alignment_feature_block(
+  x = matrix(1, 1, 1),
+  name = "block",
+  meta = list(requires_independence = TRUE)
+)
+feature_block_requires_independence(list(block = blk))
+}
 \concept{feature_blocks
 
 Summarize which feature blocks declare \code{meta$requires_independence = TRUE}.

@@ -42,3 +42,10 @@ is the span of the right singular vectors corresponding to non-zero singular
 values. If \code{convention="left"} (transforms act on rows), the identified
 subspace is the span of the corresponding left singular vectors.
 }
+\examples{
+set.seed(1)
+X <- matrix(rnorm(12), 3, 4)
+sb <- identified_subspace_basis(X, convention = "right")
+dim(sb$basis)
+
+}

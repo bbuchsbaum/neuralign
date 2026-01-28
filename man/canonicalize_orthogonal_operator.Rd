@@ -45,3 +45,11 @@ In particular, if \code{S} is the identified subspace of the transform space
 implied by \code{x}, the returned operator \code{Q_canon} satisfies:
 \deqn{Q_{\mathrm{canon}} v = Q v \quad \forall v \in S.}
 }
+\examples{
+set.seed(1)
+X <- matrix(rnorm(9), 3, 3)
+X[, 3] <- X[, 2]  # rank-deficient (right-convention transform_dim = ncol(X))
+Q <- diag(3)
+Qc <- canonicalize_orthogonal_operator(Q, X, convention = "right")
+dim(Qc)
+}

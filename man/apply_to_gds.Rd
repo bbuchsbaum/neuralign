@@ -19,3 +19,11 @@ Transformed gds_data object.
 \description{
 Helper for applying neuralign alignment within fmrigds workflows.
 }
+\examples{
+\dontrun{
+# Requires fmrigds and a gds_data object:
+# mdl <- fit_alignment(alignment_data_from_gds(gds), method = "procrustes") |> get_model()
+# gds_aligned <- apply_to_gds(mdl, gds)
+}
+
+}

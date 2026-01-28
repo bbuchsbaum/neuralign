@@ -15,3 +15,13 @@ Integer number of subjects with transforms.
 \description{
 Get Number of Subjects in Model
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(12), 3, 4),
+  s2 = matrix(rnorm(12), 3, 4)
+))
+res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+length(get_model(res))
+
+}

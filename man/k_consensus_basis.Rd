@@ -39,6 +39,15 @@ A list with elements \code{U}, \code{iters}, \code{converged}, \code{gaps}, \cod
 Iteratively aligns bases to a current estimate, averages (optionally
 weighted), and retracts back to the Stiefel manifold via K-orthonormalization.
 }
+\examples{
+set.seed(1)
+q <- 5
+r <- 2
+K <- diag(q)
+U_list <- lapply(1:3, function(i) qr.Q(qr(matrix(rnorm(q * r), q, r))))
+cons <- k_consensus_basis(U_list, K, max_iter = 5)
+dim(cons$U)
+}
 \seealso{
 Other k_procrustes: 
 \code{\link{k_align_bases}()},

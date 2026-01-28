@@ -15,6 +15,10 @@ List of capability flags, or NULL if method not found.
 \description{
 Get Aligner Capabilities
 }
+\examples{
+aligner_capabilities("procrustes")$transform_type
+
+}
 \seealso{
 Other registry: 
 \code{\link{available_aligners}()},

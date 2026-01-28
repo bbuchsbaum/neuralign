@@ -18,6 +18,12 @@ Logical; TRUE if spaces are compatible.
 Determine whether two space specifications are compatible.
 NULL is compatible with anything.
 }
+\examples{
+spaces_compatible(NULL, "spaceA")
+spaces_compatible("spaceA", "spaceA")
+spaces_compatible("spaceA", "spaceB")
+
+}
 \seealso{
 Other alignment_model: 
 \code{\link{AlignmentModel}},

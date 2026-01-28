@@ -20,6 +20,19 @@ A named list keyed by subject (or a subject's channel list).
 \description{
 Get Guidance Channels
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(12), 3, 4),
+  s2 = matrix(rnorm(12), 3, 4)
+))
+g <- list(
+  s1 = list(roi = guidance_channel("projector", diag(3), name = "roi")),
+  s2 = list(roi = guidance_channel("projector", diag(3), name = "roi"))
+)
+adat2 <- set_guidance(adat, g)
+get_guidance(adat2, subject = "s1")
+}
 \seealso{
 Other guidance: 
 \code{\link{guidance_channel}()},

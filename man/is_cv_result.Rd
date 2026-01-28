@@ -15,3 +15,14 @@ Logical indicating if result used CV.
 \description{
 Check if Result is Cross-Validated
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 4, 5),
+  s2 = matrix(rnorm(20), 4, 5),
+  s3 = matrix(rnorm(20), 4, 5)
+), obs_labels = paste0("obs", 1:5))
+cv <- run_cv_alignment(adat, method = "procrustes", cv_folds = "loso", reference = "medoid")
+is_cv_result(cv$result)
+
+}

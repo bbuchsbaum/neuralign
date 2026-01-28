@@ -15,6 +15,15 @@
 #' @slot method_state List containing method-specific state needed for apply.
 #' @slot train_subjects Character vector of subjects used for training (for CV).
 #'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(12), 3, 4),
+#'   s2 = matrix(rnorm(12), 3, 4)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#' get_model(res)
+#'
 #' @export
 setClass("AlignmentModel",
   slots = c(
@@ -84,6 +93,15 @@ setValidity("AlignmentModel", function(object) {
 #'
 #' @family alignment_model
 #'
+#' @examples
+#' Q <- diag(3)
+#' mdl <- AlignmentModel(
+#'   transforms = list(s1 = Q, s2 = Q),
+#'   reference = "s1",
+#'   method = "procrustes"
+#' )
+#' model_subjects(mdl)
+#'
 #' @export
 AlignmentModel <- function(transforms,
                            reference,
@@ -146,6 +164,15 @@ AlignmentModel <- function(transforms,
 #'
 #' @param object An AlignmentModel object.
 #'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(12), 3, 4),
+#'   s2 = matrix(rnorm(12), 3, 4)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#' get_model(res)
+#'
 #' @export
 setMethod("show", "AlignmentModel", function(object) {
   cat("AlignmentModel object\n")
@@ -207,6 +234,11 @@ setMethod("show", "AlignmentModel", function(object) {
 #' @return Logical; TRUE if spaces are compatible.
 #'
 #' @family alignment_model
+#'
+#' @examples
+#' spaces_compatible(NULL, "spaceA")
+#' spaces_compatible("spaceA", "spaceA")
+#' spaces_compatible("spaceA", "spaceB")
 #'
 #' @export
 spaces_compatible <- function(a, b) {
@@ -371,6 +403,16 @@ has_transform <- function(model, subject) {
 #'
 #' @family alignment_model
 #'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(12), 3, 4),
+#'   s2 = matrix(rnorm(12), 3, 4)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#' ref <- get_reference(get_model(res))
+#' is.null(ref) || is.matrix(ref)
+#'
 #' @export
 get_reference <- function(model) {
   model <- .ensure_model(model, what = "model")
@@ -454,6 +496,17 @@ add_transform <- function(model, subject, transform) {
 #'
 #' @return A new AlignmentModel with only the selected subjects.
 #'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(12), 3, 4),
+#'   s2 = matrix(rnorm(12), 3, 4),
+#'   s3 = matrix(rnorm(12), 3, 4)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#' mdl <- get_model(res)
+#' mdl[c("s1", "s3")]
+#'
 #' @export
 setMethod("[", c("AlignmentModel", "ANY"),
   function(x, i) {
@@ -480,6 +533,15 @@ setMethod("[", c("AlignmentModel", "ANY"),
 #' @param x An AlignmentModel object.
 #'
 #' @return Integer number of subjects with transforms.
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(12), 3, 4),
+#'   s2 = matrix(rnorm(12), 3, 4)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#' length(get_model(res))
 #'
 #' @export
 setMethod("length", "AlignmentModel", function(x) length(x@transforms))

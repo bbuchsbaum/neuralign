@@ -56,3 +56,14 @@ Typical uses:
 space for visualization or decoding.
 }
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 4, 5),
+  s2 = matrix(rnorm(20), 4, 5)
+))
+res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+lifted <- lift_aligned(res, to = "reference", inverse = "transpose")
+lapply(lifted, dim)
+
+}

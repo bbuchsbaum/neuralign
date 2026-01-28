@@ -36,3 +36,9 @@ squares:
 \code{convention="right"} computes the analogous quantity for \code{y = t(Q) \%*\% x}
 (equivalently, for right-multiplying row vectors by \code{Q}).
 }
+\examples{
+v <- c(a = 1, b = 2)
+Q <- matrix(c(0, 1, -1, 0), 2, 2)  # 90-degree rotation (orthogonal)
+diag_cov_orthogonal(v, Q, convention = "left")
+
+}

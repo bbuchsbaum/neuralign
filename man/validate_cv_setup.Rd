@@ -17,6 +17,17 @@ TRUE if valid, otherwise throws error.
 \description{
 Validate that a cross-validation setup doesn't have leakage.
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 4, 5),
+  s2 = matrix(rnorm(20), 4, 5),
+  s3 = matrix(rnorm(20), 4, 5)
+))
+folds <- create_cv_folds(adat, method = "loso")
+validate_cv_setup(folds, reference = "medoid")
+
+}
 \seealso{
 Other leakage: 
 \code{\link{assess_leakage_risk}()},

@@ -22,6 +22,12 @@ Invisibly returns list with leakage info per subject.
 Check if observation-level train/test splits have overlapping indices,
 which would constitute data leakage in observation-axis cross-validation.
 }
+\examples{
+train_obs <- list(s1 = 1:3, s2 = 1:3)
+test_obs <- list(s1 = 4:5, s2 = 4:5)
+check_obs_leakage(train_obs, test_obs)
+
+}
 \seealso{
 Other leakage: 
 \code{\link{assess_leakage_risk}()},

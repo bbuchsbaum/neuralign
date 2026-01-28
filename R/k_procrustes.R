@@ -211,6 +211,15 @@ k_procrustes <- function(Uref, U, K, allow_reflection = TRUE, reflection = NULL)
 #' @return A list with elements `U_aligned`, `R`, `Uref`, `score`, `weights`.
 #'
 #' @family k_procrustes
+#'
+#' @examples
+#' set.seed(1)
+#' q <- 5
+#' r <- 2
+#' K <- diag(q)
+#' U_list <- lapply(1:3, function(i) qr.Q(qr(matrix(rnorm(q * r), q, r))))
+#' out <- k_align_bases(U_list, K, ref = 1)
+#' length(out$U_aligned)
 #' @export
 k_align_bases <- function(U_list, K, ref = 1L,
                           allow_reflection = TRUE,
@@ -270,6 +279,15 @@ k_align_bases <- function(U_list, K, ref = 1L,
 #' @return A list with elements `U`, `iters`, `converged`, `gaps`, `scores`.
 #'
 #' @family k_procrustes
+#'
+#' @examples
+#' set.seed(1)
+#' q <- 5
+#' r <- 2
+#' K <- diag(q)
+#' U_list <- lapply(1:3, function(i) qr.Q(qr(matrix(rnorm(q * r), q, r))))
+#' cons <- k_consensus_basis(U_list, K, max_iter = 5)
+#' dim(cons$U)
 #' @export
 k_consensus_basis <- function(U_list, K,
                               weights = NULL,

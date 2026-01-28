@@ -20,6 +20,15 @@ Contains the aligned data along with quality metrics and CV info.
 \item{\code{cv_info}}{Cross-validation information (fold assignments, etc.).}
 }}
 
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 4, 5),
+  s2 = matrix(rnorm(20), 4, 5)
+))
+fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+
+}
 \seealso{
 Other alignment_result: 
 \code{\link{AlignmentResult}},

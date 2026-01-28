@@ -33,6 +33,15 @@ A list with elements \code{U_aligned}, \code{R}, \code{Uref}, \code{score}, \cod
 Convenience wrapper aligning a list of bases to a single reference (either a
 matrix or an index into \code{U_list}).
 }
+\examples{
+set.seed(1)
+q <- 5
+r <- 2
+K <- diag(q)
+U_list <- lapply(1:3, function(i) qr.Q(qr(matrix(rnorm(q * r), q, r))))
+out <- k_align_bases(U_list, K, ref = 1)
+length(out$U_aligned)
+}
 \seealso{
 Other k_procrustes: 
 \code{\link{k_consensus_basis}()},

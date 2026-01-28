@@ -17,6 +17,20 @@ The loaded AlignmentModel or AlignmentResult.
 \description{
 Load a previously saved alignment model from disk.
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(30), 6, 5),
+  s2 = matrix(rnorm(30), 6, 5)
+))
+res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+path <- tempfile(fileext = ".rds")
+save_alignment(res, path)
+mdl <- load_alignment(path)
+unlink(path)
+inherits(mdl, "AlignmentModel") || inherits(mdl, "AlignmentResult")
+
+}
 \seealso{
 Other serialization: 
 \code{\link{export_alignment}()},

@@ -12,3 +12,11 @@
 \description{
 Print Method for AlignmentData
 }
+\examples{
+set.seed(1)
+AlignmentData(list(
+  s1 = matrix(rnorm(12), 3, 4),
+  s2 = matrix(rnorm(12), 3, 4)
+))
+
+}

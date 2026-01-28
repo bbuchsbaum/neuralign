@@ -36,3 +36,15 @@ The inverse transform operator.
 \description{
 Get the inverse of a transform, if it exists.
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 4, 5),
+  s2 = matrix(rnorm(20), 4, 5)
+))
+res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+mdl <- get_model(res)
+inv <- inverse_transform(mdl, "s2", method = "transpose")
+dim(inv)
+
+}

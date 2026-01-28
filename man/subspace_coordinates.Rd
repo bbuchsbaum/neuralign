@@ -22,3 +22,12 @@ Coordinates of \code{x} in the subspace.
 Convert vectors/matrices in the ambient space into coordinates in a subspace
 basis.
 }
+\examples{
+set.seed(1)
+X <- matrix(rnorm(12), 3, 4)
+sb <- identified_subspace_basis(X, convention = "right")
+v <- rnorm(4)
+z <- subspace_coordinates(v, sb$basis)
+length(z)
+
+}

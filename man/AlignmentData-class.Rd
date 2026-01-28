@@ -32,6 +32,15 @@ occurrence order within each label.}
 \item{\code{metadata}}{Named list for additional method-specific information.}
 }}
 
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 4, 5),
+  s2 = matrix(rnorm(20), 4, 5)
+), obs_labels = paste0("obs", 1:5))
+adat
+
+}
 \seealso{
 Other alignment_data: 
 \code{\link{AlignmentData}},

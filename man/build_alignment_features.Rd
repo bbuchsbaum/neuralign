@@ -96,6 +96,26 @@ and numeric/effective rank per subject (NULL if \code{check_identifiability=FALS
 \description{
 Build Alignment Matrices from Feature Blocks
 }
+\examples{
+set.seed(1)
+b1_s1 <- alignment_feature_block(matrix(rnorm(6), 3, 2), "b1",
+  feature_names = c("a", "b", "c")
+)
+b2_s1 <- alignment_feature_block(matrix(rnorm(4), 2, 2), "b2",
+  feature_names = c("d", "e")
+)
+b1_s2 <- alignment_feature_block(matrix(rnorm(4), 2, 2), "b1",
+  feature_names = c("b", "c")
+)
+b2_s2 <- alignment_feature_block(matrix(rnorm(4), 2, 2), "b2",
+  feature_names = c("d", "e")
+)
+built <- build_alignment_features(
+  list(s1 = list(b1 = b1_s1, b2 = b2_s1), s2 = list(b1 = b1_s2, b2 = b2_s2)),
+  harmonize = "intersection"
+)
+lapply(built$matrices, dim)
+}
 \concept{feature_blocks
 
 Construct per-subject alignment matrices by harmonizing and stacking feature

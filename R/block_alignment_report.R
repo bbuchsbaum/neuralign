@@ -34,6 +34,21 @@
 #'   \item{per_block_quality}{Optional per-block reconstruction summaries (or NULL).}
 #' }
 #'
+#' @examples
+#' set.seed(1)
+#' b1_s1 <- alignment_feature_block(matrix(rnorm(6), 3, 2), "b1",
+#'   feature_names = c("a", "b", "c")
+#' )
+#' b1_s2 <- alignment_feature_block(matrix(rnorm(4), 2, 2), "b1",
+#'   feature_names = c("b", "c")
+#' )
+#' rpt <- block_alignment_report(
+#'   list(s1 = list(b1 = b1_s1), s2 = list(b1 = b1_s2)),
+#'   harmonize = "intersection",
+#'   min_features = 2
+#' )
+#' names(rpt)
+#'
 #' @export
 block_alignment_report <- function(blocks_by_subject,
                                    aligned = NULL,

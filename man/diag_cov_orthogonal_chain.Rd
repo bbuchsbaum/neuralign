@@ -52,3 +52,9 @@ off-diagonal covariances induced by intermediate transforms. This is a useful
 approximation for uncertainty summaries but is not, in general, equivalent to
 computing the diagonal of the fully composed covariance.
 }
+\examples{
+v <- c(a = 1, b = 2)
+Q <- matrix(c(0, 1, -1, 0), 2, 2)
+diag_cov_orthogonal_chain(v, list(Q, Q))
+
+}

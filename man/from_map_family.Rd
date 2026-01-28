@@ -17,3 +17,13 @@ An AlignmentModel.
 \description{
 Convert an fmrigds MapFamily to a neuralign AlignmentModel.
 }
+\examples{
+mf <- list(
+  by_subject = list(s1 = diag(3), s2 = diag(3)),
+  from_space = "spaceA",
+  to_space = "spaceB"
+)
+mdl <- from_map_family(mf, method = "imported")
+inherits(mdl, "AlignmentModel")
+
+}

@@ -41,6 +41,16 @@ a named numeric vector.
 \description{
 Suggest Feature Block Weights
 }
+\examples{
+set.seed(1)
+big <- alignment_feature_block(matrix(rnorm(20), 10, 2), "big",
+  feature_names = paste0("b", 1:10)
+)
+small <- alignment_feature_block(matrix(rnorm(6), 3, 2), "small",
+  feature_names = paste0("s", 1:3)
+)
+suggest_block_weights(list(big = big, small = small), method = "equalize_rows")
+}
 \concept{feature_blocks
 
 Suggest additional block multipliers to mitigate dominance by large blocks

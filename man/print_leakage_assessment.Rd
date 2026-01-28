@@ -12,3 +12,16 @@ print_leakage_assessment(risk)
 \description{
 Print Leakage Risk Assessment
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 4, 5),
+  s2 = matrix(rnorm(20), 4, 5),
+  s3 = matrix(rnorm(20), 4, 5)
+))
+res <- fit_alignment(adat, method = "procrustes", reference = "medoid", cv = "loso",
+  compute_quality = FALSE
+)
+print_leakage_assessment(assess_leakage_risk(res))
+
+}

@@ -22,3 +22,12 @@ Compute the r-by-r operator representing \code{Q} in the coordinates of \code{ba
 For any \code{z} in \code{R^r}, defining \verb{x = B z} (a vector in the subspace), we have:
 \deqn{B^\top (Q x) = Q_r z.}
 }
+\examples{
+set.seed(1)
+X <- matrix(rnorm(12), 3, 4)
+sb <- identified_subspace_basis(X, convention = "right")
+Q <- diag(4)
+Qr <- restrict_operator_to_subspace(Q, sb$basis)
+dim(Qr)
+
+}

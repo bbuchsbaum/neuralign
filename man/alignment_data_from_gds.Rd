@@ -20,3 +20,11 @@ An AlignmentData object.
 \description{
 Extract data from an fmrigds gds_data object into AlignmentData format.
 }
+\examples{
+\dontrun{
+# Requires fmrigds and a gds_data object:
+# adat <- alignment_data_from_gds(gds, assay = "beta")
+# res <- fit_alignment(adat, method = "procrustes")
+}
+
+}

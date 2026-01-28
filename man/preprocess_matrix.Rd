@@ -28,3 +28,7 @@ Center and/or scale a numeric matrix along rows or columns. This helper is
 useful for removing mean offsets and/or equalizing feature scales prior to
 fitting an alignment model.
 }
+\examples{
+X <- matrix(1:6, 3, 2)
+preprocess_matrix(X, center = "rows", scale = "none")
+}

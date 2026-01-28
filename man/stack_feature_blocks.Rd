@@ -19,6 +19,17 @@ A matrix (stacked features x observations).
 \description{
 Stack Feature Blocks
 }
+\examples{
+set.seed(1)
+b1 <- alignment_feature_block(matrix(rnorm(6), 3, 2), "b1",
+  weight = 1, feature_names = c("a", "b", "c")
+)
+b2 <- alignment_feature_block(matrix(rnorm(4), 2, 2), "b2",
+  weight = 0.25, feature_names = c("d", "e")
+)
+X <- stack_feature_blocks(list(b1 = b1, b2 = b2))
+dim(X)
+}
 \concept{feature_blocks
 
 Vertically stack (rbind) multiple feature blocks after scaling each by

@@ -49,6 +49,17 @@ NULL
 #'   them for provenance (e.g., \code{meta$source_type}, \code{meta$requires_independence}).
 #'
 #' @return An object of class `"alignment_feature_block"`.
+#'
+#' @examples
+#' set.seed(1)
+#' blk <- alignment_feature_block(
+#'   x = matrix(rnorm(6), 3, 2),
+#'   name = "example",
+#'   weight = 2,
+#'   feature_names = c("f1", "f2", "f3"),
+#'   meta = list(source_type = "supervised")
+#' )
+#' blk$name
 #' @export
 alignment_feature_block <- function(x,
                                     name,
@@ -237,6 +248,16 @@ alignment_feature_block <- function(x,
 #' @return If \code{per = "global"}, a named numeric vector. If
 #'   \code{per = "per_subject"}, a named list keyed by subject, each containing
 #'   a named numeric vector.
+#'
+#' @examples
+#' set.seed(1)
+#' big <- alignment_feature_block(matrix(rnorm(20), 10, 2), "big",
+#'   feature_names = paste0("b", 1:10)
+#' )
+#' small <- alignment_feature_block(matrix(rnorm(6), 3, 2), "small",
+#'   feature_names = paste0("s", 1:3)
+#' )
+#' suggest_block_weights(list(big = big, small = small), method = "equalize_rows")
 #' @export
 suggest_block_weights <- function(blocks_by_subject,
                                   method = c("equalize_rows", "equalize_frobenius", "equalize_rms"),
@@ -346,6 +367,17 @@ suggest_block_weights <- function(blocks_by_subject,
 #'   internal weight).
 #'
 #' @return A matrix (stacked features x observations).
+#'
+#' @examples
+#' set.seed(1)
+#' b1 <- alignment_feature_block(matrix(rnorm(6), 3, 2), "b1",
+#'   weight = 1, feature_names = c("a", "b", "c")
+#' )
+#' b2 <- alignment_feature_block(matrix(rnorm(4), 2, 2), "b2",
+#'   weight = 0.25, feature_names = c("d", "e")
+#' )
+#' X <- stack_feature_blocks(list(b1 = b1, b2 = b2))
+#' dim(X)
 #' @export
 stack_feature_blocks <- function(blocks, block_weights = NULL) {
   if (!is.list(blocks) || length(blocks) < 1L) {
@@ -406,6 +438,21 @@ stack_feature_blocks <- function(blocks, block_weights = NULL) {
 #'   block.
 #'
 #' @return A harmonized `blocks_by_subject` list with the same structure.
+#'
+#' @examples
+#' set.seed(1)
+#' b1_s1 <- alignment_feature_block(matrix(rnorm(6), 3, 2), "b1",
+#'   feature_names = c("a", "b", "c")
+#' )
+#' b1_s2 <- alignment_feature_block(matrix(rnorm(4), 2, 2), "b1",
+#'   feature_names = c("b", "c")
+#' )
+#' blocks <- list(
+#'   s1 = list(b1 = b1_s1),
+#'   s2 = list(b1 = b1_s2)
+#' )
+#' h <- harmonize_feature_blocks(blocks, min_features = 2)
+#' vapply(h, function(sb) nrow(sb$b1$x), integer(1))
 #' @export
 harmonize_feature_blocks <- function(blocks_by_subject, min_features = 2L) {
   if (!is.list(blocks_by_subject) || length(blocks_by_subject) < 1L) {
@@ -566,6 +613,25 @@ harmonize_feature_blocks <- function(blocks_by_subject, min_features = 2L) {
 #'   \item{warnings}{Character vector of warning messages encountered.}
 #' }
 #'
+#' @examples
+#' set.seed(1)
+#' b1_s1 <- alignment_feature_block(matrix(rnorm(6), 3, 2), "b1",
+#'   feature_names = c("a", "b", "c")
+#' )
+#' b2_s1 <- alignment_feature_block(matrix(rnorm(4), 2, 2), "b2",
+#'   feature_names = c("d", "e")
+#' )
+#' b1_s2 <- alignment_feature_block(matrix(rnorm(4), 2, 2), "b1",
+#'   feature_names = c("b", "c")
+#' )
+#' b2_s2 <- alignment_feature_block(matrix(rnorm(4), 2, 2), "b2",
+#'   feature_names = c("d", "e")
+#' )
+#' built <- build_alignment_features(
+#'   list(s1 = list(b1 = b1_s1, b2 = b2_s1), s2 = list(b1 = b1_s2, b2 = b2_s2)),
+#'   harmonize = "intersection"
+#' )
+#' lapply(built$matrices, dim)
 #' @export
 build_alignment_features <- function(blocks_by_subject,
                                      harmonize = c("intersection", "union_fill"),
@@ -898,6 +964,14 @@ build_alignment_features <- function(blocks_by_subject,
 #'   }
 #'
 #' @return A named logical vector keyed by block name.
+#'
+#' @examples
+#' blk <- alignment_feature_block(
+#'   x = matrix(1, 1, 1),
+#'   name = "block",
+#'   meta = list(requires_independence = TRUE)
+#' )
+#' feature_block_requires_independence(list(block = blk))
 #' @export
 feature_block_requires_independence <- function(blocks) {
   if (!is.list(blocks) || length(blocks) < 1L) {

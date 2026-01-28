@@ -91,6 +91,19 @@ save_alignment <- function(model,
 #'
 #' @return The loaded AlignmentModel or AlignmentResult.
 #'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(30), 6, 5),
+#'   s2 = matrix(rnorm(30), 6, 5)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#' path <- tempfile(fileext = ".rds")
+#' save_alignment(res, path)
+#' mdl <- load_alignment(path)
+#' unlink(path)
+#' inherits(mdl, "AlignmentModel") || inherits(mdl, "AlignmentResult")
+#'
 #' @export
 load_alignment <- function(path, verify = TRUE) {
   if (!file.exists(path)) {
@@ -157,6 +170,13 @@ load_alignment <- function(path, verify = TRUE) {
 #'   }
 #'
 #' @return Invisibly returns list of created files.
+#'
+#' @examples
+#' Q <- diag(3)
+#' mdl <- AlignmentModel(list(s1 = Q), reference = "s1", method = "procrustes")
+#' base <- tempfile("neuralign_export_")
+#' export_alignment(mdl, base, format = "csv")
+#' unlink(paste0(base, "_transforms"), recursive = TRUE)
 #'
 #' @export
 export_alignment <- function(model,
@@ -262,6 +282,15 @@ export_alignment <- function(model,
 #' @param method Method name to assign to the imported model.
 #'
 #' @return An AlignmentModel with the imported transforms.
+#'
+#' @examples
+#' Q <- diag(3)
+#' mdl <- AlignmentModel(list(s1 = Q), reference = "s1", method = "procrustes")
+#' base <- tempfile("neuralign_export_")
+#' export_alignment(mdl, base, format = "csv")
+#' mdl2 <- import_alignment(base, format = "csv", method = "imported")
+#' unlink(paste0(base, "_transforms"), recursive = TRUE)
+#' inherits(mdl2, "AlignmentModel")
 #'
 #' @export
 import_alignment <- function(path,

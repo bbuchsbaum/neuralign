@@ -260,6 +260,11 @@ apply_alignment <- function(model,
 #'
 #' @return Transformed data.
 #'
+#' @examples
+#' X <- matrix(1:6, 3, 2)
+#' Q <- diag(3)
+#' apply_transform(Q, X)
+#'
 #' @export
 apply_transform <- function(transform, data) {
   if (.is_embedding_transform(transform)) {
@@ -320,6 +325,17 @@ apply_transform <- function(transform, data) {
 #' @param lambda Regularization strength used by \code{method = "ridge"}.
 #'
 #' @return The inverse transform operator.
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#' mdl <- get_model(res)
+#' inv <- inverse_transform(mdl, "s2", method = "transpose")
+#' dim(inv)
 #'
 #' @export
 inverse_transform <- function(model,
@@ -481,6 +497,16 @@ inverse_transform <- function(model,
 #' @param lambda Regularization strength for \code{inverse="ridge"}.
 #'
 #' @return A matrix (if \code{aligned} is a matrix) or a named list of matrices.
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#' lifted <- lift_aligned(res, to = "reference", inverse = "transpose")
+#' lapply(lifted, dim)
 #'
 #' @export
 lift_aligned <- function(x,

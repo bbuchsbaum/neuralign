@@ -73,6 +73,10 @@ NULL
 #' @param robust Logical; if TRUE, use median/MAD instead of mean/SD.
 #'
 #' @return A numeric matrix with the same dimensions and dimnames as \code{x}.
+#'
+#' @examples
+#' X <- matrix(1:6, 3, 2)
+#' preprocess_matrix(X, center = "rows", scale = "none")
 #' @export
 preprocess_matrix <- function(x,
                               center = c("none", "rows", "cols"),
@@ -126,6 +130,15 @@ preprocess_matrix <- function(x,
 #' @param ... Arguments passed to \code{\link{preprocess_matrix}}.
 #'
 #' @return An \code{AlignmentData} object with preprocessed subject matrices.
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5)
+#' ))
+#' adat2 <- preprocess_alignment_data(adat, center = "rows")
+#' dim(get_subject_data(adat2, "s1"))
 #' @export
 preprocess_alignment_data <- function(data, ...) {
   data <- as_alignment_data(data)
@@ -164,6 +177,15 @@ preprocess_alignment_data <- function(data, ...) {
 #'
 #' @return A \code{blocks_by_subject} list with the same structure and metadata,
 #'   but with preprocessed \code{$x} matrices.
+#'
+#' @examples
+#' set.seed(1)
+#' b1 <- alignment_feature_block(matrix(rnorm(6), 3, 2), "b1",
+#'   feature_names = c("a", "b", "c")
+#' )
+#' blocks <- list(s1 = list(b1 = b1))
+#' blocks2 <- preprocess_feature_blocks(blocks, center = "rows")
+#' dim(blocks2$s1$b1$x)
 #' @export
 preprocess_feature_blocks <- function(blocks_by_subject, ...) {
   if (!is.list(blocks_by_subject) || length(blocks_by_subject) < 1L) {

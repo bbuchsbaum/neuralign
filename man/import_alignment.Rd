@@ -19,6 +19,16 @@ An AlignmentModel with the imported transforms.
 \description{
 Import alignment transforms from external files.
 }
+\examples{
+Q <- diag(3)
+mdl <- AlignmentModel(list(s1 = Q), reference = "s1", method = "procrustes")
+base <- tempfile("neuralign_export_")
+export_alignment(mdl, base, format = "csv")
+mdl2 <- import_alignment(base, format = "csv", method = "imported")
+unlink(paste0(base, "_transforms"), recursive = TRUE)
+inherits(mdl2, "AlignmentModel")
+
+}
 \seealso{
 Other serialization: 
 \code{\link{export_alignment}()},

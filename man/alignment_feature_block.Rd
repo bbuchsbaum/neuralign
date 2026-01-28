@@ -25,6 +25,17 @@ An object of class \code{"alignment_feature_block"}.
 \description{
 Create an Alignment Feature Block
 }
+\examples{
+set.seed(1)
+blk <- alignment_feature_block(
+  x = matrix(rnorm(6), 3, 2),
+  name = "example",
+  weight = 2,
+  feature_names = c("f1", "f2", "f3"),
+  meta = list(source_type = "supervised")
+)
+blk$name
+}
 \seealso{
 Other feature_blocks: 
 \code{\link{feature_blocks}}

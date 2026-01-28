@@ -203,6 +203,12 @@ setMethod("%*%", c("AlignmentModel", "matrix"),
 #'
 #' @return List with \code{compatible} logical and \code{message} string.
 #'
+#' @examples
+#' Q <- diag(3)
+#' m1 <- AlignmentModel(list(s1 = Q), reference = "s1", method = "procrustes")
+#' m2 <- AlignmentModel(list(s1 = Q), reference = "s1", method = "procrustes")
+#' check_composition(m1, m2)$compatible
+#'
 #' @export
 check_composition <- function(model1, model2) {
   model1 <- .ensure_model(model1, what = "model1")

@@ -22,3 +22,12 @@ the input.
 \description{
 Project Data Onto a Subspace
 }
+\examples{
+set.seed(1)
+X <- matrix(rnorm(12), 3, 4)
+sb <- identified_subspace_basis(X, convention = "right")
+v <- rnorm(4)
+vp <- project_to_subspace(v, sb$basis)
+length(vp)
+
+}

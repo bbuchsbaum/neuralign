@@ -46,6 +46,16 @@ An AlignmentModel object.
 \description{
 Create an AlignmentModel Object
 }
+\examples{
+Q <- diag(3)
+mdl <- AlignmentModel(
+  transforms = list(s1 = Q, s2 = Q),
+  reference = "s1",
+  method = "procrustes"
+)
+model_subjects(mdl)
+
+}
 \seealso{
 Other alignment_model: 
 \code{\link{AlignmentModel-class}},

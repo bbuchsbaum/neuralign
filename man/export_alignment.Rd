@@ -25,6 +25,14 @@ Invisibly returns list of created files.
 Export alignment transforms in a portable format (e.g., for use in
 other software or languages).
 }
+\examples{
+Q <- diag(3)
+mdl <- AlignmentModel(list(s1 = Q), reference = "s1", method = "procrustes")
+base <- tempfile("neuralign_export_")
+export_alignment(mdl, base, format = "csv")
+unlink(paste0(base, "_transforms"), recursive = TRUE)
+
+}
 \seealso{
 Other serialization: 
 \code{\link{import_alignment}()},

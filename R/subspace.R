@@ -65,6 +65,12 @@ NULL
 #'   \item{tol}{The tolerance used.}
 #' }
 #'
+#' @examples
+#' set.seed(1)
+#' X <- matrix(rnorm(12), 3, 4)
+#' sb <- identified_subspace_basis(X, convention = "right")
+#' dim(sb$basis)
+#'
 #' @export
 identified_subspace_basis <- function(x,
                                       convention = c("right", "left"),
@@ -119,6 +125,14 @@ identified_subspace_basis <- function(x,
 #' @return `x` projected onto the column span of `basis`, with the same shape as
 #'   the input.
 #'
+#' @examples
+#' set.seed(1)
+#' X <- matrix(rnorm(12), 3, 4)
+#' sb <- identified_subspace_basis(X, convention = "right")
+#' v <- rnorm(4)
+#' vp <- project_to_subspace(v, sb$basis)
+#' length(vp)
+#'
 #' @export
 project_to_subspace <- function(x, basis, side = c("left", "right")) {
   side <- match.arg(side)
@@ -167,6 +181,14 @@ project_to_subspace <- function(x, basis, side = c("left", "right")) {
 #'
 #' @return Coordinates of `x` in the subspace.
 #'
+#' @examples
+#' set.seed(1)
+#' X <- matrix(rnorm(12), 3, 4)
+#' sb <- identified_subspace_basis(X, convention = "right")
+#' v <- rnorm(4)
+#' z <- subspace_coordinates(v, sb$basis)
+#' length(z)
+#'
 #' @export
 subspace_coordinates <- function(x, basis, side = c("left", "right")) {
   side <- match.arg(side)
@@ -209,6 +231,14 @@ subspace_coordinates <- function(x, basis, side = c("left", "right")) {
 #'
 #' @return r-by-r matrix.
 #'
+#' @examples
+#' set.seed(1)
+#' X <- matrix(rnorm(12), 3, 4)
+#' sb <- identified_subspace_basis(X, convention = "right")
+#' Q <- diag(4)
+#' Qr <- restrict_operator_to_subspace(Q, sb$basis)
+#' dim(Qr)
+#'
 #' @export
 restrict_operator_to_subspace <- function(Q, basis) {
   basis <- .validate_subspace_basis(basis)
@@ -228,6 +258,14 @@ restrict_operator_to_subspace <- function(Q, basis) {
 #'   zero; `"identity"` uses identity on the complement.
 #'
 #' @return `d x d` matrix operator.
+#'
+#' @examples
+#' set.seed(1)
+#' X <- matrix(rnorm(12), 3, 4)
+#' sb <- identified_subspace_basis(X, convention = "right")
+#' Q_sub <- diag(ncol(sb$basis))
+#' Q_full <- lift_operator_from_subspace(Q_sub, sb$basis, fill = "identity")
+#' dim(Q_full)
 #'
 #' @export
 lift_operator_from_subspace <- function(Q_sub, basis, fill = c("zero", "identity")) {
@@ -273,6 +311,14 @@ lift_operator_from_subspace <- function(Q_sub, basis, fill = c("zero", "identity
 #' @param orthogonal_tol Tolerance for the orthogonality check.
 #'
 #' @return A `d x d` orthogonal matrix.
+#'
+#' @examples
+#' set.seed(1)
+#' X <- matrix(rnorm(9), 3, 3)
+#' X[, 3] <- X[, 2]  # rank-deficient (right-convention transform_dim = ncol(X))
+#' Q <- diag(3)
+#' Qc <- canonicalize_orthogonal_operator(Q, X, convention = "right")
+#' dim(Qc)
 #' @export
 canonicalize_orthogonal_operator <- function(Q,
                                              x,

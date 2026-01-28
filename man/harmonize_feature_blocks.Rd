@@ -19,6 +19,21 @@ A harmonized \code{blocks_by_subject} list with the same structure.
 \description{
 Harmonize Feature Blocks Across Subjects
 }
+\examples{
+set.seed(1)
+b1_s1 <- alignment_feature_block(matrix(rnorm(6), 3, 2), "b1",
+  feature_names = c("a", "b", "c")
+)
+b1_s2 <- alignment_feature_block(matrix(rnorm(4), 2, 2), "b1",
+  feature_names = c("b", "c")
+)
+blocks <- list(
+  s1 = list(b1 = b1_s1),
+  s2 = list(b1 = b1_s2)
+)
+h <- harmonize_feature_blocks(blocks, min_features = 2)
+vapply(h, function(sb) nrow(sb$b1$x), integer(1))
+}
 \concept{feature_blocks
 
 For each block name, intersect feature names across subjects, subset and

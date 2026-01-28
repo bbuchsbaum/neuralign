@@ -421,6 +421,14 @@ select_reference <- function(data,
 #'
 #' @return Matrix representing the mean across subjects.
 #'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5)
+#' ))
+#' dim(compute_centroid(adat))
+#'
 #' @export
 compute_centroid <- function(data) {
   if (inherits(data, "AlignmentData")) {
@@ -449,6 +457,15 @@ compute_centroid <- function(data) {
 #' @param reference Subject ID or "consensus".
 #'
 #' @return Matrix representing the reference data.
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5)
+#' ))
+#' dim(get_reference_data(adat, "s1"))
+#' dim(get_reference_data(adat, "consensus"))
 #'
 #' @export
 get_reference_data <- function(data, reference) {

@@ -15,3 +15,12 @@ Matrix representing the mean across subjects.
 \description{
 Compute the element-wise mean across subjects.
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 4, 5),
+  s2 = matrix(rnorm(20), 4, 5)
+))
+dim(compute_centroid(adat))
+
+}

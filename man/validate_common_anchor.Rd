@@ -31,3 +31,13 @@ not have a common anchor, you typically need a fixed/external anchor or an
 outer split plus a leak-free mapping from fold-specific spaces into a common
 analysis space.
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 4, 5),
+  s2 = matrix(rnorm(20), 4, 5)
+), obs_labels = paste0("obs", 1:5))
+res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+validate_common_anchor(res, action = "error")
+
+}

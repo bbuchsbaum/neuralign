@@ -81,3 +81,19 @@ only), then apply those transforms to held-out matrices. This helper is
 intentionally domain-agnostic: downstream packages are responsible for
 producing fold-wise train/test matrices.
 }
+\examples{
+set.seed(1)
+X1 <- matrix(rnorm(12), 3, 4)
+X2 <- matrix(rnorm(12), 3, 4)
+train <- list(
+  f1 = list(s1 = X1[, 1:2, drop = FALSE], s2 = X2[, 1:2, drop = FALSE]),
+  f2 = list(s1 = X1[, 3:4, drop = FALSE], s2 = X2[, 3:4, drop = FALSE])
+)
+test <- list(
+  f1 = list(s1 = X1[, 3:4, drop = FALSE], s2 = X2[, 3:4, drop = FALSE]),
+  f2 = list(s1 = X1[, 1:2, drop = FALSE], s2 = X2[, 1:2, drop = FALSE])
+)
+cf <- run_obs_crossfit_alignment(train, test, method = "procrustes", reference = "s1")
+names(cf$models_by_fold)
+
+}

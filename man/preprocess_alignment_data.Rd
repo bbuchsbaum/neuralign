@@ -18,3 +18,12 @@ An \code{AlignmentData} object with preprocessed subject matrices.
 Apply \code{\link{preprocess_matrix}} to each subject matrix in an
 \code{\link{AlignmentData}} object (or a list coercible to \code{AlignmentData}).
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 4, 5),
+  s2 = matrix(rnorm(20), 4, 5)
+))
+adat2 <- preprocess_alignment_data(adat, center = "rows")
+dim(get_subject_data(adat2, "s1"))
+}

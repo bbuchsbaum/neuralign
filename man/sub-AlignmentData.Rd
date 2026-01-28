@@ -18,3 +18,13 @@ A new AlignmentData object containing only the selected subjects.
 \description{
 Subset AlignmentData by Subject Index or ID
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(12), 3, 4),
+  s2 = matrix(rnorm(12), 3, 4),
+  s3 = matrix(rnorm(12), 3, 4)
+))
+adat[c("s1", "s3")]
+
+}

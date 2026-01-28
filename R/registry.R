@@ -17,6 +17,9 @@ NULL
 #' should declare which API version they implement. This allows detection of
 #' incompatible changes as the interface evolves.
 #'
+#' @examples
+#' NEURALIGN_ALIGNER_API_VERSION
+#'
 #' @export
 NEURALIGN_ALIGNER_API_VERSION <- 1L
 
@@ -44,6 +47,22 @@ NEURALIGN_ALIGNER_API_VERSION <- 1L
 #' If provided, \code{apply_fn} must accept at minimum: \code{fit_result},
 #' \code{new_data}, and \code{...}. It should return a list with a
 #' \code{transforms} element (named list of operators).
+#'
+#' @examples
+#' dummy_fit <- function(data, reference, ...) {
+#'   list(
+#'     transforms = list(),
+#'     reference_data = NULL,
+#'     space_from = NULL,
+#'     space_to = NULL,
+#'     method_state = list()
+#'   )
+#' }
+#' validate_aligner_contract(
+#'   name = "dummy",
+#'   fit_fn = dummy_fit,
+#'   capabilities = list(transform_type = "orthogonal")
+#' )
 #'
 #' @export
 validate_aligner_contract <- function(name,
@@ -381,6 +400,9 @@ list_aligners <- function(details = FALSE) {
 #'
 #' @return List with aligner information, or NULL if not found.
 #'
+#' @examples
+#' get_aligner("procrustes")$description
+#'
 #' @export
 get_aligner <- function(name) {
   if (!exists(name, envir = .aligner_registry)) {
@@ -397,6 +419,9 @@ get_aligner <- function(name) {
 #' @param name Character string identifying the method.
 #'
 #' @return List of capability flags, or NULL if method not found.
+#'
+#' @examples
+#' aligner_capabilities("procrustes")$transform_type
 #'
 #' @export
 aligner_capabilities <- function(name) {
@@ -416,6 +441,9 @@ aligner_capabilities <- function(name) {
 #'
 #' @return Logical indicating if the aligner is registered.
 #'
+#' @examples
+#' is_aligner_registered("procrustes")
+#'
 #' @export
 is_aligner_registered <- function(name) {
   exists(name, envir = .aligner_registry)
@@ -431,6 +459,26 @@ is_aligner_registered <- function(name) {
 #' @param name Character string identifying the method.
 #'
 #' @return Invisibly returns TRUE if removed, FALSE if not found.
+#'
+#' @examples
+#' tmp_fit <- function(data, reference, ...) {
+#'   list(
+#'     transforms = list(),
+#'     reference_data = NULL,
+#'     space_from = NULL,
+#'     space_to = NULL,
+#'     method_state = list()
+#'   )
+#' }
+#' if (is_aligner_registered("tmp_registry_example")) {
+#'   unregister_aligner("tmp_registry_example")
+#' }
+#' register_aligner(
+#'   name = "tmp_registry_example",
+#'   fit_fn = tmp_fit,
+#'   capabilities = list(transform_type = "orthogonal")
+#' )
+#' unregister_aligner("tmp_registry_example")
 #'
 #' @export
 unregister_aligner <- function(name) {

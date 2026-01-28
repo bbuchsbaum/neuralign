@@ -19,3 +19,14 @@ the aligned outputs are expressed in fold-specific spaces and should not be
 used for group-level comparisons without a leak-free mapping into a single
 common anchor.
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 4, 5),
+  s2 = matrix(rnorm(20), 4, 5),
+  s3 = matrix(rnorm(20), 4, 5)
+), obs_labels = paste0("obs", 1:5))
+cv <- run_cv_alignment(adat, method = "procrustes", cv_folds = "loso", reference = "medoid")
+has_common_anchor(cv$result)
+
+}

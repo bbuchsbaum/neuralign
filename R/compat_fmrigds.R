@@ -94,6 +94,15 @@ as_map_family <- function(model, name = NULL) {
 #'
 #' @return An AlignmentModel.
 #'
+#' @examples
+#' mf <- list(
+#'   by_subject = list(s1 = diag(3), s2 = diag(3)),
+#'   from_space = "spaceA",
+#'   to_space = "spaceB"
+#' )
+#' mdl <- from_map_family(mf, method = "imported")
+#' inherits(mdl, "AlignmentModel")
+#'
 #' @export
 from_map_family <- function(map_family, method = "fmrigds_imported") {
   if (!is.list(map_family) || is.null(map_family$by_subject)) {
@@ -131,6 +140,13 @@ from_map_family <- function(map_family, method = "fmrigds_imported") {
 #'
 #' @return Transformed gds_data object.
 #'
+#' @examples
+#' \dontrun{
+#' # Requires fmrigds and a gds_data object:
+#' # mdl <- fit_alignment(alignment_data_from_gds(gds), method = "procrustes") |> get_model()
+#' # gds_aligned <- apply_to_gds(mdl, gds)
+#' }
+#'
 #' @export
 apply_to_gds <- function(model, gds_data, ...) {
   if (!requireNamespace("fmrigds", quietly = TRUE)) {
@@ -152,6 +168,13 @@ apply_to_gds <- function(model, gds_data, ...) {
 #'   per-subject matrix (samples x contrasts).
 #'
 #' @return An AlignmentData object.
+#'
+#' @examples
+#' \dontrun{
+#' # Requires fmrigds and a gds_data object:
+#' # adat <- alignment_data_from_gds(gds, assay = "beta")
+#' # res <- fit_alignment(adat, method = "procrustes")
+#' }
 #'
 #' @export
 alignment_data_from_gds <- function(gds_data, assay = "beta", ...) {

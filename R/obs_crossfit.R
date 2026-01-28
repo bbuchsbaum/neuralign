@@ -287,6 +287,21 @@ NULL
 #'     \item \code{fold_info}: provenance and anchor semantics
 #'   }
 #'
+#' @examples
+#' set.seed(1)
+#' X1 <- matrix(rnorm(12), 3, 4)
+#' X2 <- matrix(rnorm(12), 3, 4)
+#' train <- list(
+#'   f1 = list(s1 = X1[, 1:2, drop = FALSE], s2 = X2[, 1:2, drop = FALSE]),
+#'   f2 = list(s1 = X1[, 3:4, drop = FALSE], s2 = X2[, 3:4, drop = FALSE])
+#' )
+#' test <- list(
+#'   f1 = list(s1 = X1[, 3:4, drop = FALSE], s2 = X2[, 3:4, drop = FALSE]),
+#'   f2 = list(s1 = X1[, 1:2, drop = FALSE], s2 = X2[, 1:2, drop = FALSE])
+#' )
+#' cf <- run_obs_crossfit_alignment(train, test, method = "procrustes", reference = "s1")
+#' names(cf$models_by_fold)
+#'
 #' @export
 run_obs_crossfit_alignment <- function(train_data_by_fold,
                                       test_data_by_fold = NULL,
@@ -543,6 +558,17 @@ run_obs_crossfit_alignment <- function(train_data_by_fold,
 #' @param ... Additional arguments passed to \code{\link{fit_alignment}}.
 #'
 #' @return An object of class \code{"ObsCrossfitAlignment"}.
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(12), 3, 4),
+#'   s2 = matrix(rnorm(12), 3, 4)
+#' ), obs_labels = paste0("t", 1:4))
+#' runs <- c("r1", "r1", "r2", "r2")
+#' folds <- create_obs_folds(runs, method = "run")
+#' cf <- run_obs_crossfit_from_data(adat, folds, method = "procrustes", reference = "s1")
+#' names(cf$transforms_by_fold)
 #'
 #' @export
 run_obs_crossfit_from_data <- function(data,

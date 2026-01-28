@@ -18,3 +18,15 @@ A new AlignmentModel with only the selected subjects.
 \description{
 Subset AlignmentModel by Subject
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(12), 3, 4),
+  s2 = matrix(rnorm(12), 3, 4),
+  s3 = matrix(rnorm(12), 3, 4)
+))
+res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+mdl <- get_model(res)
+mdl[c("s1", "s3")]
+
+}

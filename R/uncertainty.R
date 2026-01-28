@@ -32,6 +32,11 @@ NULL
 #'   vector, returns a `d x length(Q)` matrix whose columns correspond to each
 #'   transform.
 #'
+#' @examples
+#' v <- c(a = 1, b = 2)
+#' Q <- matrix(c(0, 1, -1, 0), 2, 2)  # 90-degree rotation (orthogonal)
+#' diag_cov_orthogonal(v, Q, convention = "left")
+#'
 #' @export
 diag_cov_orthogonal <- function(variances, Q, convention = c("left", "right")) {
   convention <- match.arg(convention)
@@ -131,6 +136,11 @@ diag_cov_orthogonal <- function(variances, Q, convention = c("left", "right")) {
 #'   numeric vector. If `transform` is a model (or list of models) and
 #'   `subject=NULL`, returns a `d x n_subjects` matrix with one column per
 #'   subject; if `subject` selects a single subject, returns a numeric vector.
+#'
+#' @examples
+#' v <- c(a = 1, b = 2)
+#' Q <- matrix(c(0, 1, -1, 0), 2, 2)
+#' diag_cov_orthogonal_chain(v, list(Q, Q))
 #'
 #' @export
 diag_cov_orthogonal_chain <- function(variances,
