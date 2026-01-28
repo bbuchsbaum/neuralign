@@ -268,59 +268,59 @@ inverse_transform <- function(model,
     )
   }
 
-  if (method == "auto") {
-    if (!is.null(caps)) {
-      if (!isTRUE(caps$returns_invertible)) {
-        stop(
-          sprintf(
-            "Method '%s' does not declare invertible operators; use method='pinv' or method='ridge' for an approximate inverse",
-            model@method
-          ),
-          call. = FALSE
-        )
-      }
-      if (caps$transform_type %in% c("orthogonal", "permutation")) {
-        method <- "transpose"
-      } else {
-        method <- "solve"
-      }
-    } else {
-      if (nrow(transform) == ncol(transform)) {
-        method <- "solve"
-      } else {
-        stop(
-          "Transform is not square; no exact inverse. Use method='pinv' or method='ridge' for an approximate inverse.",
-          call. = FALSE
-        )
-      }
-    }
+  method <- .resolve_inverse_method(method, caps, transform, model@method)
+
+  if (method == "transpose") return(t(transform))
+
+  if (method == "pinv") return(.pseudoinverse(transform, tol = tol))
+  if (method == "ridge") return(.ridge_inverse(transform, lambda = lambda))
+
+  if (method != "solve") {
+    stop(sprintf("Unknown inverse method: %s", method), call. = FALSE)
   }
 
-  if (method == "transpose") {
-    return(t(transform))
-  } else if (method == "solve") {
-    if (nrow(transform) != ncol(transform)) {
+  if (nrow(transform) != ncol(transform)) {
+    stop(
+      "Transform is not square; no exact inverse. Use method='pinv' or method='ridge' for an approximate inverse.",
+      call. = FALSE
+    )
+  }
+
+  tryCatch(
+    solve(transform),
+    error = function(e) {
+      stop(sprintf(
+        "Transform is not invertible: %s. Consider method='pinv' or method='ridge'.",
+        conditionMessage(e)
+      ), call. = FALSE)
+    }
+  )
+}
+
+.resolve_inverse_method <- function(method, caps, transform, method_name) {
+  if (!identical(method, "auto")) return(method)
+
+  if (!is.null(caps)) {
+    if (!isTRUE(caps$returns_invertible)) {
       stop(
-        "Transform is not square; no exact inverse. Use method='pinv' or method='ridge' for an approximate inverse.",
+        sprintf(
+          "Method '%s' does not declare invertible operators; use method='pinv' or method='ridge' for an approximate inverse",
+          method_name
+        ),
         call. = FALSE
       )
     }
-    tryCatch(
-      solve(transform),
-      error = function(e) {
-        stop(sprintf(
-          "Transform is not invertible: %s. Consider method='pinv' or method='ridge'.",
-          conditionMessage(e)
-        ), call. = FALSE)
-      }
-    )
-  } else if (method == "pinv") {
-    return(.pseudoinverse(transform, tol = tol))
-  } else if (method == "ridge") {
-    return(.ridge_inverse(transform, lambda = lambda))
-  } else {
-    stop(sprintf("Unknown inverse method: %s", method), call. = FALSE)
+    if (caps$transform_type %in% c("orthogonal", "permutation")) {
+      return("transpose")
+    }
+    return("solve")
   }
+
+  if (nrow(transform) == ncol(transform)) return("solve")
+  stop(
+    "Transform is not square; no exact inverse. Use method='pinv' or method='ridge' for an approximate inverse.",
+    call. = FALSE
+  )
 }
 
 .as_dense_matrix <- function(x) {
