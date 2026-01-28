@@ -303,3 +303,80 @@ test_that("obs-CV with template reference sets anchor_common=TRUE", {
   expect_true(isTRUE(info$anchor_common))
   expect_equal(info$reference_kind, "template")
 })
+
+
+# ---------- Obs-axis CV: embedding-returning aligners ----------
+
+test_that("obs-CV supports embedding-returning aligners (with apply_fn)", {
+  with_temp_registry(code = {
+    embed_fit <- function(data, reference, train_idx = NULL, ...) {
+      k <- 3
+      aligned <- lapply(data@subjects, function(s) {
+        X <- get_subject_data(data, s)
+        X[seq_len(k), , drop = FALSE]
+      })
+      names(aligned) <- data@subjects
+      list(
+        aligned = aligned,
+        reference_data = NULL,
+        space_from = data@space,
+        space_to = "latent"
+      )
+    }
+
+    embed_apply <- function(fit_result, new_data, ...) {
+      k <- 3
+      aligned <- lapply(new_data@subjects, function(s) {
+        X <- get_subject_data(new_data, s)
+        X[seq_len(k), , drop = FALSE]
+      })
+      names(aligned) <- new_data@subjects
+      list(aligned = aligned)
+    }
+
+    register_aligner(
+      "embedder",
+      embed_fit,
+      apply_fn = embed_apply,
+      capabilities = list(
+        returns = "embedding",
+        supports_cv = TRUE,
+        cv_axes = c("subject", "observation"),
+        supports_new_subject = TRUE,
+        supports_new_data = FALSE
+      )
+    )
+
+    set.seed(101)
+    adat <- make_test_alignment_data(n_subjects = 2, n_features = 6, n_obs = 6)
+
+    runs <- rep(c("r1", "r2", "r3"), each = 2)
+    spec <- create_obs_folds(runs, method = "run")
+
+    res <- fit_alignment(
+      adat,
+      method = "embedder",
+      reference = "sub-01",
+      cv_folds = spec,
+      compute_quality = FALSE,
+      return_aligned = TRUE
+    )
+
+    info <- get_cv_info(res)
+    expect_equal(info$axis, "observation")
+    expect_true(isTRUE(info$anchor_common))
+    expect_equal(dim(res@aligned$`sub-01`), c(3, 6))
+
+    expect_error(
+      fit_alignment(
+        adat,
+        method = "embedder",
+        reference = "sub-01",
+        cv_folds = spec,
+        compute_quality = FALSE,
+        return_fold_transforms = TRUE
+      ),
+      "return_fold_transforms"
+    )
+  })
+})

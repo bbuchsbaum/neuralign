@@ -838,7 +838,7 @@ test_that(".validate_reference_for_aligner errors when ref type not in supported
 
 # ---------- Embedding + low-rank transforms ----------
 
-test_that("fit_alignment supports embedding-returning aligners (cv='none' only)", {
+test_that("fit_alignment supports embedding-returning aligners under CV", {
   with_temp_registry(code = {
     embed_fit <- function(data, reference, train_idx = NULL, ...) {
       k <- 3
@@ -855,11 +855,25 @@ test_that("fit_alignment supports embedding-returning aligners (cv='none' only)"
       )
     }
 
+    embed_apply <- function(fit_result, new_data, ...) {
+      k <- 3
+      aligned <- lapply(new_data@subjects, function(s) {
+        X <- get_subject_data(new_data, s)
+        X[seq_len(k), , drop = FALSE]
+      })
+      names(aligned) <- new_data@subjects
+      list(aligned = aligned)
+    }
+
     register_aligner(
       "embedder",
       embed_fit,
+      apply_fn = embed_apply,
       capabilities = list(
         returns = "embedding",
+        supports_cv = TRUE,
+        cv_axes = c("subject", "observation"),
+        supports_new_subject = TRUE,
         supports_new_data = FALSE
       )
     )
@@ -875,10 +889,10 @@ test_that("fit_alignment supports embedding-returning aligners (cv='none' only)"
     model <- get_model(res)
     expect_true(all(vapply(model@transforms, inherits, logical(1), "neuralign_embedding_transform")))
 
-    expect_error(
-      fit_alignment(adat, method = "embedder", cv = "loso"),
-      "cross-validation"
-    )
+    res_cv <- fit_alignment(adat, method = "embedder", cv = "loso", reference = "medoid", compute_quality = FALSE)
+    expect_s4_class(res_cv, "AlignmentResult")
+    expect_equal(dim(res_cv@aligned[[1L]]), c(3, 5))
+    expect_identical(get_model(res_cv)@reference, "fold_specific")
   })
 })
 
