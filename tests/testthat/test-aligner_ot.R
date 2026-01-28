@@ -105,6 +105,17 @@ test_that("GW barycenter reference errors (not implemented)", {
   )
 })
 
+test_that("GW fit errors on non-finite inputs", {
+  skip_if_not_installed("manifoldalign")
+
+  X1 <- matrix(rnorm(12), 4, 3)
+  X1[1, 1] <- NA_real_
+  X2 <- matrix(rnorm(12), 4, 3)
+  adat <- AlignmentData(list(s1 = X1, s2 = X2))
+
+  expect_error(neuralign:::.gw_fit(adat, reference = "consensus", epsilon = 0.1, max_iter = 1))
+})
+
 test_that(".extract_pair_plan indexes packed pairs correctly", {
   # For n=4, packed order indices are:
   # 1:(1,2), 2:(1,3), 3:(1,4), 4:(2,3), 5:(2,4), 6:(3,4)

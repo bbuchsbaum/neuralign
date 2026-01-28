@@ -98,6 +98,26 @@ NULL
   P_t / row_sums
 }
 
+.assert_finite_ot_matrix <- function(x, name = "matrix") {
+  if (!.is_matrixish(x)) {
+    stop(sprintf("OT alignment expects '%s' to be matrix-like", name), call. = FALSE)
+  }
+
+  if (inherits(x, "Matrix")) {
+    vals <- x@x
+    if (!is.null(vals) && any(!is.finite(vals))) {
+      stop(sprintf("OT alignment expects '%s' to contain only finite values (NA/NaN/Inf)", name), call. = FALSE)
+    }
+    return(invisible(TRUE))
+  }
+
+  x <- as.matrix(x)
+  if (any(!is.finite(x))) {
+    stop(sprintf("OT alignment expects '%s' to contain only finite values (NA/NaN/Inf)", name), call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
 
 .ot_fit_common <- function(data,
                            reference,
@@ -112,6 +132,10 @@ NULL
   pre <- .aligner_preamble(data, train_idx = train_idx)
   train_data <- pre$train_data
   data_list <- pre$data_list
+
+  for (subj in names(data_list)) {
+    .assert_finite_ot_matrix(data_list[[subj]], name = sprintf("data for subject '%s'", subj))
+  }
 
   if (.is_matrixish(reference)) {
     reference_name <- "template"
@@ -136,6 +160,8 @@ NULL
   } else {
     stop("Invalid reference specification", call. = FALSE)
   }
+
+  .assert_finite_ot_matrix(reference_data, name = "reference_data")
 
   # Build a minimal hyperdesign (list of domains with $x) for manifoldalign.
   # In neuralign, each subject matrix is (features x observations). For voxel-level

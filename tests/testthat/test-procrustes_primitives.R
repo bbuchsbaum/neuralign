@@ -406,3 +406,26 @@ test_that("procrustes_rotation scale with zero data returns scale=1", {
   res <- procrustes_rotation(X, Y, "left", scale = TRUE)
   expect_equal(res$scale_factor, 1)
 })
+
+test_that("procrustes_rotation handles all-zero matrices", {
+  X <- matrix(0, 3, 5)
+  Y <- matrix(0, 3, 5)
+  res <- procrustes_rotation(X, Y, "left")
+  expect_equal(res$residual, 0, tolerance = 1e-12)
+  expect_equal(res$Q, diag(3), tolerance = 1e-12)
+})
+
+test_that("procrustes_rotation handles 1x1 matrices", {
+  X <- matrix(1, 1, 1)
+  Y <- matrix(2, 1, 1)
+  res <- procrustes_rotation(X, Y, "left", scale = TRUE)
+  expect_equal(res$scale_factor, 2, tolerance = 1e-12)
+  expect_equal(res$residual, 0, tolerance = 1e-12)
+})
+
+test_that("procrustes_rotation errors on non-finite values", {
+  X <- matrix(c(1, NaN, 3, 4), 2, 2)
+  Y <- matrix(1, 2, 2)
+  expect_error(procrustes_rotation(X, Y, "left"))
+  expect_error(procrustes_distance(X, Y, "left"))
+})
