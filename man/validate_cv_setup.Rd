@@ -17,3 +17,10 @@ TRUE if valid, otherwise throws error.
 \description{
 Validate that a cross-validation setup doesn't have leakage.
 }
+\seealso{
+Other leakage: 
+\code{\link{assess_leakage_risk}()},
+\code{\link{check_obs_leakage}()},
+\code{\link{leakage}}
+}
+\concept{leakage}

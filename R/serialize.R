@@ -3,6 +3,7 @@
 #' Serialize alignment models for storage and later reuse.
 #'
 #' @name serialize
+#' @family serialization
 NULL
 
 
@@ -10,6 +11,8 @@ NULL
 #'
 #' Save an alignment model to disk. The model can be loaded later with
 #' \code{\link{load_alignment}} and applied to new data.
+#'
+#' @family serialization
 #'
 #' @param model An AlignmentModel or AlignmentResult.
 #' @param path File path for saving. If doesn't end in .rds, .rds is appended.
@@ -20,14 +23,19 @@ NULL
 #' @return Invisibly returns the path where the model was saved.
 #'
 #' @examples
-#' \dontrun{
-#' result <- fit_alignment(data, method = "procrustes")
-#' save_alignment(result, "my_alignment.rds")
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(30), 6, 5),
+#'   s2 = matrix(rnorm(30), 6, 5)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
 #'
-#' # Later...
-#' model <- load_alignment("my_alignment.rds")
-#' new_result <- apply_alignment(model, new_data)
-#' }
+#' path <- tempfile(fileext = ".rds")
+#' save_alignment(res, path)
+#' mdl <- load_alignment(path)
+#'
+#' new_res <- apply_alignment(mdl, AlignmentData(list(s3 = matrix(rnorm(30), 6, 5))))
+#' unlink(path)
 #'
 #' @export
 save_alignment <- function(model,
@@ -75,6 +83,8 @@ save_alignment <- function(model,
 #' Load an Alignment Model
 #'
 #' Load a previously saved alignment model from disk.
+#'
+#' @family serialization
 #'
 #' @param path File path to the saved model.
 #' @param verify Logical; if TRUE, verify the loaded model's integrity.
@@ -134,6 +144,8 @@ load_alignment <- function(path, verify = TRUE) {
 #'
 #' Export alignment transforms in a portable format (e.g., for use in
 #' other software or languages).
+#'
+#' @family serialization
 #'
 #' @param model An AlignmentModel.
 #' @param path Output path (without extension).
@@ -242,6 +254,8 @@ export_alignment <- function(model,
 #' Import Transforms from External Format
 #'
 #' Import alignment transforms from external files.
+#'
+#' @family serialization
 #'
 #' @param path Path to import from.
 #' @param format Import format (same options as export_alignment).

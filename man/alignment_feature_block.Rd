@@ -25,3 +25,8 @@ An object of class \code{"alignment_feature_block"}.
 \description{
 Create an Alignment Feature Block
 }
+\seealso{
+Other feature_blocks: 
+\code{\link{feature_blocks}}
+}
+\concept{feature_blocks}

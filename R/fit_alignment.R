@@ -4,6 +4,8 @@
 #' for alignment in neuralign. The fitted model can be saved and applied to
 #' new data using \code{\link{apply_alignment}}.
 #'
+#' @family alignment_workflow
+#'
 #' @details
 #' \code{fit_alignment()} does not perform any centering or scaling of inputs by
 #' default. If you want preprocessing, apply it explicitly to your matrices or
@@ -57,12 +59,12 @@
 #'   (optionally) aligned data and quality metrics.
 #'
 #' @examples
-#' \dontrun{
 #' # Create example data
+#' set.seed(1)
 #' data_list <- list(
-#'   "sub-01" = matrix(rnorm(100*50), 100, 50),
-#'   "sub-02" = matrix(rnorm(100*50), 100, 50),
-#'   "sub-03" = matrix(rnorm(100*50), 100, 50)
+#'   "sub-01" = matrix(rnorm(30), 6, 5),
+#'   "sub-02" = matrix(rnorm(30), 6, 5),
+#'   "sub-03" = matrix(rnorm(30), 6, 5)
 #' )
 #' adat <- AlignmentData(data_list)
 #'
@@ -74,7 +76,6 @@
 #'
 #' # Fit with leave-one-subject-out CV
 #' result <- fit_alignment(adat, method = "procrustes", cv = "loso")
-#' }
 #'
 #' @seealso \code{\link{apply_alignment}}, \code{\link{AlignmentData}},
 #'   \code{\link{available_aligners}}

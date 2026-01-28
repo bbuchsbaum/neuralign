@@ -6,6 +6,7 @@
 #' coordinates when native feature counts differ).
 #'
 #' @name roi_anchors
+#' @family guidance
 NULL
 
 .as_character_vector <- function(x) {
@@ -181,6 +182,8 @@ NULL
 #' - a named list mapping ROI names to integer feature indices
 #' - an (anchors x features) weight matrix (used as-is, optionally normalized)
 #'
+#' @family guidance
+#'
 #' @param roi ROI specification (see details).
 #' @param anchors Optional character vector of anchor names to include and order.
 #' @param n_features Optional feature count (useful for list-of-indices input).
@@ -188,6 +191,11 @@ NULL
 #' @param sparse Logical; if `TRUE`, return a sparse `Matrix` when possible.
 #'
 #' @return An (anchors x features) projector matrix/Matrix.
+#' @examples
+#' # ROI labels per feature (length == n_features)
+#' roi <- c("V1", "V1", "MT", "MT", "MT")
+#' P <- roi_anchor_projector(roi, normalize = TRUE, sparse = FALSE)
+#' dim(P)
 #' @export
 roi_anchor_projector <- function(roi,
                                  anchors = NULL,
@@ -222,6 +230,8 @@ roi_anchor_projector <- function(roi,
 #' Build a named list of per-subject ROI anchor projectors with a harmonized
 #' anchor vocabulary.
 #'
+#' @family guidance
+#'
 #' @param roi_by_subject Named list of ROI specifications (one per subject).
 #' @param anchors Optional anchor vocabulary to enforce (character vector).
 #' @param anchor_policy How to harmonize anchors when `anchors` is NULL:
@@ -231,6 +241,13 @@ roi_anchor_projector <- function(roi,
 #' @param sparse Logical; if `TRUE`, return sparse matrices where possible.
 #'
 #' @return Named list of (anchors x features) projector matrices/Matrix objects.
+#' @examples
+#' roi_by_subject <- list(
+#'   s1 = c("V1", "V1", "MT"),
+#'   s2 = c("V1", "MT", "MT")
+#' )
+#' proj <- roi_anchor_projectors(roi_by_subject, anchor_policy = "intersection", sparse = FALSE)
+#' lapply(proj, dim)
 #' @export
 roi_anchor_projectors <- function(roi_by_subject,
                                   anchors = NULL,

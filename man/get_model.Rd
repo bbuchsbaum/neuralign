@@ -15,3 +15,23 @@ The AlignmentModel.
 \description{
 Get Model from Result
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 4, 5),
+  s2 = matrix(rnorm(20), 4, 5)
+))
+res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+mdl <- get_model(res)
+inherits(mdl, "AlignmentModel")
+
+}
+\seealso{
+Other alignment_result: 
+\code{\link{AlignmentResult}},
+\code{\link{AlignmentResult-class}},
+\code{\link{get_aligned}()},
+\code{\link{get_cv_info}()},
+\code{\link{get_quality}()}
+}
+\concept{alignment_result}

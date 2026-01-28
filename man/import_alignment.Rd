@@ -19,3 +19,11 @@ An AlignmentModel with the imported transforms.
 \description{
 Import alignment transforms from external files.
 }
+\seealso{
+Other serialization: 
+\code{\link{export_alignment}()},
+\code{\link{load_alignment}()},
+\code{\link{save_alignment}()},
+\code{\link{serialize}()}
+}
+\concept{serialization}

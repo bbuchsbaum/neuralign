@@ -45,3 +45,15 @@ Construct cross-validation folds along the observation axis (e.g., runs or
 contiguous time blocks). Unlike subject-axis CV, these folds return per-subject
 index sets suitable for timepoint/run-based cross-fitting workflows.
 }
+\examples{
+# Leave-one-run-out folds for a single shared run vector
+runs <- rep(c("run1", "run2", "run3"), each = 2)
+obs_spec <- create_obs_folds(runs, method = "run")
+names(obs_spec$folds)
+
+}
+\seealso{
+Other cross_validation: 
+\code{\link{create_cv_folds}()}
+}
+\concept{cross_validation}

@@ -25,3 +25,11 @@ Invisibly returns list of created files.
 Export alignment transforms in a portable format (e.g., for use in
 other software or languages).
 }
+\seealso{
+Other serialization: 
+\code{\link{import_alignment}()},
+\code{\link{load_alignment}()},
+\code{\link{save_alignment}()},
+\code{\link{serialize}()}
+}
+\concept{serialization}

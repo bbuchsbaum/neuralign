@@ -20,3 +20,14 @@ A named list keyed by subject (or a subject's channel list).
 \description{
 Get Guidance Channels
 }
+\seealso{
+Other guidance: 
+\code{\link{guidance_channel}()},
+\code{\link{intrinsic_geometry}},
+\code{\link{laplacian_eigenmodes}()},
+\code{\link{roi_anchor_projector}()},
+\code{\link{roi_anchor_projectors}()},
+\code{\link{roi_anchors}},
+\code{\link{set_guidance}()}
+}
+\concept{guidance}

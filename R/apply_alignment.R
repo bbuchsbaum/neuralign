@@ -4,6 +4,8 @@
 #' out-of-sample alignment for cross-validation or applying trained
 #' alignments to new subjects.
 #'
+#' @family alignment_workflow
+#'
 #' @param model An AlignmentModel object from \code{\link{fit_alignment}},
 #'   or an AlignmentResult from which the model will be extracted.
 #' @param new_data AlignmentData object, or a named list of matrices.
@@ -18,20 +20,19 @@
 #' @return An AlignmentResult object with aligned data for the new subjects.
 #'
 #' @examples
-#' \dontrun{
 #' # Fit on training subjects
+#' set.seed(1)
 #' train_data <- AlignmentData(list(
-#'   "sub-01" = matrix(rnorm(100*50), 100, 50),
-#'   "sub-02" = matrix(rnorm(100*50), 100, 50)
+#'   "sub-01" = matrix(rnorm(30), 6, 5),
+#'   "sub-02" = matrix(rnorm(30), 6, 5)
 #' ))
 #' result <- fit_alignment(train_data, method = "procrustes")
 #'
 #' # Apply to new subject
 #' new_data <- AlignmentData(list(
-#'   "sub-03" = matrix(rnorm(100*50), 100, 50)
+#'   "sub-03" = matrix(rnorm(30), 6, 5)
 #' ))
 #' new_result <- apply_alignment(result, new_data)
-#' }
 #'
 #' @seealso \code{\link{fit_alignment}}, \code{\link{AlignmentModel}}
 #'

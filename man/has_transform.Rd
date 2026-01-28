@@ -17,3 +17,28 @@ Logical.
 \description{
 Check if Model Has Transform for Subject
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(12), 3, 4),
+  s2 = matrix(rnorm(12), 3, 4)
+))
+res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+mdl <- get_model(res)
+has_transform(mdl, "s2")
+has_transform(mdl, "missing")
+
+}
+\seealso{
+Other alignment_model: 
+\code{\link{AlignmentModel}},
+\code{\link{AlignmentModel-class}},
+\code{\link{add_transform}()},
+\code{\link{get_reference}()},
+\code{\link{get_reference_spec}()},
+\code{\link{get_transform}()},
+\code{\link{get_transforms}()},
+\code{\link{model_subjects}()},
+\code{\link{spaces_compatible}()}
+}
+\concept{alignment_model}

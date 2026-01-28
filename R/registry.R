@@ -27,6 +27,8 @@ NEURALIGN_ALIGNER_API_VERSION <- 1L
 #' This validates the fit_fn and apply_fn signatures, capabilities structure,
 #' and other requirements.
 #'
+#' @family registry
+#'
 #' @param name Method name.
 #' @param fit_fn The fit function to validate.
 #' @param apply_fn Optional apply function to validate.
@@ -134,6 +136,8 @@ validate_aligner_contract <- function(name,
 #' packages to provide alignment implementations that integrate with neuralign's
 #' unified interface.
 #'
+#' @family registry
+#'
 #' @param name Character string identifying the method (e.g., "procrustes", "fugw").
 #' @param fit_fn Function implementing the fit operation. See Details for signature.
 #' @param apply_fn Optional function for applying to new data. If NULL, default
@@ -185,19 +189,40 @@ validate_aligner_contract <- function(name,
 #' @return Invisibly returns TRUE.
 #'
 #' @examples
-#' \dontrun{
-#' register_aligner(
-#'   name = "my_method",
-#'   fit_fn = my_fit_function,
-#'   capabilities = list(
-#'     supports_cv = TRUE,
-#'     needs_geometry = FALSE,
-#'     transform_type = "orthogonal"
-#'   ),
-#'   package = "mypackage",
-#'   description = "My custom alignment method"
-#' )
+#' # Register a trivial identity aligner
+#' if (is_aligner_registered("identity_example")) {
+#'   unregister_aligner("identity_example")
 #' }
+#'
+#' identity_fit <- function(data, reference, train_idx = NULL, ...) {
+#'   transforms <- lapply(data@subjects, function(s) {
+#'     diag(nrow(get_subject_data(data, s)))
+#'   })
+#'   names(transforms) <- data@subjects
+#'   list(
+#'     transforms = transforms,
+#'     reference_data = NULL,
+#'     space_from = data@space,
+#'     space_to = data@space,
+#'     method_state = list()
+#'   )
+#' }
+#'
+#' register_aligner(
+#'   name = "identity_example",
+#'   fit_fn = identity_fit,
+#'   capabilities = list(transform_type = "orthogonal")
+#' )
+#'
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(12), 3, 4),
+#'   s2 = matrix(rnorm(12), 3, 4)
+#' ))
+#' res <- fit_alignment(adat, method = "identity_example", reference = "s1", compute_quality = FALSE)
+#' stopifnot(inherits(res, "AlignmentResult"))
+#'
+#' unregister_aligner("identity_example")
 #'
 #' @export
 register_aligner <- function(name,
@@ -287,9 +312,23 @@ register_aligner <- function(name,
 
 #' List Available Alignment Methods
 #'
+#' @family registry
+#'
 #' @param details Logical; if TRUE, return detailed information as a data frame.
 #'
-#' @return Character vector of method names, or data frame with details.
+#' @return If `details = FALSE` (default), a character vector of method names.
+#'   If `details = TRUE`, a data frame with one row per method and columns:
+#'   \describe{
+#'     \item{name}{Aligner name.}
+#'     \item{package}{Providing package (if known).}
+#'     \item{description}{Short description.}
+#'     \item{transform_type}{One of `"orthogonal"`, `"linear"`, `"ot"`, ...}
+#'     \item{supports_cv}{Logical; whether the aligner declares CV support.}
+#'   }
+#'
+#' @examples
+#' available_aligners()
+#' available_aligners(details = TRUE)
 #'
 #' @export
 available_aligners <- function(details = FALSE) {
@@ -336,6 +375,8 @@ list_aligners <- function(details = FALSE) {
 
 #' Get Information About an Aligner
 #'
+#' @family registry
+#'
 #' @param name Character string identifying the method.
 #'
 #' @return List with aligner information, or NULL if not found.
@@ -350,6 +391,8 @@ get_aligner <- function(name) {
 
 
 #' Get Aligner Capabilities
+#'
+#' @family registry
 #'
 #' @param name Character string identifying the method.
 #'
@@ -367,6 +410,8 @@ aligner_capabilities <- function(name) {
 
 #' Check if Aligner is Registered
 #'
+#' @family registry
+#'
 #' @param name Character string identifying the method.
 #'
 #' @return Logical indicating if the aligner is registered.
@@ -380,6 +425,8 @@ is_aligner_registered <- function(name) {
 #' Unregister an Aligner
 #'
 #' Remove an aligner from the registry. Primarily useful for testing.
+#'
+#' @family registry
 #'
 #' @param name Character string identifying the method.
 #'

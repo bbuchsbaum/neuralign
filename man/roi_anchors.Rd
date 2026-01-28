@@ -9,3 +9,14 @@ parcellation definitions. These projectors can be used as anatomy/parcel
 \emph{guidance} for functional alignment (e.g., to define shared anchor
 coordinates when native feature counts differ).
 }
+\seealso{
+Other guidance: 
+\code{\link{get_guidance}()},
+\code{\link{guidance_channel}()},
+\code{\link{intrinsic_geometry}},
+\code{\link{laplacian_eigenmodes}()},
+\code{\link{roi_anchor_projector}()},
+\code{\link{roi_anchor_projectors}()},
+\code{\link{set_guidance}()}
+}
+\concept{guidance}

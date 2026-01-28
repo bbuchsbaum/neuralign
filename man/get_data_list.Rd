@@ -15,3 +15,23 @@ Named list of subject data.
 \description{
 Get All Data as a List
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(12), 3, 4),
+  s2 = matrix(rnorm(12), 3, 4)
+))
+dl <- get_data_list(adat)
+names(dl)
+
+}
+\seealso{
+Other alignment_data: 
+\code{\link{AlignmentData}},
+\code{\link{AlignmentData-class}},
+\code{\link{as_alignment_data}()},
+\code{\link{get_obs_labels}()},
+\code{\link{get_subject_data}()},
+\code{\link{validate_alignment_data}()}
+}
+\concept{alignment_data}

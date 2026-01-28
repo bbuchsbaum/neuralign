@@ -18,3 +18,16 @@ Logical; TRUE if spaces are compatible.
 Determine whether two space specifications are compatible.
 NULL is compatible with anything.
 }
+\seealso{
+Other alignment_model: 
+\code{\link{AlignmentModel}},
+\code{\link{AlignmentModel-class}},
+\code{\link{add_transform}()},
+\code{\link{get_reference}()},
+\code{\link{get_reference_spec}()},
+\code{\link{get_transform}()},
+\code{\link{get_transforms}()},
+\code{\link{has_transform}()},
+\code{\link{model_subjects}()}
+}
+\concept{alignment_model}

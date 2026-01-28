@@ -80,18 +80,49 @@ Capability flags:
 }
 }
 \examples{
-\dontrun{
-register_aligner(
-  name = "my_method",
-  fit_fn = my_fit_function,
-  capabilities = list(
-    supports_cv = TRUE,
-    needs_geometry = FALSE,
-    transform_type = "orthogonal"
-  ),
-  package = "mypackage",
-  description = "My custom alignment method"
-)
+# Register a trivial identity aligner
+if (is_aligner_registered("identity_example")) {
+  unregister_aligner("identity_example")
 }
 
+identity_fit <- function(data, reference, train_idx = NULL, ...) {
+  transforms <- lapply(data@subjects, function(s) {
+    diag(nrow(get_subject_data(data, s)))
+  })
+  names(transforms) <- data@subjects
+  list(
+    transforms = transforms,
+    reference_data = NULL,
+    space_from = data@space,
+    space_to = data@space,
+    method_state = list()
+  )
 }
+
+register_aligner(
+  name = "identity_example",
+  fit_fn = identity_fit,
+  capabilities = list(transform_type = "orthogonal")
+)
+
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(12), 3, 4),
+  s2 = matrix(rnorm(12), 3, 4)
+))
+res <- fit_alignment(adat, method = "identity_example", reference = "s1", compute_quality = FALSE)
+stopifnot(inherits(res, "AlignmentResult"))
+
+unregister_aligner("identity_example")
+
+}
+\seealso{
+Other registry: 
+\code{\link{aligner_capabilities}()},
+\code{\link{available_aligners}()},
+\code{\link{get_aligner}()},
+\code{\link{is_aligner_registered}()},
+\code{\link{unregister_aligner}()},
+\code{\link{validate_aligner_contract}()}
+}
+\concept{registry}

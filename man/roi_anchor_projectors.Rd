@@ -32,3 +32,22 @@ Named list of (anchors x features) projector matrices/Matrix objects.
 Build a named list of per-subject ROI anchor projectors with a harmonized
 anchor vocabulary.
 }
+\examples{
+roi_by_subject <- list(
+  s1 = c("V1", "V1", "MT"),
+  s2 = c("V1", "MT", "MT")
+)
+proj <- roi_anchor_projectors(roi_by_subject, anchor_policy = "intersection", sparse = FALSE)
+lapply(proj, dim)
+}
+\seealso{
+Other guidance: 
+\code{\link{get_guidance}()},
+\code{\link{guidance_channel}()},
+\code{\link{intrinsic_geometry}},
+\code{\link{laplacian_eigenmodes}()},
+\code{\link{roi_anchor_projector}()},
+\code{\link{roi_anchors}},
+\code{\link{set_guidance}()}
+}
+\concept{guidance}

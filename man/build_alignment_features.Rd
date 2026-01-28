@@ -94,8 +94,11 @@ and numeric/effective rank per subject (NULL if \code{check_identifiability=FALS
 }
 }
 \description{
+Build Alignment Matrices from Feature Blocks
+}
+\concept{feature_blocks
+
 Construct per-subject alignment matrices by harmonizing and stacking feature
 blocks. This is useful for block-driven alignment workflows where different
 correspondence signals (blocks) are combined into a single matrix per
-subject.
-}
+subject.}

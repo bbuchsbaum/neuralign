@@ -17,3 +17,23 @@ An AlignmentData object.
 \description{
 Coerce List to AlignmentData
 }
+\examples{
+set.seed(1)
+x <- list(
+  s1 = matrix(rnorm(12), 3, 4),
+  s2 = matrix(rnorm(12), 3, 4)
+)
+adat <- as_alignment_data(x)
+stopifnot(inherits(adat, "AlignmentData"))
+
+}
+\seealso{
+Other alignment_data: 
+\code{\link{AlignmentData}},
+\code{\link{AlignmentData-class}},
+\code{\link{get_data_list}()},
+\code{\link{get_obs_labels}()},
+\code{\link{get_subject_data}()},
+\code{\link{validate_alignment_data}()}
+}
+\concept{alignment_data}

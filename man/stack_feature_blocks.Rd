@@ -17,7 +17,10 @@ internal weight).}
 A matrix (stacked features x observations).
 }
 \description{
+Stack Feature Blocks
+}
+\concept{feature_blocks
+
 Vertically stack (rbind) multiple feature blocks after scaling each by
 \code{sqrt(weight)}. This produces a single matrix ready for alignment methods
-such as Procrustes.
-}
+such as Procrustes.}

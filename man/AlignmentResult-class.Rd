@@ -20,3 +20,12 @@ Contains the aligned data along with quality metrics and CV info.
 \item{\code{cv_info}}{Cross-validation information (fold assignments, etc.).}
 }}
 
+\seealso{
+Other alignment_result: 
+\code{\link{AlignmentResult}},
+\code{\link{get_aligned}()},
+\code{\link{get_cv_info}()},
+\code{\link{get_model}()},
+\code{\link{get_quality}()}
+}
+\concept{alignment_result}

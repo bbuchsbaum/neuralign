@@ -17,3 +17,23 @@ The data for the specified subject.
 \description{
 Get Subject Data by ID
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(12), 3, 4),
+  s2 = matrix(rnorm(12), 3, 4)
+))
+x1 <- get_subject_data(adat, "s1")
+dim(x1)
+
+}
+\seealso{
+Other alignment_data: 
+\code{\link{AlignmentData}},
+\code{\link{AlignmentData-class}},
+\code{\link{as_alignment_data}()},
+\code{\link{get_data_list}()},
+\code{\link{get_obs_labels}()},
+\code{\link{validate_alignment_data}()}
+}
+\concept{alignment_data}

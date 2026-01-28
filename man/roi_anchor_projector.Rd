@@ -39,3 +39,20 @@ If \code{X} is a subject data matrix \verb{(features x observations)}, then
 \item an (anchors x features) weight matrix (used as-is, optionally normalized)
 }
 }
+\examples{
+# ROI labels per feature (length == n_features)
+roi <- c("V1", "V1", "MT", "MT", "MT")
+P <- roi_anchor_projector(roi, normalize = TRUE, sparse = FALSE)
+dim(P)
+}
+\seealso{
+Other guidance: 
+\code{\link{get_guidance}()},
+\code{\link{guidance_channel}()},
+\code{\link{intrinsic_geometry}},
+\code{\link{laplacian_eigenmodes}()},
+\code{\link{roi_anchor_projectors}()},
+\code{\link{roi_anchors}},
+\code{\link{set_guidance}()}
+}
+\concept{guidance}

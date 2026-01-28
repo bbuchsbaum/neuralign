@@ -18,3 +18,14 @@ Matrix or list of matrices.
 \description{
 Stack all aligned subjects into a single matrix.
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 4, 5),
+  s2 = matrix(rnorm(20), 4, 5)
+))
+res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+mat <- as_aligned_matrix(res, by = "observation")
+dim(mat)
+
+}

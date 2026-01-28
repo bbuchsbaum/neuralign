@@ -17,4 +17,16 @@ Get Reference Data from Model
 }
 \seealso{
 \code{\link{get_reference_spec}} for the reference specification.
+
+Other alignment_model: 
+\code{\link{AlignmentModel}},
+\code{\link{AlignmentModel-class}},
+\code{\link{add_transform}()},
+\code{\link{get_reference_spec}()},
+\code{\link{get_transform}()},
+\code{\link{get_transforms}()},
+\code{\link{has_transform}()},
+\code{\link{model_subjects}()},
+\code{\link{spaces_compatible}()}
 }
+\concept{alignment_model}

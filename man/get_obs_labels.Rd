@@ -15,3 +15,21 @@ Observation labels (or NULL if not set).
 \description{
 Get Observation Labels
 }
+\examples{
+adat <- AlignmentData(
+  list(s1 = matrix(1, 3, 4), s2 = matrix(1, 3, 4)),
+  obs_labels = paste0("t", 1:4)
+)
+get_obs_labels(adat)
+
+}
+\seealso{
+Other alignment_data: 
+\code{\link{AlignmentData}},
+\code{\link{AlignmentData-class}},
+\code{\link{as_alignment_data}()},
+\code{\link{get_data_list}()},
+\code{\link{get_subject_data}()},
+\code{\link{validate_alignment_data}()}
+}
+\concept{alignment_data}

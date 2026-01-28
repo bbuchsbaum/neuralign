@@ -21,3 +21,12 @@ An AlignmentResult object.
 \description{
 Create an AlignmentResult Object
 }
+\seealso{
+Other alignment_result: 
+\code{\link{AlignmentResult-class}},
+\code{\link{get_aligned}()},
+\code{\link{get_cv_info}()},
+\code{\link{get_model}()},
+\code{\link{get_quality}()}
+}
+\concept{alignment_result}

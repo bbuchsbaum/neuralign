@@ -59,3 +59,19 @@ where matrices are \verb{(observations x features)}.
 When per-matrix observation labels are supplied, alignment is computed on
 the intersection of labels (in the order they appear in \code{obs_labels_source}).
 }
+\examples{
+set.seed(1)
+Q_true <- qr.Q(qr(matrix(rnorm(9), 3, 3)))
+if (det(Q_true) < 0) Q_true[, 1] <- -Q_true[, 1]
+X <- matrix(rnorm(15), 3, 5)
+Y <- Q_true \%*\% X
+
+fit <- procrustes_rotation(X, Y, convention = "left")
+max(abs(fit$Q - Q_true)) < 1e-6
+
+}
+\seealso{
+Other procrustes: 
+\code{\link{procrustes_distance}()}
+}
+\concept{procrustes}

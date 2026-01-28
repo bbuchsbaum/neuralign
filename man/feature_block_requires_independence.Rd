@@ -17,12 +17,14 @@ feature_block_requires_independence(blocks)
 A named logical vector keyed by block name.
 }
 \description{
+Feature Block Independence Requirements
+}
+\concept{feature_blocks
+
 Summarize which feature blocks declare \code{meta$requires_independence = TRUE}.
 This is a domain-agnostic mechanism for downstream packages to tag blocks
 that must be computed on data independent of downstream evaluation (e.g.,
 via observation-axis crossfitting).
-}
-\details{
+
 neuralign does not enforce a particular crossfitting policy; this helper
-only reads the metadata flags.
-}
+only reads the metadata flags.}

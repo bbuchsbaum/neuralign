@@ -92,12 +92,12 @@ feature blocks (e.g., \code{\link{preprocess_alignment_data}} or
 \code{\link{preprocess_matrix}}) before fitting.
 }
 \examples{
-\dontrun{
 # Create example data
+set.seed(1)
 data_list <- list(
-  "sub-01" = matrix(rnorm(100*50), 100, 50),
-  "sub-02" = matrix(rnorm(100*50), 100, 50),
-  "sub-03" = matrix(rnorm(100*50), 100, 50)
+  "sub-01" = matrix(rnorm(30), 6, 5),
+  "sub-02" = matrix(rnorm(30), 6, 5),
+  "sub-03" = matrix(rnorm(30), 6, 5)
 )
 adat <- AlignmentData(data_list)
 
@@ -109,10 +109,13 @@ result <- fit_alignment(adat, method = "procrustes", reference = "sub-01")
 
 # Fit with leave-one-subject-out CV
 result <- fit_alignment(adat, method = "procrustes", cv = "loso")
-}
 
 }
 \seealso{
 \code{\link{apply_alignment}}, \code{\link{AlignmentData}},
 \code{\link{available_aligners}}
+
+Other alignment_workflow: 
+\code{\link{apply_alignment}()}
 }
+\concept{alignment_workflow}

@@ -31,3 +31,13 @@ match each subject's observation count.}
 \description{
 Check that all subjects have compatible dimensions for alignment.
 }
+\seealso{
+Other alignment_data: 
+\code{\link{AlignmentData}},
+\code{\link{AlignmentData-class}},
+\code{\link{as_alignment_data}()},
+\code{\link{get_data_list}()},
+\code{\link{get_obs_labels}()},
+\code{\link{get_subject_data}()}
+}
+\concept{alignment_data}

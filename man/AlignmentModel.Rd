@@ -46,3 +46,16 @@ An AlignmentModel object.
 \description{
 Create an AlignmentModel Object
 }
+\seealso{
+Other alignment_model: 
+\code{\link{AlignmentModel-class}},
+\code{\link{add_transform}()},
+\code{\link{get_reference}()},
+\code{\link{get_reference_spec}()},
+\code{\link{get_transform}()},
+\code{\link{get_transforms}()},
+\code{\link{has_transform}()},
+\code{\link{model_subjects}()},
+\code{\link{spaces_compatible}()}
+}
+\concept{alignment_model}

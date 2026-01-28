@@ -10,8 +10,47 @@ get_cv_info(result)
 \item{result}{An AlignmentResult object.}
 }
 \value{
-List of CV information.
+A list containing cross-validation metadata. Common fields include:
+\describe{
+\item{method}{CV method identifier (e.g., \code{"none"}, \code{"loso"}, \code{"kfold"}, \code{"run"}, \code{"blocked_time"}, or \code{"custom"}).}
+\item{axis}{CV axis (typically \code{"subject"} or \code{"observation"}).}
+\item{n_folds}{Number of folds.}
+\item{folds}{Fold specification used during fitting.}
+\item{fold_assignments}{Subject-to-fold assignments (subject-axis CV only; may be NULL).}
+\item{fold_ids}{Fold identifiers (observation-axis CV only; may be NULL).}
+\item{reference_kind}{One of \code{"fixed_subject"}, \code{"template"}, or \code{"data_driven"}.}
+\item{anchor_common}{Logical; whether folds share a common anchor/reference space.}
+\item{anchor_by_subject}{Per-subject reference used during evaluation (subject-axis CV only; may be NULL).}
+\item{reference_by_fold}{Per-fold reference used during evaluation (observation-axis CV only; may be NULL).}
+\item{transforms_by_fold}{Optional per-fold transforms (observation-axis CV for operator-returning methods only; may be NULL).}
+\item{anchor_note}{Optional warning/note about fold-specific anchors.}
+}
+
+Additional fields may be present depending on the CV strategy and aligner.
 }
 \description{
 Get CV Info from Result
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 4, 5),
+  s2 = matrix(rnorm(20), 4, 5),
+  s3 = matrix(rnorm(20), 4, 5)
+))
+res <- fit_alignment(adat, method = "procrustes", reference = "s1", cv = "loso",
+  compute_quality = FALSE, return_aligned = FALSE
+)
+info <- get_cv_info(res)
+info$method
+
+}
+\seealso{
+Other alignment_result: 
+\code{\link{AlignmentResult}},
+\code{\link{AlignmentResult-class}},
+\code{\link{get_aligned}()},
+\code{\link{get_model}()},
+\code{\link{get_quality}()}
+}
+\concept{alignment_result}

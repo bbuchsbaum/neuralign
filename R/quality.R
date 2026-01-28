@@ -2,6 +2,8 @@
 #'
 #' Compute various quality metrics for an alignment result.
 #'
+#' @family quality
+#'
 #' @param result An AlignmentResult object, or a list of aligned matrices.
 #' @param original Optional AlignmentData with original (unaligned) data
 #'   for computing improvement metrics.
@@ -15,14 +17,27 @@
 #'   }
 #' @param reference Optional reference matrix for reconstruction metrics.
 #'
-#' @return Named list of quality metrics.
+#' @return A named list of quality metrics. Depending on `metrics`, this may
+#'   include:
+#' \describe{
+#'   \item{mean_pairwise_correlation, sd_pairwise_correlation, min_pairwise_correlation, max_pairwise_correlation, pairwise_correlations}{Correlation summaries across subjects.}
+#'   \item{mean_reference_correlation, reference_correlations, mean_reconstruction_error, reconstruction_errors, mean_reconstruction_frobenius, reconstruction_frobenius}{Reconstruction summaries vs the reference (requires `reference`).}
+#'   \item{total_variance, between_subject_variance, within_subject_variance, variance_ratio}{Variance decomposition (requires package `abind`).}
+#'   \item{mean_isc, isc_per_subject, isc_per_feature}{Inter-subject correlation summaries (time-locked).}
+#'   \item{original_mean_correlation, aligned_mean_correlation, correlation_improvement, relative_improvement}{Improvement summaries (requires `original`).}
+#' }
 #'
 #' @examples
-#' \dontrun{
-#' result <- fit_alignment(data, method = "procrustes")
-#' quality <- alignment_quality(result)
-#' print(quality$mean_pairwise_correlation)
-#' }
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(12), 3, 4),
+#'   s2 = matrix(rnorm(12), 3, 4),
+#'   s3 = matrix(rnorm(12), 3, 4)
+#' ))
+#'
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#' q <- alignment_quality(res, metrics = c("correlation", "reconstruction"))
+#' q$mean_pairwise_correlation
 #'
 #' @export
 alignment_quality <- function(result,

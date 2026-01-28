@@ -18,3 +18,26 @@ Character vector of subject IDs.
 \description{
 Get Subjects in Model
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(12), 3, 4),
+  s2 = matrix(rnorm(12), 3, 4)
+))
+res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+model_subjects(get_model(res))
+
+}
+\seealso{
+Other alignment_model: 
+\code{\link{AlignmentModel}},
+\code{\link{AlignmentModel-class}},
+\code{\link{add_transform}()},
+\code{\link{get_reference}()},
+\code{\link{get_reference_spec}()},
+\code{\link{get_transform}()},
+\code{\link{get_transforms}()},
+\code{\link{has_transform}()},
+\code{\link{spaces_compatible}()}
+}
+\concept{alignment_model}

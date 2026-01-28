@@ -38,3 +38,24 @@ Matrix of size \verb{(n_nodes x k)} or a list with \verb{$vectors} and \verb{$va
 Compute intrinsic geometry coordinates from a symmetric adjacency graph via
 Laplacian eigenmodes.
 }
+\examples{
+# Path graph with 6 nodes
+n <- 6
+A <- matrix(0, n, n)
+A[cbind(1:(n - 1), 2:n)] <- 1
+A <- A + t(A)
+
+Z <- laplacian_eigenmodes(A, k = 2)
+dim(Z)
+}
+\seealso{
+Other guidance: 
+\code{\link{get_guidance}()},
+\code{\link{guidance_channel}()},
+\code{\link{intrinsic_geometry}},
+\code{\link{roi_anchor_projector}()},
+\code{\link{roi_anchor_projectors}()},
+\code{\link{roi_anchors}},
+\code{\link{set_guidance}()}
+}
+\concept{guidance}

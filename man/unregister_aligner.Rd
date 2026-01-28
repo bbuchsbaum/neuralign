@@ -15,3 +15,13 @@ Invisibly returns TRUE if removed, FALSE if not found.
 \description{
 Remove an aligner from the registry. Primarily useful for testing.
 }
+\seealso{
+Other registry: 
+\code{\link{aligner_capabilities}()},
+\code{\link{available_aligners}()},
+\code{\link{get_aligner}()},
+\code{\link{is_aligner_registered}()},
+\code{\link{register_aligner}()},
+\code{\link{validate_aligner_contract}()}
+}
+\concept{registry}

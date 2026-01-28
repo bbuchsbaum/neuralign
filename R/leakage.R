@@ -5,6 +5,7 @@
 #' alignment transformation, leading to overly optimistic results.
 #'
 #' @name leakage
+#' @family leakage
 NULL
 
 
@@ -84,6 +85,8 @@ NULL
 #'
 #' Validate that a cross-validation setup doesn't have leakage.
 #'
+#' @family leakage
+#'
 #' @param cv_folds CV fold info from create_cv_folds.
 #' @param reference Reference selection method or subject.
 #'
@@ -143,6 +146,8 @@ validate_cv_setup <- function(cv_folds, reference = "medoid") {
 #' Summarize Leakage Risk
 #'
 #' Analyze an alignment workflow for potential leakage risks.
+#'
+#' @family leakage
 #'
 #' @param model AlignmentModel or AlignmentResult.
 #' @param test_subjects Optional character vector of intended test subjects.
@@ -210,6 +215,8 @@ assess_leakage_risk <- function(model, test_subjects = NULL) {
 #'
 #' Check if observation-level train/test splits have overlapping indices,
 #' which would constitute data leakage in observation-axis cross-validation.
+#'
+#' @family leakage
 #'
 #' @param train_obs Named list (keyed by subject) of training observation
 #'   labels or indices.

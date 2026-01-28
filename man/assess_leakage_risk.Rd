@@ -17,3 +17,10 @@ List with leakage risk assessment.
 \description{
 Analyze an alignment workflow for potential leakage risks.
 }
+\seealso{
+Other leakage: 
+\code{\link{check_obs_leakage}()},
+\code{\link{leakage}},
+\code{\link{validate_cv_setup}()}
+}
+\concept{leakage}

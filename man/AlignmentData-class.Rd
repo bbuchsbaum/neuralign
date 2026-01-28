@@ -25,8 +25,20 @@ Each matrix should be (features x observations) or (voxels x time).}
 \item{\code{obs_labels}}{Optional vector of length n_obs defining a shared observation
 label system across subjects (e.g., design column names, trial ids, or
 timepoints for time-locked paradigms). When provided, validation can enforce
-that observations are comparable across subjects.}
+that observations are comparable across subjects. Duplicate labels are
+allowed; when labels are used for matching, duplicates are matched by
+occurrence order within each label.}
 
 \item{\code{metadata}}{Named list for additional method-specific information.}
 }}
 
+\seealso{
+Other alignment_data: 
+\code{\link{AlignmentData}},
+\code{\link{as_alignment_data}()},
+\code{\link{get_data_list}()},
+\code{\link{get_obs_labels}()},
+\code{\link{get_subject_data}()},
+\code{\link{validate_alignment_data}()}
+}
+\concept{alignment_data}

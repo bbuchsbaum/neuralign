@@ -21,3 +21,14 @@ The modified \code{AlignmentData}.
 \description{
 Replace the guidance channels stored in an \code{AlignmentData} object.
 }
+\seealso{
+Other guidance: 
+\code{\link{get_guidance}()},
+\code{\link{guidance_channel}()},
+\code{\link{intrinsic_geometry}},
+\code{\link{laplacian_eigenmodes}()},
+\code{\link{roi_anchor_projector}()},
+\code{\link{roi_anchor_projectors}()},
+\code{\link{roi_anchors}}
+}
+\concept{guidance}

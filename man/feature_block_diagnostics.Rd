@@ -38,9 +38,22 @@ For multiple subjects, a named list of \code{"feature_block_diagnostics"} object
 with class \code{"feature_block_diagnostics_by_subject"}.
 }
 \description{
+Feature Block Identifiability Diagnostics
+}
+\examples{
+set.seed(1)
+blocks <- list(
+  alignment_feature_block(matrix(rnorm(12), 3, 4), name = "b1", feature_names = paste0("f", 1:3)),
+  alignment_feature_block(matrix(rnorm(8), 2, 4), name = "b2", feature_names = paste0("g", 1:2))
+)
+diag <- feature_block_diagnostics(blocks, convention = "right", include_singular_values = TRUE)
+diag$stacked$numeric_rank
+
+}
+\concept{feature_blocks
+
 Compute per-block and stacked rank/effective-rank summaries for feature block
 workflows. This is useful when alignment is driven by correspondence signals
 (task betas, contrast betas, anchor fingerprints): the singular value spectrum
 of the (weighted) correspondence matrix indicates how much of the transform
-space is identified.
-}
+space is identified.}

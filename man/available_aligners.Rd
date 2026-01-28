@@ -13,8 +13,31 @@ list_aligners(details = FALSE)
 \item{details}{Logical; if TRUE, return detailed information as a data frame.}
 }
 \value{
-Character vector of method names, or data frame with details.
+If \code{details = FALSE} (default), a character vector of method names.
+If \code{details = TRUE}, a data frame with one row per method and columns:
+\describe{
+\item{name}{Aligner name.}
+\item{package}{Providing package (if known).}
+\item{description}{Short description.}
+\item{transform_type}{One of \code{"orthogonal"}, \code{"linear"}, \code{"ot"}, ...}
+\item{supports_cv}{Logical; whether the aligner declares CV support.}
+}
 }
 \description{
 List Available Alignment Methods
 }
+\examples{
+available_aligners()
+available_aligners(details = TRUE)
+
+}
+\seealso{
+Other registry: 
+\code{\link{aligner_capabilities}()},
+\code{\link{get_aligner}()},
+\code{\link{is_aligner_registered}()},
+\code{\link{register_aligner}()},
+\code{\link{unregister_aligner}()},
+\code{\link{validate_aligner_contract}()}
+}
+\concept{registry}

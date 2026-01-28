@@ -24,13 +24,26 @@ Save an alignment model to disk. The model can be loaded later with
 \code{\link{load_alignment}} and applied to new data.
 }
 \examples{
-\dontrun{
-result <- fit_alignment(data, method = "procrustes")
-save_alignment(result, "my_alignment.rds")
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(30), 6, 5),
+  s2 = matrix(rnorm(30), 6, 5)
+))
+res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
 
-# Later...
-model <- load_alignment("my_alignment.rds")
-new_result <- apply_alignment(model, new_data)
-}
+path <- tempfile(fileext = ".rds")
+save_alignment(res, path)
+mdl <- load_alignment(path)
+
+new_res <- apply_alignment(mdl, AlignmentData(list(s3 = matrix(rnorm(30), 6, 5))))
+unlink(path)
 
 }
+\seealso{
+Other serialization: 
+\code{\link{export_alignment}()},
+\code{\link{import_alignment}()},
+\code{\link{load_alignment}()},
+\code{\link{serialize}()}
+}
+\concept{serialization}

@@ -129,6 +129,8 @@ NULL
 
 #' Get Guidance Channels
 #'
+#' @family guidance
+#'
 #' @param data An `AlignmentData` object.
 #' @param subject Optional subject id; if supplied, returns guidance only for
 #'   that subject.
@@ -170,6 +172,8 @@ get_guidance <- function(data, subject = NULL, type = NULL) {
 #'
 #' Replace the guidance channels stored in an `AlignmentData` object.
 #'
+#' @family guidance
+#'
 #' @param data An `AlignmentData` object.
 #' @param guidance A named list keyed by subject; each entry is a named list of
 #'   guidance channels.
@@ -199,12 +203,31 @@ set_guidance <- function(data, guidance, validate = TRUE) {
 #'
 #' Convenience constructor for a single guidance channel.
 #'
+#' @family guidance
+#'
 #' @param type Guidance type (`"projector"`, `"coords"`, `"geometry"`, ...).
 #' @param value Payload for this channel.
 #' @param name Optional channel name.
 #' @param ... Optional additional fields to store in the channel list.
 #'
-#' @return A guidance channel list.
+#' @return A list with elements `type`, `value`, and `name`, plus any additional
+#'   fields passed via `...`.
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(12), 3, 4),
+#'   s2 = matrix(rnorm(12), 3, 4)
+#' ))
+#'
+#' g <- list(
+#'   s1 = list(roi = guidance_channel("projector", diag(3), name = "roi")),
+#'   s2 = list(roi = guidance_channel("projector", diag(3), name = "roi"))
+#' )
+#'
+#' adat2 <- set_guidance(adat, g)
+#' get_guidance(adat2, subject = "s1")
+#' get_guidance(adat2, type = "projector")
 #' @export
 guidance_channel <- function(type, value, name = NULL, ...) {
   if (!.is_nonempty_string(type)) {

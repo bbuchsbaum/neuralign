@@ -39,3 +39,13 @@ If provided, \code{apply_fn} must accept at minimum: \code{fit_result},
 \code{new_data}, and \code{...}. It should return a list with a
 \code{transforms} element (named list of operators).
 }
+\seealso{
+Other registry: 
+\code{\link{aligner_capabilities}()},
+\code{\link{available_aligners}()},
+\code{\link{get_aligner}()},
+\code{\link{is_aligner_registered}()},
+\code{\link{register_aligner}()},
+\code{\link{unregister_aligner}()}
+}
+\concept{registry}

@@ -15,3 +15,13 @@ List with aligner information, or NULL if not found.
 \description{
 Get Information About an Aligner
 }
+\seealso{
+Other registry: 
+\code{\link{aligner_capabilities}()},
+\code{\link{available_aligners}()},
+\code{\link{is_aligner_registered}()},
+\code{\link{register_aligner}()},
+\code{\link{unregister_aligner}()},
+\code{\link{validate_aligner_contract}()}
+}
+\concept{registry}

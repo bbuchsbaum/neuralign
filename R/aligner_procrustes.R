@@ -308,6 +308,8 @@ NULL
 #' When per-matrix observation labels are supplied, alignment is computed on
 #' the intersection of labels (in the order they appear in `obs_labels_source`).
 #'
+#' @family procrustes
+#'
 #' @param source Source matrix.
 #' @param target Target/reference matrix.
 #' @param convention Multiplication convention (`"left"` or `"right"`).
@@ -323,6 +325,16 @@ NULL
 #'
 #' @return A list with elements `Q`, `scale_factor`, `residual`,
 #'   `convention`, and `matched_labels`.
+#'
+#' @examples
+#' set.seed(1)
+#' Q_true <- qr.Q(qr(matrix(rnorm(9), 3, 3)))
+#' if (det(Q_true) < 0) Q_true[, 1] <- -Q_true[, 1]
+#' X <- matrix(rnorm(15), 3, 5)
+#' Y <- Q_true %*% X
+#'
+#' fit <- procrustes_rotation(X, Y, convention = "left")
+#' max(abs(fit$Q - Q_true)) < 1e-6
 #'
 #' @export
 procrustes_rotation <- function(source,
@@ -460,6 +472,8 @@ procrustes_rotation <- function(source,
 #' Convenience wrapper returning the Procrustes residual (Frobenius norm of
 #' the alignment error) between two matrices.
 #'
+#' @family procrustes
+#'
 #' @param x First matrix.
 #' @param y Second matrix.
 #' @param convention Multiplication convention (`"left"` or `"right"`).
@@ -467,6 +481,11 @@ procrustes_rotation <- function(source,
 #' @param obs_labels_y Optional observation labels for `y`.
 #' @param min_overlap Minimum number of shared labels when labels are supplied.
 #' @return Numeric scalar residual.
+#' @examples
+#' set.seed(1)
+#' X <- matrix(rnorm(15), 3, 5)
+#' Y <- X + 0.01 * matrix(rnorm(15), 3, 5)
+#' procrustes_distance(X, Y)
 #' @export
 procrustes_distance <- function(x,
                                 y,

@@ -3,6 +3,8 @@
 #' Represents the result of applying an alignment model to data.
 #' Contains the aligned data along with quality metrics and CV info.
 #'
+#' @family alignment_result
+#'
 #' @slot model The AlignmentModel used to produce this result.
 #' @slot aligned Named list of aligned data (lazy or realized).
 #' @slot quality List of quality diagnostics.
@@ -49,6 +51,8 @@ setValidity("AlignmentResult", function(object) {
 #' @param cv_info Optional cross-validation information.
 #'
 #' @return An AlignmentResult object.
+#'
+#' @family alignment_result
 #'
 #' @export
 AlignmentResult <- function(model,
@@ -145,6 +149,19 @@ setMethod("show", "AlignmentResult", function(object) {
 #' @return A numeric matrix (when `subject` is provided) or a named list of
 #'   numeric matrices (when `subject` is `NULL`).
 #'
+#' @family alignment_result
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#' all_aligned <- get_aligned(res)
+#' s1_aligned <- get_aligned(res, "s1")
+#' dim(s1_aligned)
+#'
 #' @export
 get_aligned <- function(result, subject = NULL) {
   result <- .ensure_result(result, what = "result")
@@ -174,6 +191,18 @@ aligned_data <- function(result, subject = NULL) {
 #'
 #' @return Quality metrics list or specific metric value.
 #'
+#' @family alignment_result
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = TRUE)
+#' qm <- get_quality(res)
+#' names(qm)
+#'
 #' @export
 get_quality <- function(result, metric = NULL) {
   result <- .ensure_result(result, what = "result")
@@ -195,6 +224,18 @@ get_quality <- function(result, metric = NULL) {
 #'
 #' @return The AlignmentModel.
 #'
+#' @family alignment_result
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#' mdl <- get_model(res)
+#' inherits(mdl, "AlignmentModel")
+#'
 #' @export
 get_model <- function(result) {
   result <- .ensure_result(result, what = "result")
@@ -206,7 +247,38 @@ get_model <- function(result) {
 #'
 #' @param result An AlignmentResult object.
 #'
-#' @return List of CV information.
+#' @return A list containing cross-validation metadata. Common fields include:
+#' \describe{
+#'   \item{method}{CV method identifier (e.g., `"none"`, `"loso"`, `"kfold"`, `"run"`, `"blocked_time"`, or `"custom"`).}
+#'   \item{axis}{CV axis (typically `"subject"` or `"observation"`).}
+#'   \item{n_folds}{Number of folds.}
+#'   \item{folds}{Fold specification used during fitting.}
+#'   \item{fold_assignments}{Subject-to-fold assignments (subject-axis CV only; may be NULL).}
+#'   \item{fold_ids}{Fold identifiers (observation-axis CV only; may be NULL).}
+#'   \item{reference_kind}{One of `"fixed_subject"`, `"template"`, or `"data_driven"`.}
+#'   \item{anchor_common}{Logical; whether folds share a common anchor/reference space.}
+#'   \item{anchor_by_subject}{Per-subject reference used during evaluation (subject-axis CV only; may be NULL).}
+#'   \item{reference_by_fold}{Per-fold reference used during evaluation (observation-axis CV only; may be NULL).}
+#'   \item{transforms_by_fold}{Optional per-fold transforms (observation-axis CV for operator-returning methods only; may be NULL).}
+#'   \item{anchor_note}{Optional warning/note about fold-specific anchors.}
+#' }
+#'
+#' Additional fields may be present depending on the CV strategy and aligner.
+#'
+#' @family alignment_result
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5),
+#'   s3 = matrix(rnorm(20), 4, 5)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", cv = "loso",
+#'   compute_quality = FALSE, return_aligned = FALSE
+#' )
+#' info <- get_cv_info(res)
+#' info$method
 #'
 #' @export
 get_cv_info <- function(result) {
@@ -224,6 +296,16 @@ get_cv_info <- function(result) {
 #'   "observation" (concatenate columns).
 #'
 #' @return Matrix or list of matrices.
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(20), 4, 5),
+#'   s2 = matrix(rnorm(20), 4, 5)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#' mat <- as_aligned_matrix(res, by = "observation")
+#' dim(mat)
 #'
 #' @export
 as_aligned_matrix <- function(result, by = c("subject", "observation")) {

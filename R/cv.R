@@ -11,6 +11,8 @@ NULL
 #' Create fold assignments for cross-validation. This is useful for
 #' implementing custom CV schemes or for reproducible experiments.
 #'
+#' @family cross_validation
+#'
 #' @param data AlignmentData object, or just the number of subjects.
 #' @param method CV method:
 #'   \itemize{
@@ -30,7 +32,6 @@ NULL
 #'   }
 #'
 #' @examples
-#' \dontrun{
 #' data <- AlignmentData(list(
 #'   "sub-01" = matrix(1, 10, 5),
 #'   "sub-02" = matrix(1, 10, 5),
@@ -43,7 +44,6 @@ NULL
 #'
 #' # 2-fold CV
 #' cv_kfold <- create_cv_folds(data, method = "kfold", k = 2)
-#' }
 #'
 #' @export
 create_cv_folds <- function(data,
@@ -248,6 +248,14 @@ create_cv_folds <- function(data,
 #' @return A list with elements `method`, `axis="observation"`, `folds`,
 #'   `n_folds`, and `fold_ids`. When `obs_ids` is a list, each fold contains a
 #'   named list of per-subject `train_idx`/`test_idx` vectors.
+#'
+#' @family cross_validation
+#'
+#' @examples
+#' # Leave-one-run-out folds for a single shared run vector
+#' runs <- rep(c("run1", "run2", "run3"), each = 2)
+#' obs_spec <- create_obs_folds(runs, method = "run")
+#' names(obs_spec$folds)
 #'
 #' @export
 create_obs_folds <- function(obs_ids,

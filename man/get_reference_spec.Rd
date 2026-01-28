@@ -16,3 +16,26 @@ The reference specification.
 Returns the reference specification used during fitting (e.g., a subject id,
 \code{"consensus"}, \code{"template"}, or \code{"fold_specific"}).
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(12), 3, 4),
+  s2 = matrix(rnorm(12), 3, 4)
+))
+res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+get_reference_spec(get_model(res))
+
+}
+\seealso{
+Other alignment_model: 
+\code{\link{AlignmentModel}},
+\code{\link{AlignmentModel-class}},
+\code{\link{add_transform}()},
+\code{\link{get_reference}()},
+\code{\link{get_transform}()},
+\code{\link{get_transforms}()},
+\code{\link{has_transform}()},
+\code{\link{model_subjects}()},
+\code{\link{spaces_compatible}()}
+}
+\concept{alignment_model}

@@ -19,3 +19,28 @@ A new AlignmentModel with the added transform.
 \description{
 Creates a new model with an additional transform (does not modify in place).
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(12), 3, 4),
+  s2 = matrix(rnorm(12), 3, 4)
+))
+res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+mdl <- get_model(res)
+mdl2 <- add_transform(mdl, "s3", diag(nrow(get_transform(mdl, "s1"))))
+has_transform(mdl2, "s3")
+
+}
+\seealso{
+Other alignment_model: 
+\code{\link{AlignmentModel}},
+\code{\link{AlignmentModel-class}},
+\code{\link{get_reference}()},
+\code{\link{get_reference_spec}()},
+\code{\link{get_transform}()},
+\code{\link{get_transforms}()},
+\code{\link{has_transform}()},
+\code{\link{model_subjects}()},
+\code{\link{spaces_compatible}()}
+}
+\concept{alignment_model}

@@ -15,3 +15,13 @@ Logical indicating if the aligner is registered.
 \description{
 Check if Aligner is Registered
 }
+\seealso{
+Other registry: 
+\code{\link{aligner_capabilities}()},
+\code{\link{available_aligners}()},
+\code{\link{get_aligner}()},
+\code{\link{register_aligner}()},
+\code{\link{unregister_aligner}()},
+\code{\link{validate_aligner_contract}()}
+}
+\concept{registry}

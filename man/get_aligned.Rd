@@ -22,3 +22,24 @@ numeric matrices (when \code{subject} is \code{NULL}).
 \description{
 Extract aligned data from an \link{AlignmentResult} object.
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 4, 5),
+  s2 = matrix(rnorm(20), 4, 5)
+))
+res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+all_aligned <- get_aligned(res)
+s1_aligned <- get_aligned(res, "s1")
+dim(s1_aligned)
+
+}
+\seealso{
+Other alignment_result: 
+\code{\link{AlignmentResult}},
+\code{\link{AlignmentResult-class}},
+\code{\link{get_cv_info}()},
+\code{\link{get_model}()},
+\code{\link{get_quality}()}
+}
+\concept{alignment_result}

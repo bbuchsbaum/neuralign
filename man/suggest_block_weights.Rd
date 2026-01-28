@@ -39,10 +39,12 @@ If \code{per = "global"}, a named numeric vector. If
 a named numeric vector.
 }
 \description{
+Suggest Feature Block Weights
+}
+\concept{feature_blocks
+
 Suggest additional block multipliers to mitigate dominance by large blocks
 when stacking heterogeneous correspondence signals via \code{\link{stack_feature_blocks}}.
-}
-\details{
+
 Note that \code{stack_feature_blocks()} scales each block by \code{sqrt(weight)}.
-Therefore, weights correspond to objective weights in a sum-of-squares sense.
-}
+Therefore, weights correspond to objective weights in a sum-of-squares sense.}

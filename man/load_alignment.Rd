@@ -17,3 +17,11 @@ The loaded AlignmentModel or AlignmentResult.
 \description{
 Load a previously saved alignment model from disk.
 }
+\seealso{
+Other serialization: 
+\code{\link{export_alignment}()},
+\code{\link{import_alignment}()},
+\code{\link{save_alignment}()},
+\code{\link{serialize}()}
+}
+\concept{serialization}

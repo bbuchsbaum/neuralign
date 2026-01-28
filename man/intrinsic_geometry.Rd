@@ -11,3 +11,14 @@ adjacency graph and store them as \code{"coords"} guidance channels for alignmen
 These coordinates are \emph{guidance} only: they provide a smooth positional
 encoding that methods can use as priors/costs, not the alignment target.
 }
+\seealso{
+Other guidance: 
+\code{\link{get_guidance}()},
+\code{\link{guidance_channel}()},
+\code{\link{laplacian_eigenmodes}()},
+\code{\link{roi_anchor_projector}()},
+\code{\link{roi_anchor_projectors}()},
+\code{\link{roi_anchors}},
+\code{\link{set_guidance}()}
+}
+\concept{guidance}

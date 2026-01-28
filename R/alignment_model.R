@@ -3,6 +3,8 @@
 #' Represents a fitted alignment model that can be applied to new data.
 #' Separates fit from apply to enable cross-validation workflows.
 #'
+#' @family alignment_model
+#'
 #' @slot transforms Named list of per-subject operators (target x source dimensions).
 #' @slot reference The reference used for alignment (subject ID, matrix, or "consensus").
 #' @slot reference_data The actual reference data (matrix or template object).
@@ -79,6 +81,8 @@ setValidity("AlignmentModel", function(object) {
 #'   or models reconstructed from serialized state.
 #'
 #' @return An AlignmentModel object.
+#'
+#' @family alignment_model
 #'
 #' @export
 AlignmentModel <- function(transforms,
@@ -202,6 +206,8 @@ setMethod("show", "AlignmentModel", function(object) {
 #'
 #' @return Logical; TRUE if spaces are compatible.
 #'
+#' @family alignment_model
+#'
 #' @export
 spaces_compatible <- function(a, b) {
   if (is.null(a) || is.null(b)) return(TRUE)
@@ -245,6 +251,19 @@ spaces_compatible <- function(a, b) {
 #'
 #' @return The transform operator for the subject.
 #'
+#' @family alignment_model
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(12), 3, 4),
+#'   s2 = matrix(rnorm(12), 3, 4)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#' mdl <- get_model(res)
+#' Q_s2 <- get_transform(mdl, "s2")
+#' dim(Q_s2)
+#'
 #' @export
 get_transform <- function(model, subject) {
   model <- .ensure_model(model, what = "model")
@@ -264,6 +283,18 @@ get_transform <- function(model, subject) {
 #'
 #' @return Named list of transform operators.
 #'
+#' @family alignment_model
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(12), 3, 4),
+#'   s2 = matrix(rnorm(12), 3, 4)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#' trs <- get_transforms(get_model(res))
+#' names(trs)
+#'
 #' @export
 get_transforms <- function(model) {
   model <- .ensure_model(model, what = "model")
@@ -276,6 +307,17 @@ get_transforms <- function(model) {
 #' @param model An AlignmentModel object.
 #'
 #' @return Character vector of subject IDs.
+#'
+#' @family alignment_model
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(12), 3, 4),
+#'   s2 = matrix(rnorm(12), 3, 4)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#' model_subjects(get_model(res))
 #'
 #' @export
 model_subjects <- function(model) {
@@ -297,6 +339,19 @@ get_model_subjects <- function(model) {
 #'
 #' @return Logical.
 #'
+#' @family alignment_model
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(12), 3, 4),
+#'   s2 = matrix(rnorm(12), 3, 4)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#' mdl <- get_model(res)
+#' has_transform(mdl, "s2")
+#' has_transform(mdl, "missing")
+#'
 #' @export
 has_transform <- function(model, subject) {
   model <- .ensure_model(model, what = "model")
@@ -314,6 +369,8 @@ has_transform <- function(model, subject) {
 #' @return The reference data (matrix or template object).
 #' @seealso \code{\link{get_reference_spec}} for the reference specification.
 #'
+#' @family alignment_model
+#'
 #' @export
 get_reference <- function(model) {
   model <- .ensure_model(model, what = "model")
@@ -328,6 +385,17 @@ get_reference <- function(model) {
 #' @param model An AlignmentModel object.
 #'
 #' @return The reference specification.
+#'
+#' @family alignment_model
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(12), 3, 4),
+#'   s2 = matrix(rnorm(12), 3, 4)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#' get_reference_spec(get_model(res))
 #'
 #' @export
 get_reference_spec <- function(model) {
@@ -344,6 +412,19 @@ get_reference_spec <- function(model) {
 #' @param transform The transform operator.
 #'
 #' @return A new AlignmentModel with the added transform.
+#'
+#' @family alignment_model
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(12), 3, 4),
+#'   s2 = matrix(rnorm(12), 3, 4)
+#' ))
+#' res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = FALSE)
+#' mdl <- get_model(res)
+#' mdl2 <- add_transform(mdl, "s3", diag(nrow(get_transform(mdl, "s1"))))
+#' has_transform(mdl2, "s3")
 #'
 #' @export
 add_transform <- function(model, subject, transform) {

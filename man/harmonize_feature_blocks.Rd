@@ -17,8 +17,11 @@ block.}
 A harmonized \code{blocks_by_subject} list with the same structure.
 }
 \description{
+Harmonize Feature Blocks Across Subjects
+}
+\concept{feature_blocks
+
 For each block name, intersect feature names across subjects, subset and
 reorder rows so that each subject has a consistent feature ordering. Blocks
 missing from any subject are dropped. Blocks with fewer than \code{min_features}
-common features are dropped with a warning.
-}
+common features are dropped with a warning.}

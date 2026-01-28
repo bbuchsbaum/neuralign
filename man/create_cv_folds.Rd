@@ -41,7 +41,6 @@ Create fold assignments for cross-validation. This is useful for
 implementing custom CV schemes or for reproducible experiments.
 }
 \examples{
-\dontrun{
 data <- AlignmentData(list(
   "sub-01" = matrix(1, 10, 5),
   "sub-02" = matrix(1, 10, 5),
@@ -54,6 +53,10 @@ cv_loso <- create_cv_folds(data, method = "loso")
 
 # 2-fold CV
 cv_kfold <- create_cv_folds(data, method = "kfold", k = 2)
-}
 
 }
+\seealso{
+Other cross_validation: 
+\code{\link{create_obs_folds}()}
+}
+\concept{cross_validation}

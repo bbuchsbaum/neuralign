@@ -17,3 +17,23 @@ Quality metrics list or specific metric value.
 \description{
 Get Quality Metrics
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(20), 4, 5),
+  s2 = matrix(rnorm(20), 4, 5)
+))
+res <- fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = TRUE)
+qm <- get_quality(res)
+names(qm)
+
+}
+\seealso{
+Other alignment_result: 
+\code{\link{AlignmentResult}},
+\code{\link{AlignmentResult-class}},
+\code{\link{get_aligned}()},
+\code{\link{get_cv_info}()},
+\code{\link{get_model}()}
+}
+\concept{alignment_result}

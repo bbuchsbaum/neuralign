@@ -40,6 +40,7 @@ Suggests:
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 Collate:
+    'neuralign-package.R'
     'alignment_data.R'
     'utils_infix.R'
     'utils_subset.R'

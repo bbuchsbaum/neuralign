@@ -10,6 +10,8 @@ NULL
 #' Input container for data to be aligned. Standardizes the representation
 #' of multi-subject neuroimaging data for alignment methods.
 #'
+#' @family alignment_data
+#'
 #' @slot data Named list of matrices or NeuroVec objects (one per subject).
 #'   Each matrix should be (features x observations) or (voxels x time).
 #' @slot subjects Character vector of subject IDs, matching names in data.
@@ -283,6 +285,8 @@ setValidity("AlignmentData", function(object) {
 #'
 #' @return An AlignmentData object.
 #'
+#' @family alignment_data
+#'
 #' @examples
 #' # Create from list of matrices
 #' data_list <- list(
@@ -442,6 +446,17 @@ setMethod("show", "AlignmentData", function(object) {
 #'
 #' @return An AlignmentData object.
 #'
+#' @family alignment_data
+#'
+#' @examples
+#' set.seed(1)
+#' x <- list(
+#'   s1 = matrix(rnorm(12), 3, 4),
+#'   s2 = matrix(rnorm(12), 3, 4)
+#' )
+#' adat <- as_alignment_data(x)
+#' stopifnot(inherits(adat, "AlignmentData"))
+#'
 #' @export
 as_alignment_data <- function(x, ...) {
   UseMethod("as_alignment_data")
@@ -467,6 +482,17 @@ as_alignment_data.AlignmentData <- function(x, ...) {
 #'
 #' @return The data for the specified subject.
 #'
+#' @family alignment_data
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(12), 3, 4),
+#'   s2 = matrix(rnorm(12), 3, 4)
+#' ))
+#' x1 <- get_subject_data(adat, "s1")
+#' dim(x1)
+#'
 #' @export
 get_subject_data <- function(object, subject) {
   object <- .ensure_alignment_data(object, what = "object")
@@ -487,6 +513,17 @@ get_subject_data <- function(object, subject) {
 #'
 #' @return Named list of subject data.
 #'
+#' @family alignment_data
+#'
+#' @examples
+#' set.seed(1)
+#' adat <- AlignmentData(list(
+#'   s1 = matrix(rnorm(12), 3, 4),
+#'   s2 = matrix(rnorm(12), 3, 4)
+#' ))
+#' dl <- get_data_list(adat)
+#' names(dl)
+#'
 #' @export
 get_data_list <- function(object) {
   object <- .ensure_alignment_data(object, what = "object")
@@ -499,6 +536,15 @@ get_data_list <- function(object) {
 #' @param object An AlignmentData object.
 #'
 #' @return Observation labels (or NULL if not set).
+#'
+#' @family alignment_data
+#'
+#' @examples
+#' adat <- AlignmentData(
+#'   list(s1 = matrix(1, 3, 4), s2 = matrix(1, 3, 4)),
+#'   obs_labels = paste0("t", 1:4)
+#' )
+#' get_obs_labels(adat)
 #'
 #' @export
 get_obs_labels <- function(object) {
@@ -606,6 +652,8 @@ get_obs_labels <- function(object) {
 #'   match each subject's observation count.
 #'
 #' @return `TRUE` invisibly if valid, otherwise throws an error.
+#'
+#' @family alignment_data
 #'
 #' @export
 validate_alignment_data <- function(object, check_features = TRUE,

@@ -7,6 +7,7 @@
 #' encoding that methods can use as priors/costs, not the alignment target.
 #'
 #' @name intrinsic_geometry
+#' @family guidance
 NULL
 
 .fix_eigenmode_signs <- function(Z) {
@@ -49,6 +50,8 @@ NULL
 #' Compute intrinsic geometry coordinates from a symmetric adjacency graph via
 #' Laplacian eigenmodes.
 #'
+#' @family guidance
+#'
 #' @param adj Symmetric adjacency matrix (dense matrix or sparse `Matrix`).
 #' @param k Number of non-trivial eigenmodes to return.
 #' @param normalized Logical; if `TRUE`, use the symmetric normalized Laplacian.
@@ -60,6 +63,15 @@ NULL
 #' @param return_values Logical; if `TRUE`, return a list with eigenvalues.
 #'
 #' @return Matrix of size `(n_nodes x k)` or a list with `$vectors` and `$values`.
+#' @examples
+#' # Path graph with 6 nodes
+#' n <- 6
+#' A <- matrix(0, n, n)
+#' A[cbind(1:(n - 1), 2:n)] <- 1
+#' A <- A + t(A)
+#'
+#' Z <- laplacian_eigenmodes(A, k = 2)
+#' dim(Z)
 #' @export
 laplacian_eigenmodes <- function(adj,
                                  k = 10,

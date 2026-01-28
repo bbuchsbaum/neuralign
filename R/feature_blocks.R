@@ -4,6 +4,7 @@
 #' feature matrices in a way that can be shared across downstream packages.
 #'
 #' @name feature_blocks
+#' @family feature_blocks
 NULL
 
 .is_scalar_number <- function(x) {
@@ -36,6 +37,8 @@ NULL
 }
 
 #' Create an Alignment Feature Block
+#'
+#' @family feature_blocks
 #'
 #' @param x Matrix of features for a block (features x observations).
 #' @param name Block name (character scalar).
@@ -205,6 +208,8 @@ alignment_feature_block <- function(x,
 
 #' Suggest Feature Block Weights
 #'
+#' @family feature_blocks
+#'
 #' Suggest additional block multipliers to mitigate dominance by large blocks
 #' when stacking heterogeneous correspondence signals via \code{\link{stack_feature_blocks}}.
 #'
@@ -329,6 +334,8 @@ suggest_block_weights <- function(blocks_by_subject,
 
 #' Stack Feature Blocks
 #'
+#' @family feature_blocks
+#'
 #' Vertically stack (rbind) multiple feature blocks after scaling each by
 #' `sqrt(weight)`. This produces a single matrix ready for alignment methods
 #' such as Procrustes.
@@ -385,6 +392,8 @@ stack_feature_blocks <- function(blocks, block_weights = NULL) {
 }
 
 #' Harmonize Feature Blocks Across Subjects
+#'
+#' @family feature_blocks
 #'
 #' For each block name, intersect feature names across subjects, subset and
 #' reorder rows so that each subject has a consistent feature ordering. Blocks
@@ -492,6 +501,8 @@ harmonize_feature_blocks <- function(blocks_by_subject, min_features = 2L) {
 }
 
 #' Build Alignment Matrices from Feature Blocks
+#'
+#' @family feature_blocks
 #'
 #' Construct per-subject alignment matrices by harmonizing and stacking feature
 #' blocks. This is useful for block-driven alignment workflows where different
@@ -870,6 +881,8 @@ build_alignment_features <- function(blocks_by_subject,
 
 #' Feature Block Independence Requirements
 #'
+#' @family feature_blocks
+#'
 #' Summarize which feature blocks declare `meta$requires_independence = TRUE`.
 #' This is a domain-agnostic mechanism for downstream packages to tag blocks
 #' that must be computed on data independent of downstream evaluation (e.g.,
@@ -1052,6 +1065,8 @@ feature_block_requires_independence <- function(blocks) {
 
 #' Feature Block Identifiability Diagnostics
 #'
+#' @family feature_blocks
+#'
 #' Compute per-block and stacked rank/effective-rank summaries for feature block
 #' workflows. This is useful when alignment is driven by correspondence signals
 #' (task betas, contrast betas, anchor fingerprints): the singular value spectrum
@@ -1076,6 +1091,15 @@ feature_block_requires_independence <- function(blocks) {
 #' @return For a single subject, an object of class `"feature_block_diagnostics"`.
 #'   For multiple subjects, a named list of `"feature_block_diagnostics"` objects
 #'   with class `"feature_block_diagnostics_by_subject"`.
+#'
+#' @examples
+#' set.seed(1)
+#' blocks <- list(
+#'   alignment_feature_block(matrix(rnorm(12), 3, 4), name = "b1", feature_names = paste0("f", 1:3)),
+#'   alignment_feature_block(matrix(rnorm(8), 2, 4), name = "b2", feature_names = paste0("g", 1:2))
+#' )
+#' diag <- feature_block_diagnostics(blocks, convention = "right", include_singular_values = TRUE)
+#' diag$stacked$numeric_rank
 #'
 #' @export
 feature_block_diagnostics <- function(blocks,

@@ -16,8 +16,36 @@ guidance_channel(type, value, name = NULL, ...)
 \item{...}{Optional additional fields to store in the channel list.}
 }
 \value{
-A guidance channel list.
+A list with elements \code{type}, \code{value}, and \code{name}, plus any additional
+fields passed via \code{...}.
 }
 \description{
 Convenience constructor for a single guidance channel.
 }
+\examples{
+set.seed(1)
+adat <- AlignmentData(list(
+  s1 = matrix(rnorm(12), 3, 4),
+  s2 = matrix(rnorm(12), 3, 4)
+))
+
+g <- list(
+  s1 = list(roi = guidance_channel("projector", diag(3), name = "roi")),
+  s2 = list(roi = guidance_channel("projector", diag(3), name = "roi"))
+)
+
+adat2 <- set_guidance(adat, g)
+get_guidance(adat2, subject = "s1")
+get_guidance(adat2, type = "projector")
+}
+\seealso{
+Other guidance: 
+\code{\link{get_guidance}()},
+\code{\link{intrinsic_geometry}},
+\code{\link{laplacian_eigenmodes}()},
+\code{\link{roi_anchor_projector}()},
+\code{\link{roi_anchor_projectors}()},
+\code{\link{roi_anchors}},
+\code{\link{set_guidance}()}
+}
+\concept{guidance}

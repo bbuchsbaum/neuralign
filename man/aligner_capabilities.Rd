@@ -15,3 +15,13 @@ List of capability flags, or NULL if method not found.
 \description{
 Get Aligner Capabilities
 }
+\seealso{
+Other registry: 
+\code{\link{available_aligners}()},
+\code{\link{get_aligner}()},
+\code{\link{is_aligner_registered}()},
+\code{\link{register_aligner}()},
+\code{\link{unregister_aligner}()},
+\code{\link{validate_aligner_contract}()}
+}
+\concept{registry}
