@@ -187,20 +187,67 @@ select_reference <- function(data,
   }
   labels_source <- as.character(labels_source)
   labels_target <- as.character(labels_target)
-  common <- intersect(labels_source, labels_target)
-  if (length(common) < min_overlap) {
+
+  ok_source <- !is.na(labels_source)
+  ok_target <- !is.na(labels_target)
+  if (!any(ok_source) || !any(ok_target)) {
     stop(
       sprintf(
         "Not enough shared observation labels: %d (need >= %d)",
-        length(common), as.integer(min_overlap)
+        0L, as.integer(min_overlap)
       ),
       call. = FALSE
     )
   }
+
+  src_idx_map <- which(ok_source)
+  tgt_idx_map <- which(ok_target)
+  src_vals <- labels_source[ok_source]
+  tgt_vals <- labels_target[ok_target]
+
+  src_pos_by_label <- split(seq_along(src_vals), src_vals)
+  tgt_pos_by_label <- split(seq_along(tgt_vals), tgt_vals)
+  common_labels <- intersect(names(src_pos_by_label), names(tgt_pos_by_label))
+
+  if (length(common_labels) < 1L) {
+    stop(
+      sprintf(
+        "Not enough shared observation labels: %d (need >= %d)",
+        0L, as.integer(min_overlap)
+      ),
+      call. = FALSE
+    )
+  }
+
+  source <- integer(0)
+  target <- integer(0)
+  labels <- character(0)
+  for (lab in common_labels) {
+    src_pos <- src_pos_by_label[[lab]]
+    tgt_pos <- tgt_pos_by_label[[lab]]
+    n_match <- min(length(src_pos), length(tgt_pos))
+    if (n_match < 1L) next
+
+    source <- c(source, src_idx_map[src_pos[seq_len(n_match)]])
+    target <- c(target, tgt_idx_map[tgt_pos[seq_len(n_match)]])
+    labels <- c(labels, rep(lab, n_match))
+  }
+
+  if (length(source) < min_overlap) {
+    stop(
+      sprintf(
+        "Not enough shared observation labels: %d (need >= %d)",
+        length(source), as.integer(min_overlap)
+      ),
+      call. = FALSE
+    )
+  }
+
+  ord <- order(source)
   list(
-    source = match(common, labels_source),
-    target = match(common, labels_target),
-    labels = common
+    source = source[ord],
+    target = target[ord],
+    labels = labels[ord]
   )
 }
 

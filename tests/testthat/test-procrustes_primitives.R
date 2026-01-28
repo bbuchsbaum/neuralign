@@ -141,6 +141,37 @@ test_that("procrustes_rotation supports label intersection", {
   expect_equal(res$residual, 0, tolerance = 1e-8)
 })
 
+test_that("procrustes_rotation matches duplicate obs_labels by occurrence order", {
+  set.seed(8)
+  d <- 5
+  Q_true <- qr.Q(qr(matrix(rnorm(d * d), d, d)))
+  if (det(Q_true) < 0) Q_true[, d] <- -Q_true[, d]
+
+  labs_x <- c("A", "A", "B", "B", "C", "C")
+  labs_y <- c("B", "A", "C", "A", "B", "C")
+
+  X <- matrix(rnorm(d * length(labs_x)), d, length(labs_x))
+  Y <- matrix(rnorm(d * length(labs_y)), d, length(labs_y))
+
+  # Expected duplicate-safe matching:
+  # A: (1 -> 2), (2 -> 4); B: (3 -> 1), (4 -> 5); C: (5 -> 3), (6 -> 6)
+  src_idx <- 1:6
+  tgt_idx <- c(2, 4, 1, 5, 3, 6)
+  Y[, tgt_idx] <- Q_true %*% X[, src_idx]
+
+  res <- procrustes_rotation(
+    X, Y,
+    convention = "left",
+    obs_labels_source = labs_x,
+    obs_labels_target = labs_y,
+    min_overlap = 1L
+  )
+
+  expect_equal(length(res$matched_labels), 6L)
+  expect_equal(res$matched_labels, labs_x)
+  expect_equal(res$residual, 0, tolerance = 1e-8)
+})
+
 test_that("procrustes_rotation errors on incompatible dimensions", {
   X <- matrix(rnorm(10), 2, 5)
   Y <- matrix(rnorm(12), 3, 4)

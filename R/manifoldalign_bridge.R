@@ -225,20 +225,8 @@ NULL
 
 
 .ma_match_obs_indices <- function(obs_labels_ref, obs_labels_new, min_overlap = 2L) {
-  obs_labels_ref <- as.character(obs_labels_ref)
-  obs_labels_new <- as.character(obs_labels_new)
-
-  common <- intersect(obs_labels_ref, obs_labels_new)
-  if (length(common) < min_overlap) {
-    stop(
-      sprintf("Insufficient obs_labels overlap (need >= %d, got %d)", min_overlap, length(common)),
-      call. = FALSE
-    )
-  }
-  list(
-    ref = match(common, obs_labels_ref),
-    new = match(common, obs_labels_new)
-  )
+  idx <- .match_obs_indices(obs_labels_ref, obs_labels_new, min_overlap = min_overlap)
+  list(ref = idx$source, new = idx$target)
 }
 
 

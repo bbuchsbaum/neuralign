@@ -19,7 +19,9 @@ NULL
 #' @slot obs_labels Optional vector of length n_obs defining a shared observation
 #'   label system across subjects (e.g., design column names, trial ids, or
 #'   timepoints for time-locked paradigms). When provided, validation can enforce
-#'   that observations are comparable across subjects.
+#'   that observations are comparable across subjects. Duplicate labels are
+#'   allowed; when labels are used for matching, duplicates are matched by
+#'   occurrence order within each label.
 #' @slot metadata Named list for additional method-specific information.
 #'
 #' @export

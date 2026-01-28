@@ -414,6 +414,29 @@ test_that(".match_obs_indices errors on insufficient overlap", {
   )
 })
 
+test_that(".match_obs_indices matches duplicate labels by occurrence order", {
+  idx <- neuralign:::.match_obs_indices(
+    c("A", "A", "B", "A", "B"),
+    c("A", "B", "A", "B", "A"),
+    min_overlap = 1L
+  )
+  expect_equal(idx$source, 1:5)
+  expect_equal(idx$target, c(1, 3, 2, 5, 4))
+  expect_equal(idx$labels, c("A", "A", "B", "A", "B"))
+})
+
+test_that(".match_obs_indices min_overlap counts matched observations, not unique labels", {
+  idx <- neuralign:::.match_obs_indices(rep("A", 5), rep("A", 3), min_overlap = 3L)
+  expect_equal(idx$source, 1:3)
+  expect_equal(idx$target, 1:3)
+  expect_equal(idx$labels, rep("A", 3))
+
+  expect_error(
+    neuralign:::.match_obs_indices(rep("A", 5), rep("A", 2), min_overlap = 3L),
+    "Not enough shared"
+  )
+})
+
 test_that(".subset_to_overlap errors on incompatible dimensions without labels", {
   expect_error(
     neuralign:::.subset_to_overlap(matrix(1, 2, 3), matrix(1, 3, 4)),

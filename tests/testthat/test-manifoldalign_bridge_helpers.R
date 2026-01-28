@@ -11,3 +11,13 @@ test_that(".ma_get_single_subject_obs_labels handles atomic and per-subject list
   adat_bad@obs_labels <- list(s2 = c("a", "b"), s3 = c("a", "b"))
   expect_error(neuralign:::.ma_get_single_subject_obs_labels(adat_bad), "does not contain subject")
 })
+
+test_that(".ma_match_obs_indices matches duplicate labels by occurrence order", {
+  idx <- neuralign:::.ma_match_obs_indices(
+    c("A", "A", "B", "A", "B"),
+    c("A", "B", "A", "B", "A"),
+    min_overlap = 1L
+  )
+  expect_equal(idx$ref, 1:5)
+  expect_equal(idx$new, c(1, 3, 2, 5, 4))
+})
