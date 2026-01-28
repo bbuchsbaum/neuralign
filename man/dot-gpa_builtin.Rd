@@ -4,7 +4,7 @@
 \alias{.gpa_builtin}
 \title{Built-in GPA Implementation}
 \usage{
-.gpa_builtin(data_list, scale, reflection, tol, max_iter)
+.gpa_builtin(data_list, scale, reflection, rank, tol, max_iter)
 }
 \description{
 Built-in GPA Implementation

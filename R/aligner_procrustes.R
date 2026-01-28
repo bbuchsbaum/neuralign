@@ -28,6 +28,7 @@ NULL
                             train_idx = NULL,
                             scale = FALSE,
                             reflection = FALSE,
+                            rank = NULL,
                             tol = 1e-6,
                             max_iter = 100,
                             allow_reflection = NULL,
@@ -47,7 +48,7 @@ NULL
   # and neuralign avoids relying on unexported or unstable symbols.)
   result <- .procrustes_fit_builtin(
     data_list, reference, train_data,
-    scale = scale, reflection = reflection, tol = tol, max_iter = max_iter
+    scale = scale, reflection = reflection, rank = rank, tol = tol, max_iter = max_iter
   )
 
   # Ensure all original subjects have transforms
@@ -61,7 +62,11 @@ NULL
       ref_data <- result$reference_data
 
       # .procrustes_single returns left-multiply directly
-      Q <- .procrustes_single(subj_data, ref_data, scale, reflection)
+      Q <- .procrustes_single(subj_data, ref_data,
+        scale = scale,
+        reflection = reflection,
+        rank = rank
+      )
       attr(Q, "scale_factor") <- NULL
       transforms[[subj]] <- Q
     }
@@ -75,6 +80,7 @@ NULL
     method_state = list(
       scale = scale,
       reflection = reflection,
+      rank = rank,
       consensus = result$reference_data
     )
   )
@@ -84,10 +90,10 @@ NULL
 #' Built-in Procrustes Implementation
 #' @keywords internal
 .procrustes_fit_builtin <- function(data_list, reference, train_data,
-                                    scale, reflection, tol, max_iter) {
+                                    scale, reflection, rank, tol, max_iter) {
   if (is.character(reference) && reference == "consensus") {
     # Generalized Procrustes Analysis
-    result <- .gpa_builtin(data_list, scale, reflection, tol, max_iter)
+    result <- .gpa_builtin(data_list, scale, reflection, rank, tol, max_iter)
     return(result)
   }
 
@@ -104,7 +110,11 @@ NULL
     if (is.character(reference) && subj == reference) {
       diag(nrow(data_list[[subj]]))
     } else {
-      Q <- .procrustes_single(data_list[[subj]], reference_data, scale, reflection)
+      Q <- .procrustes_single(data_list[[subj]], reference_data,
+        scale = scale,
+        reflection = reflection,
+        rank = rank
+      )
       attr(Q, "scale_factor") <- NULL
       Q
     }
@@ -120,7 +130,7 @@ NULL
 
 #' Single Procrustes Alignment
 #' @keywords internal
-.procrustes_single <- function(X, Y, scale = FALSE, reflection = FALSE) {
+.procrustes_single <- function(X, Y, scale = FALSE, reflection = FALSE, rank = NULL) {
   # X: source data (n_features x n_obs)
   # Y: target/reference data (n_features x n_obs)
   # Find Q (n_features x n_features) such that Q %*% X ≈ Y (left-multiply)
@@ -129,17 +139,39 @@ NULL
   # Or: t(X) %*% R ≈ t(Y) where R = t(Q)
   # Standard Procrustes: H = X %*% t(Y), SVD gives rotation in feature space
 
-  # SVD of cross-covariance in feature space
-  H <- X %*% t(Y)
-  svd_result <- svd(H)
+  if (!is.null(rank)) {
+    rank <- as.integer(rank)
+    if (length(rank) != 1L || is.na(rank) || rank < 1L) {
+      stop("'rank' must be a positive integer", call. = FALSE)
+    }
+    rmax <- min(nrow(X), ncol(X))
+    if (rank > rmax) {
+      stop(
+        sprintf("'rank' must be <= min(n_features, n_obs) = %d", as.integer(rmax)),
+        call. = FALSE
+      )
+    }
+  }
+
+  if (is.null(rank) || rank >= nrow(X)) {
+    # Full SVD of cross-covariance in feature space (existing behavior)
+    H <- X %*% t(Y)
+    sv <- svd(H)
+    U <- sv$u
+    V <- sv$v
+  } else {
+    sv <- .procrustes_truncated_svd(X, Y, k = rank)
+    U <- sv$u
+    V <- sv$v
+  }
 
   # Optimal rotation Q (left-multiply convention)
-  Q <- svd_result$v %*% t(svd_result$u)
+  Q <- V %*% t(U)
 
   # Handle reflection
   if (!reflection && det(Q) < 0) {
-    svd_result$u[, ncol(svd_result$u)] <- -svd_result$u[, ncol(svd_result$u)]
-    Q <- svd_result$v %*% t(svd_result$u)
+    U[, ncol(U)] <- -U[, ncol(U)]
+    Q <- V %*% t(U)
   }
 
   if (isTRUE(scale)) {
@@ -157,6 +189,110 @@ NULL
   }
 
   Q
+}
+
+#' Truncated-SVD Procrustes Helper
+#' @keywords internal
+.procrustes_truncated_svd <- function(X, Y, k) {
+  # Compute leading singular vectors of H = X %*% t(Y) without forming H,
+  # then deterministically complete them to full orthonormal bases so that the
+  # resulting Procrustes operator is a full orthogonal matrix.
+
+  k <- as.integer(k)
+  if (length(k) != 1L || is.na(k) || k < 1L) {
+    stop("'k' must be a positive integer", call. = FALSE)
+  }
+
+  r0 <- min(nrow(X), ncol(X))
+  if (k > r0) {
+    stop(
+      sprintf("'k' must be <= min(n_features, n_obs) = %d", as.integer(r0)),
+      call. = FALSE
+    )
+  }
+
+  # Economy QR: X = Qx Rx, Y = Qy Ry, with Qx/Qy having r0 columns.
+  qx <- qr(X)
+  Qx <- qr.Q(qx)
+  Rx <- qr.R(qx)
+
+  qy <- qr(Y)
+  Qy <- qr.Q(qy)
+  Ry <- qr.R(qy)
+
+  # Small cross-covariance in the reduced space.
+  C <- Rx %*% t(Ry)
+
+  sv <- NULL
+  if (k < nrow(C) && requireNamespace("RSpectra", quietly = TRUE)) {
+    sv <- RSpectra::svds(C, k = k, nu = k, nv = k)
+  }
+  if (is.null(sv)) {
+    sv <- svd(C, nu = k, nv = k)
+  }
+
+  U_k <- Qx %*% sv$u
+  V_k <- Qy %*% sv$v
+
+  list(
+    u = .complete_orthonormal_basis(U_k),
+    v = .complete_orthonormal_basis(V_k),
+    d = sv$d
+  )
+}
+
+.complete_orthonormal_basis <- function(U, tol = 1e-12) {
+  if (!.is_matrixish(U)) {
+    stop("'U' must be matrix-like", call. = FALSE)
+  }
+  U <- as.matrix(U)
+
+  p <- nrow(U)
+  k <- ncol(U)
+
+  if (k == 0L) {
+    return(diag(p))
+  }
+  if (k >= p) {
+    return(U)
+  }
+
+  # Deterministic Gram-Schmidt completion using standard basis vectors.
+  B <- matrix(0, p, p - k)
+  nB <- 0L
+
+  for (j in seq_len(p)) {
+    v <- rep(0, p)
+    v[[j]] <- 1
+
+    # Remove projection onto U
+    v <- v - U %*% drop(crossprod(U, v))
+
+    # Remove projection onto existing B columns
+    if (nB > 0L) {
+      Bj <- B[, seq_len(nB), drop = FALSE]
+      v <- v - Bj %*% drop(crossprod(Bj, v))
+    }
+
+    nv <- sqrt(sum(v * v))
+    if (is.finite(nv) && nv > tol) {
+      nB <- nB + 1L
+      B[, nB] <- v / nv
+      if (nB == (p - k)) break
+    }
+  }
+
+  if (nB != (p - k)) {
+    stop(
+      sprintf(
+        "Failed to complete orthonormal basis: needed %d columns, got %d",
+        as.integer(p - k), as.integer(nB)
+      ),
+      call. = FALSE
+    )
+  }
+
+  cbind(U, B)
 }
 
 #' Procrustes Rotation (Convention-Safe)
@@ -181,6 +317,9 @@ NULL
 #' @param obs_labels_source Optional observation labels for `source`.
 #' @param obs_labels_target Optional observation labels for `target`.
 #' @param min_overlap Minimum number of shared labels when labels are supplied.
+#' @param rank Optional truncated-SVD rank for Procrustes fitting. If `NULL`
+#'   (default), uses the full SVD. If provided, must be a positive integer
+#'   `<= min(n_features, n_obs)`.
 #'
 #' @return A list with elements `Q`, `scale_factor`, `residual`,
 #'   `convention`, and `matched_labels`.
@@ -194,7 +333,8 @@ procrustes_rotation <- function(source,
                                 obs_labels_source = NULL,
                                 obs_labels_target = NULL,
                                 min_overlap = 2L,
-                                allow_reflection = NULL) {
+                                allow_reflection = NULL,
+                                rank = NULL) {
   if (!is.null(allow_reflection)) {
     if (!missing(reflection) && isTRUE(reflection) != isTRUE(allow_reflection)) {
       stop("Provide only one of 'reflection' and 'allow_reflection' (and they must agree).", call. = FALSE)
@@ -242,7 +382,11 @@ procrustes_rotation <- function(source,
       )
     }
 
-    Q <- .procrustes_single(X, Y, scale = scale, reflection = reflection)
+    Q <- .procrustes_single(X, Y,
+      scale = scale,
+      reflection = reflection,
+      rank = rank
+    )
     aligned <- Q %*% X
     resid <- norm(aligned - Y, "F")
     scale_factor <- if (isTRUE(scale)) attr(Q, "scale_factor") %||% 1 else 1
@@ -295,7 +439,8 @@ procrustes_rotation <- function(source,
     reflection = reflection,
     obs_labels_source = NULL,
     obs_labels_target = NULL,
-    min_overlap = min_overlap
+    min_overlap = min_overlap,
+    rank = rank
   )
   Qr <- t(left_res$Q)
   aligned <- Xr %*% Qr
@@ -345,7 +490,7 @@ procrustes_distance <- function(x,
 
 #' Built-in GPA Implementation
 #' @keywords internal
-.gpa_builtin <- function(data_list, scale, reflection, tol, max_iter) {
+.gpa_builtin <- function(data_list, scale, reflection, rank, tol, max_iter) {
   n_subjects <- length(data_list)
   subjects <- names(data_list)
 
@@ -362,7 +507,11 @@ procrustes_distance <- function(x,
     aligned <- vector("list", n_subjects)
     for (i in seq_len(n_subjects)) {
       # Get left-multiply transform Q such that Q %*% X ≈ consensus
-      Q <- .procrustes_single(data_list[[i]], consensus, scale, reflection)
+      Q <- .procrustes_single(data_list[[i]], consensus,
+        scale = scale,
+        reflection = reflection,
+        rank = rank
+      )
       attr(Q, "scale_factor") <- NULL
       transforms[[i]] <- Q
       # Apply left-multiply: Q %*% X

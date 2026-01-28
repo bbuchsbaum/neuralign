@@ -13,7 +13,8 @@ procrustes_rotation(
   obs_labels_source = NULL,
   obs_labels_target = NULL,
   min_overlap = 2L,
-  allow_reflection = NULL
+  allow_reflection = NULL,
+  rank = NULL
 )
 }
 \arguments{
@@ -34,6 +35,10 @@ procrustes_rotation(
 \item{min_overlap}{Minimum number of shared labels when labels are supplied.}
 
 \item{allow_reflection}{Alias for \code{reflection}.}
+
+\item{rank}{Optional truncated-SVD rank for Procrustes fitting. If \code{NULL}
+(default), uses the full SVD. If provided, must be a positive integer
+\verb{<= min(n_features, n_obs)}.}
 }
 \value{
 A list with elements \code{Q}, \code{scale_factor}, \code{residual},

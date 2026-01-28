@@ -10,6 +10,7 @@
   train_data,
   scale,
   reflection,
+  rank,
   tol,
   max_iter
 )

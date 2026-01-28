@@ -194,6 +194,54 @@ test_that("procrustes_rotation right convention recovers rotation", {
   expect_equal(res$residual, 0, tolerance = 1e-8)
 })
 
+test_that("procrustes_rotation rank argument validates and full-rank matches default", {
+  set.seed(14)
+  d <- 10
+  n <- 25
+  Q_true <- qr.Q(qr(matrix(rnorm(d * d), d, d)))
+  if (det(Q_true) < 0) Q_true[, d] <- -Q_true[, d]
+
+  X <- matrix(rnorm(d * n), d, n)
+  Y <- Q_true %*% X
+
+  res_default <- procrustes_rotation(X, Y, convention = "left")
+  res_full <- procrustes_rotation(X, Y, convention = "left", rank = d)
+  expect_equal(res_full$residual, 0, tolerance = 1e-8)
+  expect_equal(res_full$Q, res_default$Q, tolerance = 1e-8)
+
+  expect_error(procrustes_rotation(X, Y, convention = "left", rank = 0L), "positive integer")
+  expect_error(procrustes_rotation(X, Y, convention = "left", rank = -1L), "positive integer")
+  expect_error(procrustes_rotation(X, Y, convention = "left", rank = d + 1L), "min\\(n_features, n_obs\\)")
+})
+
+test_that("procrustes_rotation rank truncation is more stable in low-signal subspaces", {
+  set.seed(15)
+  p <- 30
+  n <- 30
+  strong <- 10
+  scales <- c(rep(1, strong), rep(1e-6, p - strong))
+
+  X0 <- sweep(matrix(rnorm(p * n), p, n), 1, scales, `*`)
+  Y0 <- X0
+
+  noise_sd <- 1e-3
+  X1 <- X0 + matrix(rnorm(p * n), p, n) * noise_sd
+  Y1 <- Y0 + matrix(rnorm(p * n), p, n) * noise_sd
+  X2 <- X0 + matrix(rnorm(p * n), p, n) * noise_sd
+  Y2 <- Y0 + matrix(rnorm(p * n), p, n) * noise_sd
+
+  Q_full_1 <- procrustes_rotation(X1, Y1, convention = "left")$Q
+  Q_full_2 <- procrustes_rotation(X2, Y2, convention = "left")$Q
+  Q_trunc_1 <- procrustes_rotation(X1, Y1, convention = "left", rank = strong)$Q
+  Q_trunc_2 <- procrustes_rotation(X2, Y2, convention = "left", rank = strong)$Q
+
+  diff_full <- norm(Q_full_1 - Q_full_2, "F")
+  diff_trunc <- norm(Q_trunc_1 - Q_trunc_2, "F")
+
+  expect_lt(diff_trunc, diff_full)
+  expect_equal(crossprod(Q_trunc_1), diag(p), tolerance = 1e-8)
+})
+
 test_that("procrustes_rotation with scale=TRUE right convention", {
   set.seed(11)
   d <- 4

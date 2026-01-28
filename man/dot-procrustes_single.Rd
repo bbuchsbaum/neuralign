@@ -4,7 +4,7 @@
 \alias{.procrustes_single}
 \title{Single Procrustes Alignment}
 \usage{
-.procrustes_single(X, Y, scale = FALSE, reflection = FALSE)
+.procrustes_single(X, Y, scale = FALSE, reflection = FALSE, rank = NULL)
 }
 \description{
 Single Procrustes Alignment
