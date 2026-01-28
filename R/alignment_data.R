@@ -522,6 +522,90 @@ get_obs_labels <- function(object) {
 #' @return TRUE invisibly if valid, otherwise throws an error.
 #'
 #' @export
+.validate_features <- function(dims_mat) {
+  if (length(unique(dims_mat[, 1])) > 1) {
+    stop(sprintf(
+      "Subjects have different numbers of features: %s",
+      paste(unique(dims_mat[, 1]), collapse = ", ")
+    ), call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+.validate_observations <- function(dims_mat) {
+  if (length(unique(dims_mat[, 2])) > 1) {
+    stop(sprintf(
+      "Subjects have different numbers of observations: %s",
+      paste(unique(dims_mat[, 2]), collapse = ", ")
+    ), call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+.validate_obs_labels_atomic <- function(labels, dims_mat) {
+  # Shared observation axis
+  n_obs <- dims_mat[1, 2]
+  if (length(labels) != n_obs) {
+    stop(sprintf(
+      "AlignmentData@obs_labels length mismatch: expected %d (n_obs), got %d",
+      as.integer(n_obs), length(labels)
+    ), call. = FALSE)
+  }
+  if (any(is.na(labels))) {
+    stop("AlignmentData@obs_labels must not contain NA", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+.validate_obs_labels_list <- function(labels, subjects, dims_mat, data_names) {
+  if (is.null(names(labels))) {
+    if (length(labels) != length(subjects)) {
+      stop(
+        "AlignmentData@obs_labels is a list without names; its length must match number of subjects",
+        call. = FALSE
+      )
+    }
+    names(labels) <- subjects
+  }
+
+  missing <- setdiff(subjects, names(labels))
+  if (length(missing) > 0) {
+    stop(
+      sprintf(
+        "AlignmentData@obs_labels list is missing subjects: %s",
+        paste(missing, collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
+
+  for (subj in subjects) {
+    labs_i <- labels[[subj]]
+    if (!(is.atomic(labs_i) || is.factor(labs_i))) {
+      stop(
+        sprintf("AlignmentData@obs_labels[[%s]] must be an atomic vector or factor", subj),
+        call. = FALSE
+      )
+    }
+    if (any(is.na(labs_i))) {
+      stop(
+        sprintf("AlignmentData@obs_labels[[%s]] must not contain NA", subj),
+        call. = FALSE
+      )
+    }
+
+    n_obs_i <- dims_mat[match(subj, data_names), 2]
+    if (length(labs_i) != n_obs_i) {
+      stop(sprintf(
+        "AlignmentData@obs_labels[[%s]] length mismatch: expected %d (n_obs), got %d",
+        subj, as.integer(n_obs_i), length(labs_i)
+      ), call. = FALSE)
+    }
+  }
+
+  invisible(TRUE)
+}
+
 validate_alignment_data <- function(object, check_features = TRUE,
                                     check_observations = FALSE,
                                     check_obs_labels = FALSE) {
@@ -549,21 +633,11 @@ validate_alignment_data <- function(object, check_features = TRUE,
   dims_mat <- do.call(rbind, dims)
 
   if (check_features) {
-    if (length(unique(dims_mat[, 1])) > 1) {
-      stop(sprintf(
-        "Subjects have different numbers of features: %s",
-        paste(unique(dims_mat[, 1]), collapse = ", ")
-      ), call. = FALSE)
-    }
+    .validate_features(dims_mat)
   }
 
   if (check_observations) {
-    if (length(unique(dims_mat[, 2])) > 1) {
-      stop(sprintf(
-        "Subjects have different numbers of observations: %s",
-        paste(unique(dims_mat[, 2]), collapse = ", ")
-      ), call. = FALSE)
-    }
+    .validate_observations(dims_mat)
   }
 
   if (check_obs_labels) {
@@ -574,64 +648,9 @@ validate_alignment_data <- function(object, check_features = TRUE,
     labels <- object@obs_labels
 
     if (is.atomic(labels) || is.factor(labels)) {
-      # Shared observation axis
-      n_obs <- dims_mat[1, 2]
-      if (length(labels) != n_obs) {
-        stop(sprintf(
-          "AlignmentData@obs_labels length mismatch: expected %d (n_obs), got %d",
-          as.integer(n_obs), length(labels)
-        ), call. = FALSE)
-      }
-      if (any(is.na(labels))) {
-        stop("AlignmentData@obs_labels must not contain NA", call. = FALSE)
-      }
+      .validate_obs_labels_atomic(labels, dims_mat)
     } else if (is.list(labels)) {
-      subjects <- object@subjects
-
-      if (is.null(names(labels))) {
-        if (length(labels) != length(subjects)) {
-          stop(
-            "AlignmentData@obs_labels is a list without names; its length must match number of subjects",
-            call. = FALSE
-          )
-        }
-        names(labels) <- subjects
-      }
-
-      missing <- setdiff(subjects, names(labels))
-      if (length(missing) > 0) {
-        stop(
-          sprintf(
-            "AlignmentData@obs_labels list is missing subjects: %s",
-            paste(missing, collapse = ", ")
-          ),
-          call. = FALSE
-        )
-      }
-
-      for (subj in subjects) {
-        labs_i <- labels[[subj]]
-        if (!(is.atomic(labs_i) || is.factor(labs_i))) {
-          stop(
-            sprintf("AlignmentData@obs_labels[[%s]] must be an atomic vector or factor", subj),
-            call. = FALSE
-          )
-        }
-        if (any(is.na(labs_i))) {
-          stop(
-            sprintf("AlignmentData@obs_labels[[%s]] must not contain NA", subj),
-            call. = FALSE
-          )
-        }
-
-        n_obs_i <- dims_mat[match(subj, names(object@data)), 2]
-        if (length(labs_i) != n_obs_i) {
-          stop(sprintf(
-            "AlignmentData@obs_labels[[%s]] length mismatch: expected %d (n_obs), got %d",
-            subj, as.integer(n_obs_i), length(labs_i)
-          ), call. = FALSE)
-        }
-      }
+      .validate_obs_labels_list(labels, object@subjects, dims_mat, names(object@data))
     } else {
       stop(
         "AlignmentData@obs_labels must be NULL, an atomic vector/factor, or a per-subject (named) list",
