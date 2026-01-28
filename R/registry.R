@@ -176,7 +176,7 @@ validate_aligner_contract <- function(name,
 #'   \item{returns_invertible}{Transform has exact inverse}
 #'   \item{transform_type}{Type: "orthogonal", "linear", "ot", "permutation"}
 #'   \item{mass_preserving}{For OT: does transport preserve mass?}
-#'   \item{returns}{What the method returns. Currently "operator" only; "embedding" is reserved}
+#'   \item{returns}{What the method returns: "operator" or "embedding".}
 #'   \item{supports_new_subject}{Can compute operator for new subject}
 #'   \item{supports_new_data}{Can apply existing operator to new data}
 #'   \item{reference_types}{Character vector of supported reference types}
@@ -235,7 +235,7 @@ register_aligner <- function(name,
     returns_invertible = FALSE,
     transform_type = "linear",  # "orthogonal", "linear", "ot", "permutation"
     mass_preserving = FALSE,
-    returns = "operator",  # "operator" (embedding reserved; see below)
+    returns = "operator",  # "operator" or "embedding"
 
     # Apply semantics
     supports_new_subject = TRUE,   # Can compute operator for new subject
@@ -246,12 +246,14 @@ register_aligner <- function(name,
   )
   capabilities <- modifyList(default_caps, capabilities)
 
-  # Embedding support is reserved but not yet implemented
-  if (identical(capabilities[["returns"]], "embedding")) {
+  if (identical(capabilities[["returns"]], "embedding") &&
+      !isFALSE(capabilities[["supports_new_data"]])) {
     stop(
-      "neuralign currently supports operator-returning aligners only. ",
-      "If your method produces embeddings, expose them as (target x source) operators (e.g., projections) ",
-      "and store any extra embedding artifacts in method_state. Set capabilities$returns = 'operator'.",
+      sprintf(
+        "Aligner '%s' declares returns='embedding' but supports_new_data is not FALSE. ",
+        name
+      ),
+      "Embedding-returning aligners must set capabilities$supports_new_data = FALSE.",
       call. = FALSE
     )
   }

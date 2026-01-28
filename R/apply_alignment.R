@@ -44,15 +44,6 @@ apply_alignment <- function(model,
   model <- .ensure_model(model, what = "model")
 
   caps <- aligner_capabilities(model@method)
-  if (!is.null(caps) && !identical(caps$returns %||% "operator", "operator")) {
-    stop(
-      sprintf(
-        "Method '%s' does not return operator transforms; apply_alignment() currently supports operators only",
-        model@method
-      ),
-      call. = FALSE
-    )
-  }
 
   # Coerce data to AlignmentData if needed
   if (!inherits(new_data, "AlignmentData")) {
@@ -82,6 +73,17 @@ apply_alignment <- function(model,
 
   aligned <- list()
   new_transforms <- list()
+
+  if (!is.null(caps) && isFALSE(caps$supports_new_data %||% TRUE) && length(existing_subjects) > 0) {
+    stop(
+      sprintf(
+        "Method '%s' does not support applying existing transforms to new data. ",
+        model@method
+      ),
+      "Pass only new subjects (not already in the model), or use a method that declares capabilities$supports_new_data = TRUE.",
+      call. = FALSE
+    )
+  }
 
   # Apply existing transforms
   for (subj in existing_subjects) {
@@ -168,6 +170,7 @@ apply_alignment <- function(model,
 #' @keywords internal
 .fit_transform_for_subject <- function(aligner, model, data, subject, ...) {
   subject_idx <- match(subject, data@subjects)
+  returns <- aligner$capabilities$returns %||% "operator"
 
   # If aligner has custom apply function, use it
   if (!is.null(aligner$apply_fn)) {
@@ -184,7 +187,31 @@ apply_alignment <- function(model,
       new_data = data[subject_idx],
       ...
     )
-    return(apply_result$transforms[[1]])
+
+    if (is.list(apply_result$transforms) && length(apply_result$transforms) > 0) {
+      return(apply_result$transforms[[1L]])
+    }
+    if (identical(returns, "embedding")) {
+      z <- apply_result$aligned %||% NULL
+      if (is.list(z)) {
+        if (!is.null(names(z)) && subject %in% names(z)) {
+          z <- z[[subject]]
+        } else {
+          z <- z[[1L]]
+        }
+      }
+      if (!is.null(z)) {
+        return(.new_embedding_transform(z, subject = subject))
+      }
+    }
+
+    stop(
+      sprintf(
+        "apply_fn for method '%s' did not return transforms (and no aligned embedding for returns='embedding')",
+        aligner$name %||% "<unknown>"
+      ),
+      call. = FALSE
+    )
   }
 
   # Default: use fit_fn with single subject
@@ -196,7 +223,20 @@ apply_alignment <- function(model,
     ...
   )
 
-  fit_result$transforms[[subject]]
+  if (is.list(fit_result$transforms) && subject %in% names(fit_result$transforms)) {
+    return(fit_result$transforms[[subject]])
+  }
+  if (identical(returns, "embedding")) {
+    z <- fit_result$aligned %||% NULL
+    if (is.list(z) && subject %in% names(z)) {
+      return(.new_embedding_transform(z[[subject]], subject = subject))
+    }
+  }
+
+  stop(
+    sprintf("Method '%s' did not produce a transform for subject '%s'", aligner$name, subject),
+    call. = FALSE
+  )
 }
 
 
@@ -211,19 +251,40 @@ apply_alignment <- function(model,
 #'
 #' @export
 apply_transform <- function(transform, data) {
+  if (.is_embedding_transform(transform)) {
+    if (!.is_matrixish(data)) data <- as.matrix(data)
+    z <- transform$aligned
+    if (ncol(z) != ncol(data)) {
+      stop(sprintf(
+        "Embedding transform cannot be applied: embedding has %d observations but data has %d",
+        ncol(z), ncol(data)
+      ), call. = FALSE)
+    }
+    return(z)
+  }
+
+  if (.is_low_rank_transform(transform)) {
+    if (!.is_matrixish(data)) data <- as.matrix(data)
+    if (nrow(data) != nrow(transform$V)) {
+      stop(sprintf(
+        "Transform dimension mismatch: low-rank source=%d, data has %d rows",
+        nrow(transform$V), nrow(data)
+      ), call. = FALSE)
+    }
+    return(transform$U %*% (t(transform$V) %*% data))
+  }
+
   if (!.is_matrixish(transform)) {
-    stop("Transform must be a matrix/Matrix operator", call. = FALSE)
+    stop("Transform must be an operator matrix/Matrix or a supported transform object", call. = FALSE)
   }
-  if (!.is_matrixish(data)) {
-    data <- as.matrix(data)
-  }
+  if (!.is_matrixish(data)) data <- as.matrix(data)
 
   # Validate dimensions
   if (ncol(transform) != nrow(data)) {
     stop(sprintf(
       "Transform dimension mismatch: transform is %d x %d, data is %d x %d",
       nrow(transform), ncol(transform), nrow(data), ncol(data)
-    ))
+    ), call. = FALSE)
   }
 
   transform %*% data
@@ -257,6 +318,22 @@ inverse_transform <- function(model,
                               lambda = 1e-6) {
   transform <- get_transform(model, subject)
   caps <- aligner_capabilities(model@method)
+
+  if (.is_embedding_transform(transform)) {
+    stop(
+      sprintf(
+        "Method '%s' returns embedding transforms; inverse_transform() is not defined",
+        model@method
+      ),
+      call. = FALSE
+    )
+  }
+  if (.is_low_rank_transform(transform)) {
+    stop(
+      "inverse_transform() currently supports matrix/Matrix operators only; low-rank transform objects are not invertible without additional structure.",
+      call. = FALSE
+    )
+  }
 
   if (!is.null(caps) && identical(caps$transform_type, "ot")) {
     stop(

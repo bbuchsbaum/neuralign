@@ -770,3 +770,85 @@ test_that(".validate_reference_for_aligner errors when ref type not in supported
     "does not support reference type.*consensus"
   )
 })
+
+
+# ---------- Embedding + low-rank transforms ----------
+
+test_that("fit_alignment supports embedding-returning aligners (cv='none' only)", {
+  with_temp_registry(code = {
+    embed_fit <- function(data, reference, train_idx = NULL, ...) {
+      k <- 3
+      aligned <- lapply(data@subjects, function(s) {
+        X <- get_subject_data(data, s)
+        X[seq_len(k), , drop = FALSE]
+      })
+      names(aligned) <- data@subjects
+      list(
+        aligned = aligned,
+        reference_data = NULL,
+        space_from = data@space,
+        space_to = "latent"
+      )
+    }
+
+    register_aligner(
+      "embedder",
+      embed_fit,
+      capabilities = list(
+        returns = "embedding",
+        supports_new_data = FALSE
+      )
+    )
+
+    set.seed(1)
+    adat <- make_test_alignment_data(n_subjects = 2, n_features = 6, n_obs = 5)
+    res <- fit_alignment(adat, method = "embedder", reference = "sub-01", compute_quality = FALSE)
+
+    expect_s4_class(res, "AlignmentResult")
+    expect_equal(names(res@aligned), adat@subjects)
+    expect_equal(dim(res@aligned[[1L]]), c(3, 5))
+
+    model <- get_model(res)
+    expect_true(all(vapply(model@transforms, inherits, logical(1), "neuralign_embedding_transform")))
+
+    expect_error(
+      fit_alignment(adat, method = "embedder", cv = "loso"),
+      "cross-validation"
+    )
+  })
+})
+
+test_that("fit_alignment can apply low-rank operator transforms", {
+  with_temp_registry(code = {
+    low_rank_fit <- function(data, reference, train_idx = NULL, ...) {
+      k <- 2
+      transforms <- lapply(data@subjects, function(s) {
+        p <- nrow(get_subject_data(data, s))
+        U <- matrix(runif(p * k), p, k)
+        V <- matrix(runif(p * k), p, k)
+        neuralign:::.new_low_rank_transform(U, V)
+      })
+      names(transforms) <- data@subjects
+      list(
+        transforms = transforms,
+        reference_data = NULL,
+        space_from = data@space,
+        space_to = data@space
+      )
+    }
+
+    register_aligner(
+      "low_rank_method",
+      low_rank_fit,
+      capabilities = list(returns = "operator")
+    )
+
+    set.seed(2)
+    adat <- make_test_alignment_data(n_subjects = 2, n_features = 5, n_obs = 4)
+    res <- fit_alignment(adat, method = "low_rank_method", compute_quality = FALSE)
+
+    expect_s4_class(res, "AlignmentResult")
+    expect_true(inherits(get_model(res)@transforms[[1L]], "neuralign_low_rank_transform"))
+    expect_equal(dim(res@aligned[[1L]]), c(5, 4))
+  })
+})

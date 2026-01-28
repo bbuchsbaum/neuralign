@@ -201,7 +201,7 @@ test_that("apply_transform handles non-matrix input", {
 test_that("apply_transform rejects invalid transform", {
   expect_error(
     apply_transform("not a matrix", diag(5)),
-    "must be a matrix"
+    "operator matrix/Matrix"
   )
 })
 
@@ -735,40 +735,40 @@ test_that("apply_transform errors on dimension mismatch", {
 })
 
 test_that("apply_transform errors on non-matrix transform", {
-  expect_error(apply_transform("not_a_matrix", matrix(1, 3, 3)), "must be a matrix")
+  expect_error(apply_transform("not_a_matrix", matrix(1, 3, 3)), "operator matrix/Matrix")
 })
 
 
 # ---------- Additional edge-case coverage ----------
 
 test_that("apply_alignment errors on non-operator returns method", {
-  neuralign:::.clear_registry()
-  dummy_fit <- function(data, reference, ...) {
-    list(transforms = list(), reference_data = NULL)
-  }
-  register_aligner("embed_method", dummy_fit)
+  with_temp_registry(code = {
+    dummy_fit <- function(data, reference, train_idx = NULL, ...) {
+      k <- 2
+      aligned <- lapply(data@subjects, function(s) {
+        matrix(0, k, ncol(get_subject_data(data, s)))
+      })
+      names(aligned) <- data@subjects
+      list(aligned = aligned, reference_data = NULL, space_from = NULL, space_to = NULL)
+    }
 
-  # Manually override returns capability
-  reg_env <- get(".aligner_registry", envir = asNamespace("neuralign"))
-  entry <- reg_env[["embed_method"]]
-  entry$capabilities$returns <- "embedding"
-  assign("embed_method", entry, envir = reg_env)
+    register_aligner(
+      "embed_method",
+      dummy_fit,
+      capabilities = list(
+        returns = "embedding",
+        supports_new_data = FALSE
+      )
+    )
 
-  model <- new("AlignmentModel",
-    transforms = list("s1" = diag(5)),
-    reference = "s1", reference_data = NULL,
-    method = "embed_method",
-    space_from = NULL, space_to = NULL,
-    provenance = list(), method_state = list(),
-    train_subjects = "s1"
-  )
+    adat <- AlignmentData(list(s1 = matrix(rnorm(25), 5, 5)))
+    res <- fit_alignment(adat, method = "embed_method", reference = "s1", compute_quality = FALSE)
 
-  new_data <- AlignmentData(list("s1" = matrix(rnorm(25), 5, 5)))
-  expect_error(
-    apply_alignment(model, new_data, warn_leakage = FALSE),
-    "does not return operator transforms"
-  )
-  neuralign:::.clear_registry()
+    expect_error(
+      apply_alignment(res, adat, warn_leakage = FALSE),
+      "supports_new_data"
+    )
+  })
 })
 
 test_that("apply_alignment rejects non-model input", {
@@ -938,4 +938,63 @@ test_that(".fit_transform_for_subject uses custom apply_fn when available", {
   # Should have used custom_apply, which returns 7 * identity
   expect_equal(result@model@transforms[["s_new"]], diag(3) * 7)
   neuralign:::.clear_registry()
+})
+
+
+# ---------- Embedding-returning apply semantics ----------
+
+test_that("apply_alignment blocks existing subjects when supports_new_data=FALSE (embedding returns)", {
+  with_temp_registry(code = {
+    embed_fit <- function(data, reference, train_idx = NULL, ...) {
+      k <- 3
+      aligned <- lapply(data@subjects, function(s) {
+        X <- get_subject_data(data, s)
+        X[seq_len(k), , drop = FALSE]
+      })
+      names(aligned) <- data@subjects
+      list(
+        aligned = aligned,
+        reference_data = NULL,
+        space_from = data@space,
+        space_to = "latent"
+      )
+    }
+    embed_apply <- function(fit_result, new_data, ...) {
+      k <- 3
+      subj <- new_data@subjects[[1L]]
+      X <- get_subject_data(new_data, subj)
+      aligned <- setNames(list(X[seq_len(k), , drop = FALSE]), subj)
+      list(aligned = aligned)
+    }
+
+    register_aligner(
+      "embedder_apply",
+      embed_fit,
+      apply_fn = embed_apply,
+      capabilities = list(
+        returns = "embedding",
+        supports_new_data = FALSE,
+        supports_new_subject = TRUE
+      )
+    )
+
+    set.seed(3)
+    train_adat <- make_test_alignment_data(n_subjects = 2, n_features = 6, n_obs = 5)
+    res <- fit_alignment(train_adat, method = "embedder_apply", reference = "sub-01", compute_quality = FALSE)
+
+    expect_error(
+      apply_alignment(res, train_adat, warn_leakage = FALSE),
+      "supports_new_data"
+    )
+
+    new_adat <- make_test_alignment_data(
+      n_subjects = 1,
+      n_features = 6,
+      n_obs = 5,
+      subject_ids = "sub-03"
+    )
+    applied <- apply_alignment(res, new_adat, warn_leakage = FALSE)
+    expect_true("sub-03" %in% names(applied@aligned))
+    expect_equal(dim(applied@aligned[["sub-03"]]), c(3, 5))
+  })
 })

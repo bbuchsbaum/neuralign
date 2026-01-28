@@ -70,7 +70,7 @@ test_that(".validate_operator_transforms catches non-matrix transforms", {
 
   expect_error(
     neuralign:::.validate_operator_transforms(transforms, data_list, "ctx"),
-    "not a matrix"
+    "operator transform"
   )
 })
 

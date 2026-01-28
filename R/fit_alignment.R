@@ -110,6 +110,19 @@ fit_alignment <- function(data,
   # Get aligner
   aligner <- get_aligner(method)
   caps <- aligner$capabilities %||% list()
+  returns <- caps$returns %||% "operator"
+
+  if (identical(returns, "embedding")) {
+    if (!identical(cv, "none") || .is_cv_folds_spec(cv_folds)) {
+      stop(
+        sprintf(
+          "Method '%s' returns embeddings; cross-validation is not yet supported for embedding-returning methods. Use cv='none'.",
+          method
+        ),
+        call. = FALSE
+      )
+    }
+  }
 
   .validate_reference_for_aligner(reference, data, method, caps)
 
@@ -194,6 +207,7 @@ fit_alignment <- function(data,
     }
   }
   train_subjects <- data@subjects[train_idx]
+  returns <- aligner$capabilities$returns %||% "operator"
 
   # Resolve reference
   ref_resolved <- .resolve_reference_spec(data, reference, train_idx)
@@ -205,6 +219,54 @@ fit_alignment <- function(data,
     train_idx = train_idx,
     ...
   )
+
+  if (identical(returns, "embedding")) {
+    aligned_full <- fit_result$aligned %||% NULL
+    if (is.null(aligned_full)) {
+      stop(
+        sprintf("fit_alignment(%s): embedding-returning methods must return 'aligned'", aligner$name),
+        call. = FALSE
+      )
+    }
+
+    .validate_embedding_aligned(
+      aligned = aligned_full,
+      data_list = get_data_list(data),
+      context = sprintf("fit_alignment(%s)", aligner$name)
+    )
+
+    transforms <- lapply(names(aligned_full), function(subj) {
+      z <- if (isTRUE(return_aligned)) aligned_full[[subj]] else matrix(numeric(0), 0L, 0L)
+      .new_embedding_transform(z, subject = subj)
+    })
+    names(transforms) <- names(aligned_full)
+
+    model <- AlignmentModel(
+      transforms = transforms,
+      reference = ref_resolved$reference_spec,
+      reference_data = fit_result$reference_data %||% NULL,
+      method = aligner$name,
+      space_from = fit_result$space_from %||% data@space,
+      space_to = fit_result$space_to %||% data@space,
+      params = list(...),
+      method_state = fit_result$method_state %||% list(),
+      train_subjects = train_subjects
+    )
+
+    aligned <- if (return_aligned) aligned_full else list()
+
+    quality <- list()
+    if (compute_quality && return_aligned) {
+      quality <- .compute_basic_quality(data, aligned, model)
+    }
+
+    return(AlignmentResult(
+      model = model,
+      aligned = aligned,
+      quality = quality,
+      cv_info = list(method = "none")
+    ))
+  }
 
   .validate_operator_transforms(
     transforms = fit_result$transforms,
@@ -387,7 +449,7 @@ fit_alignment <- function(data,
 
       if (return_aligned) {
         test_data <- get_subject_data(data, test_subj)
-        all_aligned[[test_subj]] <- test_transform %*% test_data
+        all_aligned[[test_subj]] <- apply_transform(test_transform, test_data)
       }
       anchor_by_subject[[test_subj]] <- as.character(ref_resolved$reference_spec)
     }
@@ -679,6 +741,7 @@ fit_alignment <- function(data,
 .fit_new_subject <- function(aligner, fit_result, data, subject_idx,
                              reference) {
   subject <- data@subjects[subject_idx]
+  returns <- aligner$capabilities$returns %||% "operator"
 
   # If aligner has an apply_fn, use it
   if (!is.null(aligner$apply_fn)) {
@@ -686,7 +749,26 @@ fit_alignment <- function(data,
       fit_result = fit_result,
       new_data = data[subject_idx]
     )
-    return(apply_result$transforms[[1]])
+    if (is.list(apply_result$transforms) && length(apply_result$transforms) > 0L) {
+      return(apply_result$transforms[[1L]])
+    }
+    if (identical(returns, "embedding")) {
+      z <- apply_result$aligned %||% NULL
+      if (is.list(z)) {
+        if (!is.null(names(z)) && subject %in% names(z)) {
+          z <- z[[subject]]
+        } else {
+          z <- z[[1L]]
+        }
+      }
+      if (!is.null(z)) {
+        return(.new_embedding_transform(z, subject = subject))
+      }
+    }
+    stop(
+      sprintf("apply_fn for method '%s' did not return a transform for subject '%s'", aligner$name, subject),
+      call. = FALSE
+    )
   }
 
   # Otherwise, use the method's fit_fn with single subject
@@ -703,7 +785,19 @@ fit_alignment <- function(data,
     train_idx = subject_idx
   )
 
-  single_fit$transforms[[subject]]
+  if (is.list(single_fit$transforms) && subject %in% names(single_fit$transforms)) {
+    return(single_fit$transforms[[subject]])
+  }
+  if (identical(returns, "embedding")) {
+    z <- single_fit$aligned %||% NULL
+    if (is.list(z) && subject %in% names(z)) {
+      return(.new_embedding_transform(z[[subject]], subject = subject))
+    }
+  }
+  stop(
+    sprintf("Method '%s' did not produce a transform for subject '%s'", aligner$name, subject),
+    call. = FALSE
+  )
 }
 
 
@@ -841,7 +935,7 @@ fit_alignment <- function(data,
         test_idx <- if (per_subject_folds) test_obs[[subj]] else test_obs
         if (length(test_idx) == 0) next
         subj_test_data <- get_subject_data(data, subj)[, test_idx, drop = FALSE]
-        aligned_test <- transform %*% subj_test_data
+        aligned_test <- apply_transform(transform, subj_test_data)
         if (is.null(aligned_test_by_fold[[subj]])) {
           aligned_test_by_fold[[subj]] <- list()
           test_obs_by_fold[[subj]] <- list()
@@ -980,7 +1074,7 @@ fit_alignment <- function(data,
       subj_data <- get_subject_data(data, subj)
 
       # Left-multiply: Y = A %*% X
-      aligned[[subj]] <- transform %*% subj_data
+      aligned[[subj]] <- apply_transform(transform, subj_data)
     }
   }
 

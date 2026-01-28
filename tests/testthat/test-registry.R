@@ -146,21 +146,32 @@ test_that("default capabilities are set correctly", {
   expect_equal(caps$transform_type, "linear")  # Default type
 })
 
-test_that("embedding-returning aligners are rejected with guidance", {
+test_that("register_aligner enforces supports_new_data=FALSE for embedding-returning aligners", {
   neuralign:::.clear_registry()
 
   dummy_fit <- function(data, reference, train_idx = NULL, ...) {
-    list(transforms = list(), reference_data = NULL, space_from = NULL, space_to = NULL)
+    k <- 3
+    n_obs <- ncol(get_subject_data(data, data@subjects[[1L]]))
+    aligned <- lapply(data@subjects, function(s) matrix(0, k, n_obs))
+    names(aligned) <- data@subjects
+    list(aligned = aligned, reference_data = NULL, space_from = NULL, space_to = NULL)
   }
 
   expect_error(
     register_aligner(
-      "emb",
+      "emb_bad",
       dummy_fit,
       capabilities = list(returns = "embedding")
     ),
-    "operator-returning"
+    "supports_new_data"
   )
+
+  register_aligner(
+    "emb_ok",
+    dummy_fit,
+    capabilities = list(returns = "embedding", supports_new_data = FALSE)
+  )
+  expect_true(is_aligner_registered("emb_ok"))
 })
 
 
