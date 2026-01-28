@@ -100,6 +100,18 @@ test_that("roi_anchor_projector from list infers n_features from max index", {
   expect_equal(ncol(P), 5)
 })
 
+test_that("roi_anchor_projector from list errors on non-positive n_features", {
+  roi <- list(V1 = c(1, 2))
+  expect_error(
+    roi_anchor_projector(roi, n_features = 0, normalize = TRUE, sparse = FALSE),
+    "positive integer"
+  )
+  expect_error(
+    roi_anchor_projector(roi, n_features = -1, normalize = TRUE, sparse = FALSE),
+    "positive integer"
+  )
+})
+
 test_that("roi_anchor_projector from list errors on empty with no n_features", {
   roi <- list(a = integer(0))
   expect_error(roi_anchor_projector(roi), "infer n_features")
@@ -167,3 +179,38 @@ test_that("set_roi_guidance errors on missing subjects in roi_by_subject", {
   expect_error(set_roi_guidance(data, roi_by_subject = roi), "missing subjects")
 })
 
+test_that("roi_anchor_projectors intersection errors when no anchors overlap", {
+  roi_by_subject <- list(
+    s1 = c("A", "A"),
+    s2 = c("B", "B")
+  )
+  expect_error(
+    roi_anchor_projectors(roi_by_subject, anchor_policy = "intersection", sparse = FALSE),
+    "No anchors remain after harmonization"
+  )
+})
+
+test_that("roi_anchor_projector errors on empty roi vector when anchors are not supplied", {
+  roi <- c(NA, "", NA)
+  expect_error(
+    roi_anchor_projector(roi, sparse = FALSE),
+    "No anchors available"
+  )
+})
+
+test_that("roi_anchor_projector errors on non-positive n_features", {
+  roi <- list(V1 = c(1, 2))
+  expect_error(
+    roi_anchor_projector(roi, n_features = 0, sparse = FALSE),
+    "positive integer"
+  )
+})
+
+test_that("set_roi_guidance validates projector dimension mismatch", {
+  data <- AlignmentData(list(s1 = matrix(1, 3, 2)))
+  roi <- list(s1 = c("a", "b", "c", "d")) # length 4, but subject has 3 features
+  expect_error(
+    set_roi_guidance(data, roi_by_subject = roi, sparse = FALSE, validate = TRUE),
+    "dimension mismatch"
+  )
+})

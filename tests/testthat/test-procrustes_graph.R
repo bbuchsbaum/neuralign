@@ -1,29 +1,14 @@
-random_rotation <- function(d) {
-  q <- qr.Q(qr(matrix(rnorm(d * d), d, d)))
-  if (det(q) < 0) q[, 1] <- -q[, 1]
-  q
-}
-
-.ensure_procrustes_graph_registered <- function() {
-  if (!is_aligner_registered("procrustes_graph")) {
-    if (!is_aligner_registered("procrustes")) {
-      ensure_test_aligner("procrustes")
-    }
-    ensure_test_aligner("procrustes_graph")
-  }
-}
-
 test_that("procrustes_graph aligns with empty global label intersection", {
   set.seed(1)
-  .ensure_procrustes_graph_registered()
+  ensure_test_aligner("procrustes_graph")
 
   d <- 5
   labels <- paste0("stim", 1:10)
   Z <- matrix(rnorm(d * length(labels)), d, length(labels))
 
-  A1 <- random_rotation(d)
-  A2 <- random_rotation(d)
-  A3 <- random_rotation(d)
+  A1 <- make_random_orthogonal(d)
+  A2 <- make_random_orthogonal(d)
+  A3 <- make_random_orthogonal(d)
 
   X1 <- A1 %*% Z[, 1:5, drop = FALSE]
   X2 <- A2 %*% Z[, 1:10, drop = FALSE]
@@ -65,15 +50,15 @@ test_that("procrustes_graph aligns with empty global label intersection", {
 
 test_that("fit_alignment quality metrics handle per-subject obs_labels", {
   set.seed(10)
-  .ensure_procrustes_graph_registered()
+  ensure_test_aligner("procrustes_graph")
 
   d <- 5
   labels <- paste0("stim", 1:10)
   Z <- matrix(rnorm(d * length(labels)), d, length(labels))
 
-  A1 <- random_rotation(d)
-  A2 <- random_rotation(d)
-  A3 <- random_rotation(d)
+  A1 <- make_random_orthogonal(d)
+  A2 <- make_random_orthogonal(d)
+  A3 <- make_random_orthogonal(d)
 
   adat <- AlignmentData(
     data = list(
@@ -103,15 +88,15 @@ test_that("fit_alignment quality metrics handle per-subject obs_labels", {
 
 test_that("procrustes_graph errors on disconnected overlap graph", {
   set.seed(2)
-  .ensure_procrustes_graph_registered()
+  ensure_test_aligner("procrustes_graph")
 
   d <- 4
   labels <- paste0("stim", 1:4)
   Z <- matrix(rnorm(d * length(labels)), d, length(labels))
 
-  A1 <- random_rotation(d)
-  A2 <- random_rotation(d)
-  A3 <- random_rotation(d)
+  A1 <- make_random_orthogonal(d)
+  A2 <- make_random_orthogonal(d)
+  A3 <- make_random_orthogonal(d)
 
   adat <- AlignmentData(
     data = list(
@@ -139,14 +124,14 @@ test_that("procrustes_graph errors on disconnected overlap graph", {
 
 test_that("procrustes_graph errors when min_overlap yields no edges", {
   set.seed(3)
-  .ensure_procrustes_graph_registered()
+  ensure_test_aligner("procrustes_graph")
 
   d <- 3
   labels <- paste0("stim", 1:8)
   Z <- matrix(rnorm(d * length(labels)), d, length(labels))
-  A1 <- random_rotation(d)
-  A2 <- random_rotation(d)
-  A3 <- random_rotation(d)
+  A1 <- make_random_orthogonal(d)
+  A2 <- make_random_orthogonal(d)
+  A3 <- make_random_orthogonal(d)
 
   adat <- AlignmentData(
     data = list(
@@ -175,15 +160,15 @@ test_that("procrustes_graph errors when min_overlap yields no edges", {
 
 test_that("procrustes_graph can fit a new subject via apply_alignment()", {
   set.seed(4)
-  .ensure_procrustes_graph_registered()
+  ensure_test_aligner("procrustes_graph")
 
   d <- 5
   labels <- paste0("stim", 1:10)
   Z <- matrix(rnorm(d * length(labels)), d, length(labels))
 
-  A1 <- random_rotation(d)
-  A2 <- random_rotation(d)
-  A3 <- random_rotation(d)
+  A1 <- make_random_orthogonal(d)
+  A2 <- make_random_orthogonal(d)
+  A3 <- make_random_orthogonal(d)
 
   adat <- AlignmentData(
     data = list(
@@ -216,15 +201,15 @@ test_that("procrustes_graph can fit a new subject via apply_alignment()", {
 
 test_that("procrustes_graph can fit a new subject without reference overlap via apply_alignment()", {
   set.seed(4)
-  .ensure_procrustes_graph_registered()
+  ensure_test_aligner("procrustes_graph")
 
   d <- 5
   labels <- paste0("stim", 1:10)
   Z <- matrix(rnorm(d * length(labels)), d, length(labels))
 
-  A1 <- random_rotation(d)
-  A2 <- random_rotation(d)
-  A3 <- random_rotation(d)
+  A1 <- make_random_orthogonal(d)
+  A2 <- make_random_orthogonal(d)
+  A3 <- make_random_orthogonal(d)
 
   # Reference subject only sees stim1-5. Subject 2 provides stim6-10 to the
   # template (via union-fill), so a new subject that sees only stim6-10 can
@@ -260,15 +245,15 @@ test_that("procrustes_graph can fit a new subject without reference overlap via 
 
 test_that("procrustes_graph can fit held-out subjects with train_idx using union template", {
   set.seed(4)
-  .ensure_procrustes_graph_registered()
+  ensure_test_aligner("procrustes_graph")
 
   d <- 5
   labels <- paste0("stim", 1:10)
   Z <- matrix(rnorm(d * length(labels)), d, length(labels))
 
-  A1 <- random_rotation(d)
-  A2 <- random_rotation(d)
-  A3 <- random_rotation(d)
+  A1 <- make_random_orthogonal(d)
+  A2 <- make_random_orthogonal(d)
+  A3 <- make_random_orthogonal(d)
 
   adat <- AlignmentData(
     data = list(
@@ -297,14 +282,14 @@ test_that("procrustes_graph can fit held-out subjects with train_idx using union
 
 test_that("procrustes_graph apply_alignment errors when overlap is too small", {
   set.seed(5)
-  .ensure_procrustes_graph_registered()
+  ensure_test_aligner("procrustes_graph")
 
   d <- 4
   labels <- paste0("stim", 1:8)
   Z <- matrix(rnorm(d * length(labels)), d, length(labels))
 
-  A1 <- random_rotation(d)
-  A2 <- random_rotation(d)
+  A1 <- make_random_orthogonal(d)
+  A2 <- make_random_orthogonal(d)
 
   adat <- AlignmentData(
     data = list(
@@ -337,7 +322,7 @@ test_that("procrustes_graph apply_alignment errors when overlap is too small", {
 # ---------- Additional procrustes graph tests ----------
 
 test_that("procrustes_graph errors without obs_labels", {
-  .ensure_procrustes_graph_registered()
+  ensure_test_aligner("procrustes_graph")
 
   set.seed(20)
   d <- 3
@@ -353,15 +338,15 @@ test_that("procrustes_graph errors without obs_labels", {
 })
 
 test_that("procrustes_graph with uniform weight works", {
-  .ensure_procrustes_graph_registered()
+  ensure_test_aligner("procrustes_graph")
 
   set.seed(21)
   d <- 4
   labels <- paste0("stim", 1:6)
   Z <- matrix(rnorm(d * length(labels)), d, length(labels))
 
-  A1 <- random_rotation(d)
-  A2 <- random_rotation(d)
+  A1 <- make_random_orthogonal(d)
+  A2 <- make_random_orthogonal(d)
 
   adat <- AlignmentData(
     data = list(
@@ -387,7 +372,7 @@ test_that("procrustes_graph with uniform weight works", {
 })
 
 test_that("procrustes_graph with shared atomic obs_labels", {
-  .ensure_procrustes_graph_registered()
+  ensure_test_aligner("procrustes_graph")
 
   set.seed(22)
   d <- 3
@@ -395,8 +380,8 @@ test_that("procrustes_graph with shared atomic obs_labels", {
   labels <- paste0("s", 1:n)
   Z <- matrix(rnorm(d * n), d, n)
 
-  A1 <- random_rotation(d)
-  A2 <- random_rotation(d)
+  A1 <- make_random_orthogonal(d)
+  A2 <- make_random_orthogonal(d)
 
   adat <- AlignmentData(
     data = list(
@@ -418,7 +403,7 @@ test_that("procrustes_graph with shared atomic obs_labels", {
 })
 
 test_that("procrustes_graph subject-axis CV with held-out subject", {
-  .ensure_procrustes_graph_registered()
+  ensure_test_aligner("procrustes_graph")
 
   set.seed(23)
   d <- 4
@@ -426,9 +411,9 @@ test_that("procrustes_graph subject-axis CV with held-out subject", {
   labels <- paste0("stim", 1:n)
   Z <- matrix(rnorm(d * n), d, n)
 
-  A1 <- random_rotation(d)
-  A2 <- random_rotation(d)
-  A3 <- random_rotation(d)
+  A1 <- make_random_orthogonal(d)
+  A2 <- make_random_orthogonal(d)
+  A3 <- make_random_orthogonal(d)
 
   adat <- AlignmentData(
     data = list(
@@ -455,7 +440,7 @@ test_that("procrustes_graph subject-axis CV with held-out subject", {
 })
 
 test_that("procrustes_graph apply errors on non-AlignmentData input", {
-  .ensure_procrustes_graph_registered()
+  ensure_test_aligner("procrustes_graph")
 
   set.seed(24)
   d <- 3
@@ -481,7 +466,7 @@ test_that("procrustes_graph apply errors on non-AlignmentData input", {
 })
 
 test_that("procrustes_graph apply errors on multiple new subjects", {
-  .ensure_procrustes_graph_registered()
+  ensure_test_aligner("procrustes_graph")
 
   set.seed(25)
   d <- 3
@@ -512,7 +497,7 @@ test_that("procrustes_graph apply errors on multiple new subjects", {
 })
 
 test_that("procrustes_graph respects reflection=FALSE in synchronization", {
-  .ensure_procrustes_graph_registered()
+  ensure_test_aligner("procrustes_graph")
 
   set.seed(26)
   d <- 4
@@ -555,7 +540,7 @@ test_that("procrustes_graph respects reflection=FALSE in synchronization", {
 })
 
 test_that("procrustes_graph accepts allow_reflection alias", {
-  .ensure_procrustes_graph_registered()
+  ensure_test_aligner("procrustes_graph")
 
   set.seed(26)
   d <- 4

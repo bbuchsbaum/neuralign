@@ -179,7 +179,14 @@ test_that("fit_alignment sets obs_labels when AlignmentData has none", {
 })
 
 test_that("fit_alignment warns when method does not support CV", {
+  saved <- as.list(neuralign:::.aligner_registry)
   neuralign:::.clear_registry()
+  on.exit({
+    neuralign:::.clear_registry()
+    for (nm in names(saved)) {
+      assign(nm, saved[[nm]], envir = neuralign:::.aligner_registry)
+    }
+  }, add = TRUE)
 
   # Register a test aligner with supports_cv = FALSE
   test_fit <- function(data, reference, train_idx = NULL, ...) {
@@ -305,7 +312,14 @@ test_that(".reference_kind classifies references correctly", {
 })
 
 test_that(".fit_new_subject uses apply_fn when available", {
+  saved <- as.list(neuralign:::.aligner_registry)
   neuralign:::.clear_registry()
+  on.exit({
+    neuralign:::.clear_registry()
+    for (nm in names(saved)) {
+      assign(nm, saved[[nm]], envir = neuralign:::.aligner_registry)
+    }
+  }, add = TRUE)
 
   set.seed(42)
   n_feat <- 10
@@ -351,7 +365,14 @@ test_that(".fit_new_subject uses apply_fn when available", {
 })
 
 test_that(".fit_new_subject falls back to fit_fn without apply_fn and uses reference_data", {
+  saved <- as.list(neuralign:::.aligner_registry)
   neuralign:::.clear_registry()
+  on.exit({
+    neuralign:::.clear_registry()
+    for (nm in names(saved)) {
+      assign(nm, saved[[nm]], envir = neuralign:::.aligner_registry)
+    }
+  }, add = TRUE)
 
   set.seed(42)
   n_feat <- 10
@@ -395,7 +416,14 @@ test_that(".fit_new_subject falls back to fit_fn without apply_fn and uses refer
 })
 
 test_that(".fit_new_subject falls back to original reference when reference_data is NULL", {
+  saved <- as.list(neuralign:::.aligner_registry)
   neuralign:::.clear_registry()
+  on.exit({
+    neuralign:::.clear_registry()
+    for (nm in names(saved)) {
+      assign(nm, saved[[nm]], envir = neuralign:::.aligner_registry)
+    }
+  }, add = TRUE)
 
   set.seed(42)
   n_feat <- 10
@@ -592,7 +620,14 @@ test_that("fit_alignment routes observation-axis folds to .fit_cv_obs_folds", {
 })
 
 test_that("observation-axis CV warns when method doesn't declare observation in cv_axes", {
+  saved <- as.list(neuralign:::.aligner_registry)
   neuralign:::.clear_registry()
+  on.exit({
+    neuralign:::.clear_registry()
+    for (nm in names(saved)) {
+      assign(nm, saved[[nm]], envir = neuralign:::.aligner_registry)
+    }
+  }, add = TRUE)
 
   test_fit <- function(data, reference, train_idx = NULL, ...) {
     n_feat <- nrow(data@data[[1]])

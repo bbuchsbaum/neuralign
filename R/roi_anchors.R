@@ -161,6 +161,9 @@ roi_anchor_projector <- function(roi,
   n_features <- length(roi_vec)
   if (is.null(anchors)) {
     anchors <- sort(unique(roi_vec[!is.na(roi_vec) & nzchar(roi_vec)]))
+    if (length(anchors) == 0) {
+      stop("No anchors available to build projector", call. = FALSE)
+    }
   }
 
   i <- integer(0)

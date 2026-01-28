@@ -1,23 +1,6 @@
 test_that("manifoldalign projection aligners store latent reference_data (k x n)", {
   skip_if_not_installed("manifoldalign")
 
-  registry_env <- neuralign:::.aligner_registry
-  clear_registry <- neuralign:::.clear_registry
-
-  with_temp_registry <- function(register_fn, code) {
-    old_registry <- as.list(registry_env)
-    on.exit({
-      clear_registry()
-      for (nm in names(old_registry)) {
-        registry_env[[nm]] <- old_registry[[nm]]
-      }
-    }, add = TRUE)
-
-    clear_registry()
-    register_fn()
-    force(code)
-  }
-
   set.seed(123)
   p <- 12
   n <- 20
@@ -65,4 +48,3 @@ test_that("manifoldalign projection aligners store latent reference_data (k x n)
     })
   }
 })
-

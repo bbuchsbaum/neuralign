@@ -1,20 +1,3 @@
-with_temp_registry <- function(register_fns, code) {
-  registry_env <- neuralign:::.aligner_registry
-  clear_registry <- neuralign:::.clear_registry
-
-  old_registry <- as.list(registry_env)
-  on.exit({
-    clear_registry()
-    for (nm in names(old_registry)) {
-      registry_env[[nm]] <- old_registry[[nm]]
-    }
-  }, add = TRUE)
-
-  clear_registry()
-  for (fn in register_fns) fn()
-  force(code)
-}
-
 test_that("projection manifoldalign adapters fit and apply to new subjects", {
   skip_if_not_installed("manifoldalign")
 
