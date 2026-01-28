@@ -8,6 +8,12 @@
 #' @keywords internal
 NULL
 
+.as_dense_matrix <- function(x) {
+  if (inherits(x, "Matrix")) return(as.matrix(x))
+  if (is.matrix(x)) return(x)
+  as.matrix(x)
+}
+
 .is_low_rank_transform <- function(x) {
   inherits(x, "neuralign_low_rank_transform")
 }
@@ -73,4 +79,55 @@ NULL
   if (.is_matrixish(x)) return(.as_dense_matrix(x))
   if (.is_low_rank_transform(x)) return(x$U %*% t(x$V))
   stop("Transform cannot be materialized as a matrix", call. = FALSE)
+}
+
+.compose_operator_transforms <- function(t2, t1, context = "compose transforms") {
+  if (!.transform_is_operator(t1) || !.transform_is_operator(t2)) {
+    stop(context, ": expected operator transforms", call. = FALSE)
+  }
+
+  dims1 <- .transform_dims(t1)
+  dims2 <- .transform_dims(t2)
+  if (!identical(dims2[["source"]], dims1[["target"]])) {
+    stop(
+      sprintf(
+        "%s: dimension mismatch: right transform target=%d does not match left transform source=%d",
+        context, dims1[["target"]], dims2[["source"]]
+      ),
+      call. = FALSE
+    )
+  }
+
+  if (.is_low_rank_transform(t2) || .is_low_rank_transform(t1)) {
+    # Products involving low-rank transforms remain low-rank. Represent the
+    # composition without materializing dense (target x source) operators.
+    if (.is_low_rank_transform(t2) && .is_low_rank_transform(t1)) {
+      # (U2 V2^T)(U1 V1^T) = U2 (V2^T U1) V1^T
+      # Use an SVD of the small cross term to stabilize and cap the rank at
+      # min(rank1, rank2).
+      C <- crossprod(t2$V, t1$U) # (r2 x r1)
+      if (!length(C)) {
+        return(.new_low_rank_transform(matrix(0, nrow(t2$U), 0L), matrix(0, nrow(t1$V), 0L)))
+      }
+      sv <- svd(C)
+      U_new <- t2$U %*% sv$u
+      U_new <- sweep(U_new, 2L, sv$d, "*")
+      V_new <- t1$V %*% sv$v
+      return(.new_low_rank_transform(U_new, V_new))
+    }
+
+    if (.is_low_rank_transform(t2) && .is_matrixish(t1)) {
+      # (U2 V2^T) M = U2 (V2^T M) = U2 ( (t(M) V2)^T )
+      V_new <- t(t1) %*% t2$V
+      return(.new_low_rank_transform(t2$U, V_new))
+    }
+
+    if (.is_matrixish(t2) && .is_low_rank_transform(t1)) {
+      # M (U1 V1^T) = (M U1) V1^T
+      U_new <- t2 %*% t1$U
+      return(.new_low_rank_transform(U_new, t1$V))
+    }
+  }
+
+  t2 %*% t1
 }

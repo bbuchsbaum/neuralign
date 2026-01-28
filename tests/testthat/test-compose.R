@@ -41,6 +41,62 @@ test_that("compose_alignment combines models", {
   )
 })
 
+test_that("compose_alignment supports low-rank operator transforms", {
+  # Build a rank-1 operator T = U V^T
+  U <- matrix(c(1, 2, 3), 3, 1)
+  V <- matrix(c(4, 5, 6), 3, 1)
+  lr <- neuralign:::.new_low_rank_transform(U, V)
+
+  mat <- diag(3) * 2
+
+  X <- matrix(1:15, 3, 5)
+
+  # matrix %*% low-rank (model1 first, model2 second)
+  m1 <- AlignmentModel(list("sub-01" = lr), reference = NULL, method = "m1")
+  m2 <- AlignmentModel(list("sub-01" = mat), reference = NULL, method = "m2")
+  composed <- compose_alignment(m1, m2)
+  expect_true(inherits(composed@transforms[["sub-01"]], "neuralign_low_rank_transform"))
+  expect_equal(
+    apply_transform(composed@transforms[["sub-01"]], X),
+    apply_transform(mat, apply_transform(lr, X))
+  )
+
+  # low-rank %*% matrix (swap order)
+  m3 <- AlignmentModel(list("sub-01" = mat), reference = NULL, method = "m3")
+  m4 <- AlignmentModel(list("sub-01" = lr), reference = NULL, method = "m4")
+  composed2 <- compose_alignment(m3, m4)
+  expect_true(inherits(composed2@transforms[["sub-01"]], "neuralign_low_rank_transform"))
+  expect_equal(
+    apply_transform(composed2@transforms[["sub-01"]], X),
+    apply_transform(lr, apply_transform(mat, X))
+  )
+})
+
+test_that("compose_alignment supports low-rank × low-rank composition", {
+  U1 <- matrix(c(1, 2, 3), 3, 1)
+  V1 <- matrix(c(4, 5, 6), 3, 1)
+  lr1 <- neuralign:::.new_low_rank_transform(U1, V1)
+
+  U2 <- matrix(c(1, 0,
+                 0, 1,
+                 0, 0), 3, 2, byrow = TRUE)
+  V2 <- matrix(c(0, 0,
+                 1, 0,
+                 0, 1), 3, 2, byrow = TRUE)
+  lr2 <- neuralign:::.new_low_rank_transform(U2, V2)
+
+  X <- matrix(1:12, 3, 4)
+
+  m1 <- AlignmentModel(list("sub-01" = lr1), reference = NULL, method = "m1")
+  m2 <- AlignmentModel(list("sub-01" = lr2), reference = NULL, method = "m2")
+  composed <- compose_alignment(m1, m2)
+  expect_true(inherits(composed@transforms[["sub-01"]], "neuralign_low_rank_transform"))
+  expect_equal(
+    apply_transform(composed@transforms[["sub-01"]], X),
+    apply_transform(lr2, apply_transform(lr1, X))
+  )
+})
+
 test_that("compose_alignment via %*% operator works", {
   transforms1 <- list(
     "sub-01" = diag(3)
@@ -216,7 +272,7 @@ test_that("compose_alignment errors on non-model inputs", {
   )
 })
 
-test_that("compose_alignment errors on non-matrix transforms", {
+test_that("compose_alignment errors on non-operator transforms", {
   # Create models where transforms are functions instead of matrices
   transforms1 <- list("sub-01" = function(x) x)
   transforms2 <- list("sub-01" = diag(3))
@@ -226,7 +282,7 @@ test_that("compose_alignment errors on non-matrix transforms", {
 
   expect_error(
     compose_alignment(model1, model2),
-    "Non-matrix transforms"
+    "Non-operator transforms"
   )
 
   # Also test when model2 has non-matrix transform
@@ -238,7 +294,7 @@ test_that("compose_alignment errors on non-matrix transforms", {
 
   expect_error(
     compose_alignment(model3, model4),
-    "Non-matrix transforms"
+    "Non-operator transforms"
   )
 })
 
@@ -279,7 +335,7 @@ test_that("check_composition detects no subjects in common", {
   expect_match(result$message, "No subjects in common")
 })
 
-test_that("check_composition detects non-matrix transforms", {
+test_that("check_composition detects non-operator transforms", {
   transforms1 <- list("sub-01" = function(x) x)
   transforms2 <- list("sub-01" = diag(3))
 
@@ -288,7 +344,7 @@ test_that("check_composition detects non-matrix transforms", {
 
   result <- check_composition(model1, model2)
   expect_false(result$compatible)
-  expect_match(result$message, "Non-matrix")
+  expect_match(result$message, "Non-operator")
 })
 
 test_that("check_composition detects dimension mismatch", {

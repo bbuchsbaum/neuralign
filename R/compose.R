@@ -81,7 +81,7 @@ compose_alignment <- function(model1, model2) {
       length(common_subjects),
       length(common_subjects), length(subjects1),
       length(common_subjects), length(subjects2)
-    ))
+    ), call. = FALSE)
   }
 
   # Compose transforms: T_composed = T2 %*% T1
@@ -89,22 +89,18 @@ compose_alignment <- function(model1, model2) {
     t1 <- model1@transforms[[subj]]
     t2 <- model2@transforms[[subj]]
 
-    if (!.is_matrixish(t1) || !.is_matrixish(t2)) {
+    if (!.transform_is_operator(t1) || !.transform_is_operator(t2)) {
       stop(
-        sprintf("Non-matrix transforms cannot be composed (subject '%s')", subj),
+        sprintf("Non-operator transforms cannot be composed (subject '%s')", subj),
         call. = FALSE
       )
     }
 
-    # Check dimension compatibility
-    if (ncol(t2) != nrow(t1)) {
-      stop(sprintf(
-        "Dimension mismatch for subject '%s': model2 expects %d, model1 provides %d",
-        subj, ncol(t2), nrow(t1)
-      ), call. = FALSE)
-    }
-
-    t2 %*% t1
+    .compose_operator_transforms(
+      t2,
+      t1,
+      context = sprintf("compose_alignment: subject '%s'", subj)
+    )
   })
   names(composed_transforms) <- common_subjects
 
@@ -228,35 +224,37 @@ check_composition <- function(model1, model2) {
     t1 <- model1@transforms[[subj]]
     t2 <- model2@transforms[[subj]]
 
-    if (!.is_matrixish(t1) || !.is_matrixish(t2)) {
+    if (!.transform_is_operator(t1) || !.transform_is_operator(t2)) {
       return(list(
         compatible = FALSE,
         message = sprintf(
-          "Non-matrix transforms cannot be composed (subject '%s')", subj
+          "Non-operator transforms cannot be composed (subject '%s')", subj
         )
       ))
     }
 
-    if (ncol(t2) != nrow(t1)) {
+    dims1 <- .transform_dims(t1)
+    dims2 <- .transform_dims(t2)
+    if (!identical(dims2[["source"]], dims1[["target"]])) {
       return(list(
         compatible = FALSE,
         message = sprintf(
           "Dimension mismatch for subject '%s': model1 output (%d) != model2 input (%d)",
-          subj, nrow(t1), ncol(t2)
+          subj, dims1[["target"]], dims2[["source"]]
         )
       ))
     }
   }
 
   # Use first subject for summary dims
-  t1 <- model1@transforms[[common[1]]]
-  t2 <- model2@transforms[[common[1]]]
+  dims1 <- .transform_dims(model1@transforms[[common[1]]])
+  dims2 <- .transform_dims(model2@transforms[[common[1]]])
 
   list(
     compatible = TRUE,
     message = sprintf(
       "Models are compatible (%d common subjects, dims: %d -> %d -> %d)",
-      length(common), ncol(t1), nrow(t1), nrow(t2)
+      length(common), dims1[["source"]], dims1[["target"]], dims2[["target"]]
     )
   )
 }

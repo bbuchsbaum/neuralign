@@ -427,12 +427,6 @@ inverse_transform <- function(model,
   )
 }
 
-.as_dense_matrix <- function(x) {
-  if (inherits(x, "Matrix")) return(as.matrix(x))
-  if (is.matrix(x)) return(x)
-  as.matrix(x)
-}
-
 .pseudoinverse <- function(x, tol = sqrt(.Machine$double.eps)) {
   x <- .as_dense_matrix(x)
   svd_result <- svd(x)
