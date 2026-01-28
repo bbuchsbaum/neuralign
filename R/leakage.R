@@ -275,12 +275,6 @@ print_leakage_assessment <- function(risk) {
   cat("Leakage Risk Assessment\n")
   cat("=======================\n\n")
 
-  color <- switch(risk$overall_risk,
-    "low" = "green",
-    "medium" = "yellow",
-    "high" = "red"
-  )
-
   cat(sprintf("Overall Risk: %s\n\n", toupper(risk$overall_risk)))
 
   if (length(risk$issues) > 0) {
