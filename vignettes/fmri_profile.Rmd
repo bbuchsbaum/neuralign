@@ -23,6 +23,35 @@ encode fMRI-specific feature extraction rules.
 library(neuralign)
 ```
 
+## 0) Conventions: left vs. right multiplication (and the fMRI default)
+
+neuralign standardizes **data** as `features × observations` matrices and applies
+transforms by **left-multiplication**:
+
+- `X_aligned = T %*% X`
+
+However, many fMRI workflows align an *ambiguous basis* (components, factors, maps)
+using a **right-multiplication** convention:
+
+- `M_aligned = M %*% O` where `M` is `voxels × K` and `O` is `K × K`.
+
+These are equivalent after transposing:
+
+- `t(M_aligned) = t(O) %*% t(M)`
+
+**Recommended fMRI profile orientation:** treat the unknown basis dimension as
+the *transform dimension* `K` (i.e., align in the `K × K` space), and keep
+correspondence matrices in the **right-multiply** view when possible.
+
+Practical rule:
+
+- If your correspondence matrix is `F_s` with shape `P × K` and you want
+  `F_s %*% O_s ≈ F_ref`, use `procrustes_rotation(..., convention = "right")`
+  to estimate `O_s` directly.
+- If you instead fit via `fit_alignment()` (which uses left-multiplication),
+  transpose: use `X_s = t(F_s)` (shape `K × P`). The returned transform `T_s`
+  corresponds to `t(O_s)`, so use `O_s = t(T_s)` when applying on the right.
+
 ## 1) fMRI profile: what it standardizes (and what it does not)
 
 **neuralign core owns:**
@@ -97,6 +126,10 @@ max(abs(rot$Q - O_true))
 ## 5) Hybrid correspondence via feature blocks
 
 Blocks let you combine signals with explicit weights:
+
+**Weight semantics:** `stack_feature_blocks()` scales each block by
+`sqrt(weight)`. If a legacy pipeline applied a linear weight `w` to a block, the
+equivalent neuralign weight is `w^2`. See `vignette("advanced_blocks", package = "neuralign")`.
 
 ```{r blocks-hybrid}
 set.seed(2)
@@ -194,6 +227,9 @@ rep
 
 When supervised blocks require independence (e.g., task-derived betas), compute them per fold
 in the client package, then hand fold-wise matrices to neuralign:
+
+See also `vignette("cv_leakage", package = "neuralign")` for a deeper discussion of
+observation-axis folds, anchor policies, and leakage checks.
 
 ```{r obs-crossfit}
 set.seed(3)

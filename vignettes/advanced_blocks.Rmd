@@ -39,6 +39,23 @@ across subjects that defines "what should match." In practice, you often have
 features, connectivity fingerprints---each with different reliability,
 coverage, and independence properties.
 
+### Conventions: when transforms act on rows vs. columns
+
+neuralign applies alignment transforms by **left-multiplication**:
+`X_aligned = T %*% X`, where `X` is `features × observations`.
+
+Some workflows instead estimate a transform that acts on the **columns**
+(`X_aligned = X %*% T`). In neuralign, this distinction is controlled by the
+`convention` argument in diagnostics/builders:
+
+- `convention = "left"`: the transform dimension is `nrow(X)` (acts on rows).
+- `convention = "right"`: the transform dimension is `ncol(X)` (acts on columns).
+
+If your correspondence matrices are naturally in a right-multiply form (e.g.,
+`P × K` matrices where you want a `K × K` basis rotation), you can still use
+`fit_alignment()` by transposing them to `K × P`. See
+`vignette("fmri_profile", package = "neuralign")` for a worked example.
+
 Feature blocks provide a structured way to:
 
 - represent each signal as a named, weighted block,
