@@ -57,6 +57,7 @@ Collate:
     'uncertainty.R'
     'k_procrustes.R'
     'fit_alignment.R'
+    'fit_alignment_internal.R'
     'apply_alignment.R'
     'compose.R'
     'reference.R'
