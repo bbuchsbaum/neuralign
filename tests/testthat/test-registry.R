@@ -143,6 +143,8 @@ test_that("default capabilities are set correctly", {
   # Check defaults
   expect_false(caps$supports_cv)  # Default is FALSE
   expect_false(caps$needs_geometry)
+  expect_false(caps$needs_guidance)
+  expect_null(caps$guidance_types)
   expect_equal(caps$transform_type, "linear")  # Default type
 })
 
@@ -172,6 +174,31 @@ test_that("register_aligner enforces supports_new_data=FALSE for embedding-retur
     capabilities = list(returns = "embedding", supports_new_data = FALSE)
   )
   expect_true(is_aligner_registered("emb_ok"))
+})
+
+test_that("register_aligner validates guidance capability fields", {
+  neuralign:::.clear_registry()
+
+  dummy_fit <- function(data, reference, train_idx = NULL, ...) {
+    transforms <- setNames(lapply(data@subjects, function(s) diag(nrow(get_subject_data(data, s)))), data@subjects)
+    list(transforms = transforms, reference_data = NULL, space_from = NULL, space_to = NULL)
+  }
+
+  expect_error(
+    register_aligner(
+      "bad_guidance_caps",
+      dummy_fit,
+      capabilities = list(guidance_types = c("projector"))
+    ),
+    "needs_guidance"
+  )
+
+  register_aligner(
+    "ok_guidance_caps",
+    dummy_fit,
+    capabilities = list(needs_guidance = TRUE, guidance_types = c("projector"))
+  )
+  expect_true(is_aligner_registered("ok_guidance_caps"))
 })
 
 

@@ -188,6 +188,51 @@ test_that("apply_alignment handles method that doesn't support new subjects", {
   unregister_aligner("no_new_subj")
 })
 
+test_that("apply_alignment validates guidance requirements when fitting new subjects", {
+  register_aligner(
+    name = "needs_guidance_apply",
+    fit_fn = function(data, reference, train_idx = NULL, ...) {
+      if (is.null(train_idx)) train_idx <- seq_along(data@subjects)
+      train_data <- data[train_idx]
+      transforms <- setNames(
+        lapply(train_data@subjects, function(s) diag(nrow(get_subject_data(train_data, s)))),
+        train_data@subjects
+      )
+      list(transforms = transforms, reference_data = NULL, space_from = data@space, space_to = data@space)
+    },
+    capabilities = list(
+      returns = "operator",
+      supports_new_subject = TRUE,
+      needs_guidance = TRUE,
+      guidance_types = c("projector")
+    ),
+    package = "neuralign"
+  )
+
+  set.seed(1)
+  train <- AlignmentData(list("sub-01" = matrix(rnorm(12), 3, 4)))
+  g_train <- list(
+    "sub-01" = list(roi = guidance_channel("projector", diag(3), name = "roi"))
+  )
+  train2 <- set_guidance(train, g_train)
+  fitted <- fit_alignment(train2, method = "needs_guidance_apply", reference = "sub-01", compute_quality = FALSE)
+
+  new_data <- AlignmentData(list("sub-02" = matrix(rnorm(12), 3, 4)))
+  expect_error(
+    apply_alignment(fitted, new_data, warn_leakage = FALSE),
+    "requires guidance"
+  )
+
+  g_new <- list(
+    "sub-02" = list(roi = guidance_channel("projector", diag(3), name = "roi"))
+  )
+  new2 <- set_guidance(new_data, g_new)
+  applied <- apply_alignment(fitted, new2, warn_leakage = FALSE)
+  expect_true("sub-02" %in% names(get_aligned(applied)))
+
+  unregister_aligner("needs_guidance_apply")
+})
+
 test_that("apply_transform handles non-matrix input", {
   transform <- diag(5)
   data_vec <- 1:5  # Vector, not matrix

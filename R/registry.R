@@ -136,6 +136,18 @@ validate_aligner_contract <- function(name,
     if (!is.null(reft) && !is.character(reft)) {
       errors <- c(errors, "capabilities$reference_types must be a character vector")
     }
+
+    ng <- capabilities[["needs_guidance"]]
+    if (!is.null(ng) && (!is.logical(ng) || length(ng) != 1L || is.na(ng))) {
+      errors <- c(errors, "capabilities$needs_guidance must be TRUE/FALSE (length 1)")
+    }
+    gt <- capabilities[["guidance_types"]]
+    if (!is.null(gt) && !is.character(gt)) {
+      errors <- c(errors, "capabilities$guidance_types must be a character vector or NULL")
+    }
+    if (!is.null(gt) && !isTRUE(ng)) {
+      errors <- c(errors, "capabilities$guidance_types requires capabilities$needs_guidance=TRUE")
+    }
   }
 
   if (length(errors) > 0) {
@@ -196,6 +208,9 @@ validate_aligner_contract <- function(name,
 #'   \item{cv_axes}{Which axes support CV: "subject", "observation"}
 #'   \item{needs_geometry}{Requires adjacency/graph in AlignmentData}
 #'   \item{needs_design}{Requires task structure in AlignmentData}
+#'   \item{needs_guidance}{Requires guidance channels (see \code{\link{set_guidance}}).}
+#'   \item{guidance_types}{Optional character vector of guidance \code{$type} values
+#'     required for each subject when \code{needs_guidance=TRUE} (e.g., \code{"projector"}).}
 #'   \item{returns_invertible}{Transform has exact inverse}
 #'   \item{transform_type}{Type: "orthogonal", "linear", "ot", "permutation"}
 #'   \item{mass_preserving}{For OT: does transport preserve mass?}
@@ -269,11 +284,13 @@ register_aligner <- function(name,
   default_caps <- list(
     # CV support
     supports_cv = FALSE,
-    cv_axes = c("subject"),  # which axes support CV: "subject", "run", "task"
+    cv_axes = c("subject"),
 
     # Data requirements
     needs_geometry = FALSE,
     needs_design = FALSE,
+    needs_guidance = FALSE,
+    guidance_types = NULL,
 
     # Transform properties
     returns_invertible = FALSE,

@@ -131,6 +131,12 @@ apply_alignment <- function(model,
         ), call. = FALSE)
       }
 
+      # Validate method requirements for fitting transforms on the new subjects
+      # (design/geometry/guidance). This keeps errors user-friendly and avoids
+      # cryptic failures inside apply_fn/fit_fn.
+      new_subset <- new_data[match(new_subjects, new_data@subjects)]
+      .validate_aligner_requirements(model@method, new_subset)
+
       # Fit transforms for new subjects
       for (subj in new_subjects) {
         new_transform <- .fit_transform_for_subject(
