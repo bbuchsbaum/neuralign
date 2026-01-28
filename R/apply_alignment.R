@@ -135,9 +135,19 @@ apply_alignment <- function(model,
         new_transform <- .fit_transform_for_subject(
           aligner, model, new_data, subj, ...
         )
+        subj_data <- get_subject_data(new_data, subj)
+
+        if (isTRUE(model@method_state$restrict_to_identified %||% FALSE)) {
+          tol <- model@method_state$restrict_tol %||% sqrt(.Machine$double.eps)
+          new_transform <- canonicalize_orthogonal_operator(
+            Q = new_transform,
+            x = subj_data,
+            convention = "left",
+            tol = tol
+          )
+        }
         new_transforms[[subj]] <- new_transform
 
-        subj_data <- get_subject_data(new_data, subj)
         aligned[[subj]] <- apply_transform(new_transform, subj_data)
       }
     }

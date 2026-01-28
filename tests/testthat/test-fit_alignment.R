@@ -224,6 +224,70 @@ test_that("fit_alignment warns when method does not support CV", {
   )
 })
 
+test_that("fit_alignment restrict_to_identified preserves aligned data for orthogonal methods", {
+  ensure_test_aligner("procrustes")
+
+  set.seed(999)
+  n_feat <- 20
+  n_obs <- 5 # rank-deficient relative to n_feat
+  data_list <- make_test_data_list(n_subjects = 3, n_features = n_feat, n_obs = n_obs)
+  adat <- AlignmentData(data_list)
+
+  res0 <- fit_alignment(
+    adat,
+    method = "procrustes",
+    reference = "sub-01",
+    compute_quality = FALSE
+  )
+  res1 <- fit_alignment(
+    adat,
+    method = "procrustes",
+    reference = "sub-01",
+    compute_quality = FALSE,
+    restrict_to_identified = TRUE,
+    restrict_tol = 1e-12
+  )
+
+  for (subj in names(res0@aligned)) {
+    expect_equal(res1@aligned[[subj]], res0@aligned[[subj]], tolerance = 1e-10)
+  }
+
+  model1 <- get_model(res1)
+  expect_true(isTRUE(model1@method_state$restrict_to_identified))
+})
+
+test_that("fit_alignment restrict_to_identified errors for non-orthogonal operator methods", {
+  saved <- as.list(neuralign:::.aligner_registry)
+  neuralign:::.clear_registry()
+  on.exit({
+    neuralign:::.clear_registry()
+    for (nm in names(saved)) {
+      assign(nm, saved[[nm]], envir = neuralign:::.aligner_registry)
+    }
+  }, add = TRUE)
+
+  test_fit <- function(data, reference, train_idx = NULL, ...) {
+    n_feat <- nrow(data@data[[1]])
+    transforms <- lapply(data@subjects, function(s) diag(n_feat))
+    names(transforms) <- data@subjects
+    list(transforms = transforms, reference_data = data@data[[1]])
+  }
+
+  register_aligner(
+    "linear_method",
+    test_fit,
+    capabilities = list(returns = "operator", transform_type = "linear", supports_cv = TRUE)
+  )
+
+  data_list <- make_test_data_list(n_subjects = 2, n_features = 6, n_obs = 3)
+  adat <- AlignmentData(data_list)
+
+  expect_error(
+    fit_alignment(adat, method = "linear_method", restrict_to_identified = TRUE),
+    "only supported for orthogonal operators"
+  )
+})
+
 test_that(".validate_cv_folds_spec errors on invalid fold specs", {
   n_subjects <- 4
 

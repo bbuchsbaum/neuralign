@@ -11,6 +11,8 @@
   train_idx,
   compute_quality,
   return_aligned = TRUE,
+  restrict_to_identified = FALSE,
+  restrict_tol = sqrt(.Machine$double.eps),
   ...
 )
 }

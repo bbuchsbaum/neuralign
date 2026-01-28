@@ -27,7 +27,9 @@
 
 \item{lambda}{Regularisation.}
 
-\item{...}{Additional arguments forwarded to manifoldalign::gpca_align().}
+\item{...}{Additional arguments forwarded to manifoldalign::gpca_align()
+(except \code{preproc}; neuralign forces \code{preproc=multivarious::pass()}
+to keep transforms linear).}
 }
 \value{
 List with transforms, reference_data, etc.

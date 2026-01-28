@@ -41,7 +41,9 @@
 \item{tol}{Convergence tolerance.}
 
 \item{...}{Additional arguments forwarded to
-manifoldalign::coupled_diagonalization().}
+manifoldalign::coupled_diagonalization()
+(except \code{preproc}; neuralign forces \code{preproc=multivarious::pass()}
+to keep transforms linear).}
 }
 \value{
 List with transforms, reference_data, etc.

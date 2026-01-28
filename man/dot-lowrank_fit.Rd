@@ -26,7 +26,9 @@
 
 \item{mu}{Balance between low-rank and similarity (0-1).}
 
-\item{...}{Additional arguments forwarded to manifoldalign::lowrank_align().}
+\item{...}{Additional arguments forwarded to manifoldalign::lowrank_align()
+(except \code{preproc}; neuralign forces \code{preproc=multivarious::pass()}
+to keep transforms linear).}
 }
 \value{
 List with transforms, reference_data, etc.

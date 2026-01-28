@@ -36,7 +36,9 @@
 
 \item{lambda}{Regularisation parameter.}
 
-\item{...}{Additional arguments forwarded to manifoldalign::kema().}
+\item{...}{Additional arguments forwarded to manifoldalign::kema()
+(except \code{preproc}; neuralign forces \code{preproc=multivarious::pass()}
+to keep transforms linear).}
 }
 \value{
 List with transforms, reference_data, etc.

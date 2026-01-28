@@ -12,6 +12,8 @@
   compute_quality,
   return_aligned = TRUE,
   return_fold_transforms = FALSE,
+  restrict_to_identified = FALSE,
+  restrict_tol = sqrt(.Machine$double.eps),
   ...
 )
 }

@@ -13,6 +13,20 @@ NULL
   as.integer(sum(d > (max(d) * tol)))
 }
 
+.is_orthogonal_operator <- function(Q, tol = 1e-6) {
+  if (!.is_matrixish(Q)) return(FALSE)
+  Q <- as.matrix(Q)
+  if (nrow(Q) != ncol(Q)) return(FALSE)
+  if (any(!is.finite(Q))) return(FALSE)
+  if (!is.numeric(tol) || length(tol) != 1L || !is.finite(tol) || tol <= 0) {
+    stop("'tol' must be a single positive number", call. = FALSE)
+  }
+  # Check Q'Q ≈ I. Use max absolute deviation as a simple diagnostic.
+  I <- diag(nrow(Q))
+  dev <- max(abs(crossprod(Q) - I))
+  is.finite(dev) && dev <= tol
+}
+
 .validate_subspace_basis <- function(basis) {
   if (!.is_matrixish(basis)) {
     stop("'basis' must be matrix-like", call. = FALSE)
@@ -233,4 +247,67 @@ lift_operator_from_subspace <- function(Q_sub, basis, fill = c("zero", "identity
     full <- full + (diag(nrow(P)) - P)
   }
   full
+}
+
+#' Canonicalize an Orthogonal Operator in the Identified Subspace
+#'
+#' When a correspondence matrix is rank-deficient, orthogonal operators are
+#' under-identified: their action on the orthogonal complement of the identified
+#' subspace does not affect the fit. This helper replaces that arbitrary part
+#' with a deterministic extension, while preserving the action of `Q` on the
+#' identified subspace of `x`.
+#'
+#' In particular, if `S` is the identified subspace of the transform space
+#' implied by `x`, the returned operator `Q_canon` satisfies:
+#' \deqn{Q_{\mathrm{canon}} v = Q v \quad \forall v \in S.}
+#'
+#' @param Q Square orthogonal operator (matrix or Matrix).
+#' @param x Correspondence matrix used to determine the identified subspace.
+#' @param convention Convention for interpreting the transform dimension:
+#'   `"left"` means transforms act on rows (`d = nrow(x)`); `"right"` means
+#'   transforms act on columns (`d = ncol(x)`).
+#' @param tol Relative tolerance for numeric rank determination (fraction of the
+#'   largest singular value).
+#' @param check_orthogonal Logical; if TRUE (default), check that `Q` is
+#'   orthogonal (within `orthogonal_tol`) before canonicalizing.
+#' @param orthogonal_tol Tolerance for the orthogonality check.
+#'
+#' @return A `d x d` orthogonal matrix.
+#' @export
+canonicalize_orthogonal_operator <- function(Q,
+                                             x,
+                                             convention = c("left", "right"),
+                                             tol = sqrt(.Machine$double.eps),
+                                             check_orthogonal = TRUE,
+                                             orthogonal_tol = 1e-6) {
+  convention <- match.arg(convention)
+
+  if (!.is_matrixish(Q)) stop("'Q' must be matrix-like", call. = FALSE)
+  Q <- as.matrix(Q)
+  if (nrow(Q) != ncol(Q)) stop("'Q' must be square", call. = FALSE)
+  if (any(!is.finite(Q))) stop("'Q' must be finite", call. = FALSE)
+
+  if (isTRUE(check_orthogonal) && !.is_orthogonal_operator(Q, tol = orthogonal_tol)) {
+    stop("'Q' must be orthogonal (within 'orthogonal_tol')", call. = FALSE)
+  }
+
+  subspace <- identified_subspace_basis(x, convention = convention, tol = tol)
+  B <- subspace$basis
+  d <- subspace$transform_dim
+
+  if (nrow(Q) != d) {
+    stop(
+      sprintf("Dimension mismatch: nrow(Q)=%d but transform_dim=%d", nrow(Q), d),
+      call. = FALSE
+    )
+  }
+
+  # Compute deterministic full bases for the identified subspace and its image.
+  # Note: .complete_orthonormal_basis() lives in the package namespace.
+  B_full <- .complete_orthonormal_basis(B)
+  B_img <- Q %*% B
+  B_img_full <- .complete_orthonormal_basis(B_img)
+
+  # Canonical orthogonal operator that matches Q on span(B).
+  B_img_full %*% t(B_full)
 }

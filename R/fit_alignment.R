@@ -44,6 +44,13 @@
 #' @param return_fold_transforms Logical; if TRUE and using observation-axis
 #'   fold specs (see \code{\link{create_obs_folds}}), retain per-fold transforms
 #'   in \code{result@cv_info$transforms_by_fold}. Default FALSE.
+#' @param restrict_to_identified Logical; if TRUE, canonicalize orthogonal
+#'   operators so their action on the orthogonal complement of the identified
+#'   subspace is deterministic. This is useful when correspondence signals are
+#'   rank-deficient (e.g., transform_dim > numeric_rank). Defaults to FALSE.
+#'   Only supported for methods that return orthogonal operators.
+#' @param restrict_tol Relative tolerance for numeric rank determination used by
+#'   \code{\link{canonicalize_orthogonal_operator}}.
 #' @param ... Additional arguments passed to the method's fit function.
 #'
 #' @return An AlignmentResult object containing the fitted model and
@@ -83,6 +90,8 @@ fit_alignment <- function(data,
                           compute_quality = TRUE,
                           return_aligned = TRUE,
                           return_fold_transforms = FALSE,
+                          restrict_to_identified = FALSE,
+                          restrict_tol = sqrt(.Machine$double.eps),
                           ...) {
   cv <- match.arg(cv)
 
@@ -111,6 +120,34 @@ fit_alignment <- function(data,
   aligner <- get_aligner(method)
   caps <- aligner$capabilities %||% list()
   returns <- caps$returns %||% "operator"
+
+  restrict_to_identified <- isTRUE(restrict_to_identified)
+  if (restrict_to_identified) {
+    if (!identical(returns, "operator")) {
+      stop(
+        sprintf(
+          "restrict_to_identified=TRUE requires operator-returning methods; method '%s' returns '%s'",
+          method, returns
+        ),
+        call. = FALSE
+      )
+    }
+    transform_type <- caps$transform_type %||% NA_character_
+    if (!is.character(transform_type) || length(transform_type) != 1L ||
+        !transform_type %in% c("orthogonal")) {
+      stop(
+        sprintf(
+          "restrict_to_identified=TRUE is only supported for orthogonal operators; method '%s' has transform_type='%s'",
+          method, as.character(transform_type)
+        ),
+        call. = FALSE
+      )
+    }
+    if (!is.numeric(restrict_tol) || length(restrict_tol) != 1L || !is.finite(restrict_tol) ||
+        restrict_tol <= 0 || restrict_tol >= 1) {
+      stop("'restrict_tol' must be a single number in (0, 1)", call. = FALSE)
+    }
+  }
 
   if (identical(returns, "embedding")) {
     if (!identical(cv, "none") || .is_cv_folds_spec(cv_folds)) {
@@ -145,6 +182,8 @@ fit_alignment <- function(data,
         compute_quality = compute_quality,
         return_aligned = return_aligned,
         return_fold_transforms = return_fold_transforms,
+        restrict_to_identified = restrict_to_identified,
+        restrict_tol = restrict_tol,
         ...
       )
     } else {
@@ -156,13 +195,18 @@ fit_alignment <- function(data,
         cv_folds = cv_folds,
         compute_quality = compute_quality,
         return_aligned = return_aligned,
+        restrict_to_identified = restrict_to_identified,
+        restrict_tol = restrict_tol,
         ...
       )
     }
   } else if (cv == "none") {
     result <- .fit_single(data, aligner, reference, train_idx,
       compute_quality = compute_quality,
-      return_aligned = return_aligned, ...
+      return_aligned = return_aligned,
+      restrict_to_identified = restrict_to_identified,
+      restrict_tol = restrict_tol,
+      ...
     )
   } else if (cv == "loso") {
     result <- .fit_cv_loso(
@@ -171,6 +215,8 @@ fit_alignment <- function(data,
       reference = reference,
       compute_quality = compute_quality,
       return_aligned = return_aligned,
+      restrict_to_identified = restrict_to_identified,
+      restrict_tol = restrict_tol,
       ...
     )
   } else if (cv == "kfold") {
@@ -181,6 +227,8 @@ fit_alignment <- function(data,
       k = cv_folds,
       compute_quality = compute_quality,
       return_aligned = return_aligned,
+      restrict_to_identified = restrict_to_identified,
+      restrict_tol = restrict_tol,
       ...
     )
   }
@@ -192,7 +240,10 @@ fit_alignment <- function(data,
 #' Internal: Single Fit (No CV)
 #' @keywords internal
 .fit_single <- function(data, aligner, reference, train_idx,
-                        compute_quality, return_aligned = TRUE, ...) {
+                        compute_quality, return_aligned = TRUE,
+                        restrict_to_identified = FALSE,
+                        restrict_tol = sqrt(.Machine$double.eps),
+                        ...) {
   # Determine training subjects
   if (is.null(train_idx)) {
     train_idx <- seq_along(data@subjects)
@@ -274,16 +325,38 @@ fit_alignment <- function(data,
     context = sprintf("fit_alignment(%s)", aligner$name)
   )
 
+  transforms <- fit_result$transforms
+  if (isTRUE(restrict_to_identified)) {
+    data_list <- get_data_list(data)
+    transforms <- lapply(names(transforms), function(subj) {
+      canonicalize_orthogonal_operator(
+        Q = transforms[[subj]],
+        x = data_list[[subj]],
+        convention = "left",
+        tol = restrict_tol
+      )
+    })
+    names(transforms) <- names(fit_result$transforms)
+  }
+
   # Build AlignmentModel
+  params <- c(list(...), list(
+    restrict_to_identified = isTRUE(restrict_to_identified),
+    restrict_tol = restrict_tol
+  ))
+  method_state <- fit_result$method_state %||% list()
+  method_state$restrict_to_identified <- isTRUE(restrict_to_identified)
+  method_state$restrict_tol <- restrict_tol
+
   model <- AlignmentModel(
-    transforms = fit_result$transforms,
+    transforms = transforms,
     reference = ref_resolved$reference_spec,
     reference_data = fit_result$reference_data,
     method = aligner$name,
     space_from = fit_result$space_from,
     space_to = fit_result$space_to,
-    params = list(...),
-    method_state = fit_result$method_state %||% list(),
+    params = params,
+    method_state = method_state,
     train_subjects = train_subjects
   )
 
@@ -308,12 +381,18 @@ fit_alignment <- function(data,
 #' Internal: Leave-One-Subject-Out CV
 #' @keywords internal
 .fit_cv_loso <- function(data, aligner, reference, compute_quality,
-                         return_aligned = TRUE, ...) {
+                         return_aligned = TRUE,
+                         restrict_to_identified = FALSE,
+                         restrict_tol = sqrt(.Machine$double.eps),
+                         ...) {
   cv_folds <- create_cv_folds(data, method = "loso")
   validate_cv_setup(cv_folds, reference = reference)
   .fit_cv_folds(data, aligner, reference, cv_folds,
     compute_quality = compute_quality,
-    return_aligned = return_aligned, ...
+    return_aligned = return_aligned,
+    restrict_to_identified = restrict_to_identified,
+    restrict_tol = restrict_tol,
+    ...
   )
 }
 
@@ -321,13 +400,19 @@ fit_alignment <- function(data,
 #' Internal: K-Fold CV
 #' @keywords internal
 .fit_cv_kfold <- function(data, aligner, reference, k, compute_quality,
-                          return_aligned = TRUE, ...) {
+                          return_aligned = TRUE,
+                          restrict_to_identified = FALSE,
+                          restrict_tol = sqrt(.Machine$double.eps),
+                          ...) {
   cv_folds <- create_cv_folds(data, method = "kfold", k = k)
   # create_cv_folds will fall back to LOSO if k > n.
   validate_cv_setup(cv_folds, reference = reference)
   .fit_cv_folds(data, aligner, reference, cv_folds,
     compute_quality = compute_quality,
-    return_aligned = return_aligned, ...
+    return_aligned = return_aligned,
+    restrict_to_identified = restrict_to_identified,
+    restrict_tol = restrict_tol,
+    ...
   )
 }
 
@@ -386,7 +471,10 @@ fit_alignment <- function(data,
 }
 
 .fit_cv_folds <- function(data, aligner, reference, cv_folds,
-                          compute_quality, return_aligned = TRUE, ...) {
+                          compute_quality, return_aligned = TRUE,
+                          restrict_to_identified = FALSE,
+                          restrict_tol = sqrt(.Machine$double.eps),
+                          ...) {
   .validate_cv_folds_spec(cv_folds, n_subjects = length(data@subjects))
 
   subjects <- data@subjects
@@ -477,6 +565,19 @@ fit_alignment <- function(data,
     }
   }
 
+  if (isTRUE(restrict_to_identified)) {
+    data_list <- get_data_list(data)
+    all_transforms <- lapply(subjects, function(subj) {
+      canonicalize_orthogonal_operator(
+        Q = all_transforms[[subj]],
+        x = data_list[[subj]],
+        convention = "left",
+        tol = restrict_tol
+      )
+    })
+    names(all_transforms) <- subjects
+  }
+
   reference_kind <- .reference_kind(reference)
   anchor_common <- reference_kind %in% c("fixed_subject", "template")
 
@@ -498,6 +599,14 @@ fit_alignment <- function(data,
     model_reference <- "fold_specific"
   }
 
+  params <- c(list(...), list(
+    restrict_to_identified = isTRUE(restrict_to_identified),
+    restrict_tol = restrict_tol
+  ))
+  model_method_state <- model_method_state %||% list()
+  model_method_state$restrict_to_identified <- isTRUE(restrict_to_identified)
+  model_method_state$restrict_tol <- restrict_tol
+
   model <- AlignmentModel(
     transforms = all_transforms,
     reference = model_reference,
@@ -505,7 +614,7 @@ fit_alignment <- function(data,
     method = aligner$name,
     space_from = model_space_from,
     space_to = model_space_to,
-    params = list(...),
+    params = params,
     method_state = model_method_state,
     train_subjects = subjects
   )
@@ -855,6 +964,8 @@ fit_alignment <- function(data,
 .fit_cv_obs_folds <- function(data, aligner, reference, cv_folds,
                                compute_quality, return_aligned = TRUE,
                                return_fold_transforms = FALSE,
+                               restrict_to_identified = FALSE,
+                               restrict_tol = sqrt(.Machine$double.eps),
                                ...) {
   subjects <- data@subjects
   n_subjects <- length(subjects)
@@ -923,6 +1034,19 @@ fit_alignment <- function(data,
       ...
     )
 
+    if (isTRUE(restrict_to_identified)) {
+      train_list <- get_data_list(train_data)
+      fit_result$transforms <- lapply(subjects, function(subj) {
+        canonicalize_orthogonal_operator(
+          Q = fit_result$transforms[[subj]],
+          x = train_list[[subj]],
+          convention = "left",
+          tol = restrict_tol
+        )
+      })
+      names(fit_result$transforms) <- subjects
+    }
+
     if (isTRUE(return_fold_transforms)) {
       transforms_by_fold[[fold_name]] <- fit_result$transforms
     }
@@ -961,15 +1085,37 @@ fit_alignment <- function(data,
     context = sprintf("fit_alignment(%s) [obs-cv full fit]", aligner$name)
   )
 
+  transforms_all <- fit_result_all$transforms
+  if (isTRUE(restrict_to_identified)) {
+    data_list <- get_data_list(data)
+    transforms_all <- lapply(subjects, function(subj) {
+      canonicalize_orthogonal_operator(
+        Q = transforms_all[[subj]],
+        x = data_list[[subj]],
+        convention = "left",
+        tol = restrict_tol
+      )
+    })
+    names(transforms_all) <- subjects
+  }
+
+  params <- c(list(...), list(
+    restrict_to_identified = isTRUE(restrict_to_identified),
+    restrict_tol = restrict_tol
+  ))
+  method_state <- fit_result_all$method_state %||% list()
+  method_state$restrict_to_identified <- isTRUE(restrict_to_identified)
+  method_state$restrict_tol <- restrict_tol
+
   model <- AlignmentModel(
-    transforms = fit_result_all$transforms,
+    transforms = transforms_all,
     reference = ref_resolved$reference_spec,
     reference_data = fit_result_all$reference_data,
     method = aligner$name,
     space_from = fit_result_all$space_from %||% data@space,
     space_to = fit_result_all$space_to %||% data@space,
-    params = list(...),
-    method_state = fit_result_all$method_state %||% list(),
+    params = params,
+    method_state = method_state,
     train_subjects = subjects
   )
 

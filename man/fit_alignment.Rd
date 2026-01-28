@@ -15,6 +15,8 @@ fit_alignment(
   compute_quality = TRUE,
   return_aligned = TRUE,
   return_fold_transforms = FALSE,
+  restrict_to_identified = FALSE,
+  restrict_tol = sqrt(.Machine$double.eps),
   ...
 )
 }
@@ -62,6 +64,15 @@ memory in pipeline workflows where aligned data is not needed immediately).}
 \item{return_fold_transforms}{Logical; if TRUE and using observation-axis
 fold specs (see \code{\link{create_obs_folds}}), retain per-fold transforms
 in \code{result@cv_info$transforms_by_fold}. Default FALSE.}
+
+\item{restrict_to_identified}{Logical; if TRUE, canonicalize orthogonal
+operators so their action on the orthogonal complement of the identified
+subspace is deterministic. This is useful when correspondence signals are
+rank-deficient (e.g., transform_dim > numeric_rank). Defaults to FALSE.
+Only supported for methods that return orthogonal operators.}
+
+\item{restrict_tol}{Relative tolerance for numeric rank determination used by
+\code{\link{canonicalize_orthogonal_operator}}.}
 
 \item{...}{Additional arguments passed to the method's fit function.}
 }
