@@ -272,29 +272,64 @@ fit_alignment <- function(data,
 
 #' Internal: Generic CV with Provided Folds
 #' @keywords internal
+.resolve_unevaluated_subjects <- function(cv_folds, subjects) {
+  unevaluated_subjects <- as.character(cv_folds$unevaluated_subjects %||% character(0))
+  if (length(unevaluated_subjects) == 0) return(character(0))
+
+  if (anyNA(unevaluated_subjects) || any(!nzchar(unevaluated_subjects))) {
+    stop("'cv_folds$unevaluated_subjects' must not contain NA/empty values", call. = FALSE)
+  }
+  unknown <- setdiff(unevaluated_subjects, subjects)
+  if (length(unknown) > 0) {
+    stop(
+      sprintf(
+        "'cv_folds$unevaluated_subjects' contains unknown subjects: %s",
+        paste(unknown, collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
+
+  unique(unevaluated_subjects)
+}
+
+.fit_cv_anchor_common <- function(data, aligner, reference, n_subjects, ...) {
+  # For a fixed/external anchor, it's safe to store the corresponding reference_data.
+  ref_resolved <- .resolve_reference_spec(data, reference, seq_len(n_subjects))
+  fit_result_all <- aligner$fit_fn(
+    data = data,
+    reference = ref_resolved$reference,
+    train_idx = seq_len(n_subjects),
+    ...
+  )
+
+  .validate_operator_transforms(
+    transforms = fit_result_all$transforms,
+    data_list = get_data_list(data),
+    context = sprintf("fit_alignment(%s) [cv anchor]", aligner$name)
+  )
+
+  list(
+    reference = ref_resolved$reference_spec,
+    reference_data = fit_result_all$reference_data,
+    method_state = fit_result_all$method_state %||% list(),
+    space_from = fit_result_all$space_from,
+    space_to = fit_result_all$space_to
+  )
+}
+
+.cv_info_note_fold_specific <- function(anchor_common) {
+  if (isTRUE(anchor_common)) return(NULL)
+  "Aligned outputs are in fold-specific anchor spaces; do not use for group-level comparisons without mapping to a common anchor."
+}
+
 .fit_cv_folds <- function(data, aligner, reference, cv_folds,
                           compute_quality, return_aligned = TRUE, ...) {
   .validate_cv_folds_spec(cv_folds, n_subjects = length(data@subjects))
 
   subjects <- data@subjects
   n_subjects <- length(subjects)
-  unevaluated_subjects <- as.character(cv_folds$unevaluated_subjects %||% character(0))
-  if (length(unevaluated_subjects) > 0) {
-    if (anyNA(unevaluated_subjects) || any(!nzchar(unevaluated_subjects))) {
-      stop("'cv_folds$unevaluated_subjects' must not contain NA/empty values", call. = FALSE)
-    }
-    unknown <- setdiff(unevaluated_subjects, subjects)
-    if (length(unknown) > 0) {
-      stop(
-        sprintf(
-          "'cv_folds$unevaluated_subjects' contains unknown subjects: %s",
-          paste(unknown, collapse = ", ")
-        ),
-        call. = FALSE
-      )
-    }
-    unevaluated_subjects <- unique(unevaluated_subjects)
-  }
+  unevaluated_subjects <- .resolve_unevaluated_subjects(cv_folds, subjects)
 
   # Check CV support
   if (!isTRUE(aligner$capabilities$supports_cv)) {
@@ -390,26 +425,12 @@ fit_alignment <- function(data,
   model_space_to <- data@space
 
   if (anchor_common) {
-    # For a fixed/external anchor, it's safe to store the corresponding reference_data.
-    ref_resolved <- .resolve_reference_spec(data, reference, seq_len(n_subjects))
-    fit_result_all <- aligner$fit_fn(
-      data = data,
-      reference = ref_resolved$reference,
-      train_idx = seq_len(n_subjects),
-      ...
-    )
-
-    .validate_operator_transforms(
-      transforms = fit_result_all$transforms,
-      data_list = get_data_list(data),
-      context = sprintf("fit_alignment(%s) [cv anchor]", aligner$name)
-    )
-
-    model_reference <- ref_resolved$reference_spec
-    model_reference_data <- fit_result_all$reference_data
-    model_method_state <- fit_result_all$method_state %||% list()
-    model_space_from <- fit_result_all$space_from
-    model_space_to <- fit_result_all$space_to
+    anchor_fit <- .fit_cv_anchor_common(data, aligner, reference, n_subjects, ...)
+    model_reference <- anchor_fit$reference
+    model_reference_data <- anchor_fit$reference_data
+    model_method_state <- anchor_fit$method_state
+    model_space_from <- anchor_fit$space_from
+    model_space_to <- anchor_fit$space_to
   } else {
     # Fold-specific anchors: do not pretend there is a single shared reference.
     model_reference <- "fold_specific"
@@ -449,11 +470,7 @@ fit_alignment <- function(data,
       reference_kind = reference_kind,
       anchor_common = anchor_common,
       anchor_by_subject = anchor_by_subject,
-      anchor_note = if (!anchor_common) {
-        "Aligned outputs are in fold-specific anchor spaces; do not use for group-level comparisons without mapping to a common anchor."
-      } else {
-        NULL
-      }
+      anchor_note = .cv_info_note_fold_specific(anchor_common)
     )
   )
 }
