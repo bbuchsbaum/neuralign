@@ -134,12 +134,16 @@ setMethod("show", "AlignmentResult", function(object) {
 }
 
 
-#' Get Aligned Data for a Subject
+#' Get aligned data
 #'
-#' @param result An AlignmentResult object.
-#' @param subject Subject ID.
+#' Extract aligned data from an [AlignmentResult] object.
 #'
-#' @return The aligned data for the subject.
+#' @param result An [AlignmentResult] object.
+#' @param subject Optional subject ID. If `NULL` (default), returns the full named
+#'   list of aligned data for all subjects.
+#'
+#' @return A numeric matrix (when `subject` is provided) or a named list of
+#'   numeric matrices (when `subject` is `NULL`).
 #'
 #' @export
 get_aligned <- function(result, subject = NULL) {
@@ -156,15 +160,10 @@ get_aligned <- function(result, subject = NULL) {
 }
 
 
-#' Get All Aligned Data as List
-#'
-#' @param result An AlignmentResult object.
-#'
-#' @return Named list of aligned data.
-#'
+#' @rdname get_aligned
 #' @export
-aligned_data <- function(result) {
-  get_aligned(result)
+aligned_data <- function(result, subject = NULL) {
+  get_aligned(result, subject = subject)
 }
 
 

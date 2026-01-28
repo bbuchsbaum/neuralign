@@ -12,21 +12,21 @@ validate_alignment_data(
 )
 }
 \arguments{
-\item{object}{An AlignmentData object.}
+\item{object}{An \link{AlignmentData} object.}
 
-\item{check_features}{Logical; if TRUE, check that all subjects have
-the same number of features (rows).}
+\item{check_features}{Logical; if \code{TRUE}, check that all subjects have the
+same number of features (rows).}
 
-\item{check_observations}{Logical; if TRUE, check that all subjects have
+\item{check_observations}{Logical; if \code{TRUE}, check that all subjects have
 the same number of observations (columns).}
 
-\item{check_obs_labels}{Logical; if TRUE, validate \code{obs_labels}. For atomic
+\item{check_obs_labels}{Logical; if \code{TRUE}, validate \code{obs_labels}. For atomic
 \code{obs_labels}, enforces length == n_obs (and requires a shared observation
 axis). For list-valued \code{obs_labels}, validates per-subject label vectors
 match each subject's observation count.}
 }
 \value{
-TRUE invisibly if valid, otherwise throws an error.
+\code{TRUE} invisibly if valid, otherwise throws an error.
 }
 \description{
 Check that all subjects have compatible dimensions for alignment.

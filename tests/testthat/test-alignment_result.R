@@ -53,6 +53,8 @@ test_that("AlignmentResult accessors work correctly", {
 
   # aligned_data (synonym)
   expect_equal(aligned_data(result), aligned)
+  expect_equal(aligned_data(result, "sub-01"), aligned[["sub-01"]])
+  expect_error(aligned_data(result, "sub-99"), "not found")
 
   # get_quality - all
   expect_equal(get_quality(result), quality)

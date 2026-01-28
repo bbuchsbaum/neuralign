@@ -505,23 +505,6 @@ get_obs_labels <- function(object) {
 }
 
 
-#' Validate AlignmentData for Alignment
-#'
-#' Check that all subjects have compatible dimensions for alignment.
-#'
-#' @param object An AlignmentData object.
-#' @param check_features Logical; if TRUE, check that all subjects have
-#'   the same number of features (rows).
-#' @param check_observations Logical; if TRUE, check that all subjects have
-#'   the same number of observations (columns).
-#' @param check_obs_labels Logical; if TRUE, validate `obs_labels`. For atomic
-#'   `obs_labels`, enforces length == n_obs (and requires a shared observation
-#'   axis). For list-valued `obs_labels`, validates per-subject label vectors
-#'   match each subject's observation count.
-#'
-#' @return TRUE invisibly if valid, otherwise throws an error.
-#'
-#' @export
 .validate_features <- function(dims_mat) {
   if (length(unique(dims_mat[, 1])) > 1) {
     stop(sprintf(
@@ -606,6 +589,23 @@ get_obs_labels <- function(object) {
   invisible(TRUE)
 }
 
+#' Validate AlignmentData for Alignment
+#'
+#' Check that all subjects have compatible dimensions for alignment.
+#'
+#' @param object An [AlignmentData] object.
+#' @param check_features Logical; if `TRUE`, check that all subjects have the
+#'   same number of features (rows).
+#' @param check_observations Logical; if `TRUE`, check that all subjects have
+#'   the same number of observations (columns).
+#' @param check_obs_labels Logical; if `TRUE`, validate `obs_labels`. For atomic
+#'   `obs_labels`, enforces length == n_obs (and requires a shared observation
+#'   axis). For list-valued `obs_labels`, validates per-subject label vectors
+#'   match each subject's observation count.
+#'
+#' @return `TRUE` invisibly if valid, otherwise throws an error.
+#'
+#' @export
 validate_alignment_data <- function(object, check_features = TRUE,
                                     check_observations = FALSE,
                                     check_obs_labels = FALSE) {

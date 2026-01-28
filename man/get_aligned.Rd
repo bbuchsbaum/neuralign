@@ -2,18 +2,23 @@
 % Please edit documentation in R/alignment_result.R
 \name{get_aligned}
 \alias{get_aligned}
-\title{Get Aligned Data for a Subject}
+\alias{aligned_data}
+\title{Get aligned data}
 \usage{
 get_aligned(result, subject = NULL)
+
+aligned_data(result, subject = NULL)
 }
 \arguments{
-\item{result}{An AlignmentResult object.}
+\item{result}{An \link{AlignmentResult} object.}
 
-\item{subject}{Subject ID.}
+\item{subject}{Optional subject ID. If \code{NULL} (default), returns the full named
+list of aligned data for all subjects.}
 }
 \value{
-The aligned data for the subject.
+A numeric matrix (when \code{subject} is provided) or a named list of
+numeric matrices (when \code{subject} is \code{NULL}).
 }
 \description{
-Get Aligned Data for a Subject
+Extract aligned data from an \link{AlignmentResult} object.
 }
