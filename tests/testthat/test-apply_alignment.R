@@ -334,6 +334,57 @@ test_that("inverse_transform rejects OT transforms", {
   unregister_aligner("ot_dummy")
 })
 
+test_that("inverse_transform supports low-rank operator transforms (pinv/ridge)", {
+  U <- matrix(c(
+    1, 0,
+    0, 1,
+    1, 1
+  ), 3, 2, byrow = TRUE)
+  V <- matrix(c(
+    1, 0,
+    0, 1,
+    1, 1,
+    2, 0
+  ), 4, 2, byrow = TRUE)
+
+  lr <- neuralign:::.new_low_rank_transform(U, V)
+  model <- AlignmentModel(
+    transforms = list(s1 = lr),
+    reference = "consensus",
+    method = "unregistered_low_rank"
+  )
+
+  A <- neuralign:::.as_matrix_transform(lr)
+
+  inv_pinv <- inverse_transform(model, "s1", method = "pinv", tol = 1e-12)
+  expect_true(inherits(inv_pinv, "neuralign_low_rank_transform"))
+  expect_equal(
+    neuralign:::.as_matrix_transform(inv_pinv),
+    neuralign:::.pseudoinverse(A, tol = 1e-12),
+    tolerance = 1e-8
+  )
+
+  inv_ridge <- inverse_transform(model, "s1", method = "ridge", lambda = 1e-3)
+  expect_true(inherits(inv_ridge, "neuralign_low_rank_transform"))
+  expect_equal(
+    neuralign:::.as_matrix_transform(inv_ridge),
+    neuralign:::.ridge_inverse(A, lambda = 1e-3),
+    tolerance = 1e-8
+  )
+
+  inv_auto <- inverse_transform(model, "s1", method = "auto", tol = 1e-12)
+  expect_equal(
+    neuralign:::.as_matrix_transform(inv_auto),
+    neuralign:::.as_matrix_transform(inv_pinv),
+    tolerance = 1e-12
+  )
+
+  expect_error(
+    inverse_transform(model, "s1", method = "transpose"),
+    "low-rank"
+  )
+})
+
 # ---------- NEW TESTS ----------
 
 test_that(".fit_transform_for_subject uses custom apply_fn when provided", {

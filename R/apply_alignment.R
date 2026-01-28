@@ -356,8 +356,13 @@ inverse_transform <- function(model,
     )
   }
   if (.is_low_rank_transform(transform)) {
+    if (identical(method, "auto")) {
+      method <- "pinv"
+    }
+    if (method == "pinv") return(.pseudoinverse_low_rank(transform, tol = tol))
+    if (method == "ridge") return(.ridge_inverse_low_rank(transform, lambda = lambda))
     stop(
-      "inverse_transform() currently supports matrix/Matrix operators only; low-rank transform objects are not invertible without additional structure.",
+      "inverse_transform() for low-rank operator transforms supports method='pinv' or method='ridge'",
       call. = FALSE
     )
   }
@@ -425,6 +430,35 @@ inverse_transform <- function(model,
     "Transform is not square; no exact inverse. Use method='pinv' or method='ridge' for an approximate inverse.",
     call. = FALSE
   )
+}
+
+.pseudoinverse_low_rank <- function(transform, tol = sqrt(.Machine$double.eps)) {
+  sv <- .low_rank_operator_svd(transform, context = "low-rank pseudoinverse")
+  d <- sv$d
+  if (!length(d)) {
+    return(.new_low_rank_transform(sv$V, sv$U))
+  }
+  if (!is.numeric(tol) || length(tol) != 1L || !is.finite(tol) || tol <= 0) {
+    stop("'tol' must be a single positive number for method='pinv'", call. = FALSE)
+  }
+  cutoff <- max(nrow(sv$U), nrow(sv$V)) * max(d) * tol
+  d_inv <- ifelse(d > cutoff, 1 / d, 0)
+  U_new <- sweep(sv$V, 2L, d_inv, "*")
+  .new_low_rank_transform(U_new, sv$U)
+}
+
+.ridge_inverse_low_rank <- function(transform, lambda = 1e-6) {
+  if (!is.numeric(lambda) || length(lambda) != 1L || !is.finite(lambda) || lambda <= 0) {
+    stop("'lambda' must be a single positive number for method='ridge'", call. = FALSE)
+  }
+  sv <- .low_rank_operator_svd(transform, context = "low-rank ridge inverse")
+  d <- sv$d
+  if (!length(d)) {
+    return(.new_low_rank_transform(sv$V, sv$U))
+  }
+  w <- d / (d^2 + lambda)
+  U_new <- sweep(sv$V, 2L, w, "*")
+  .new_low_rank_transform(U_new, sv$U)
 }
 
 .pseudoinverse <- function(x, tol = sqrt(.Machine$double.eps)) {

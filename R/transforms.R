@@ -131,3 +131,42 @@ NULL
 
   t2 %*% t1
 }
+
+.low_rank_operator_svd <- function(transform, context = "low-rank operator") {
+  if (!.is_low_rank_transform(transform)) {
+    stop(context, ": expected a low-rank operator transform", call. = FALSE)
+  }
+
+  U0 <- .as_dense_matrix(transform$U)
+  V0 <- .as_dense_matrix(transform$V)
+
+  if (!identical(ncol(U0), ncol(V0))) {
+    stop(context, ": low-rank factors must have matching column counts", call. = FALSE)
+  }
+
+  r <- ncol(U0)
+  if (r == 0L) {
+    return(list(
+      U = matrix(0, nrow(U0), 0L),
+      V = matrix(0, nrow(V0), 0L),
+      d = numeric(0)
+    ))
+  }
+
+  qru <- qr(U0)
+  Qu <- qr.Q(qru)
+  Ru <- qr.R(qru)
+
+  qrv <- qr(V0)
+  Qv <- qr.Q(qrv)
+  Rv <- qr.R(qrv)
+
+  B <- Ru %*% t(Rv)
+  sv <- svd(B)
+
+  list(
+    U = Qu %*% sv$u,
+    V = Qv %*% sv$v,
+    d = sv$d
+  )
+}
