@@ -218,6 +218,51 @@ NULL
   }), names(v_blocks))
 }
 
+.ma_lift_latent_transforms_to_reference <- function(transforms_latent,
+                                                   reference_subject,
+                                                   context = "manifoldalign") {
+  if (!is.list(transforms_latent) || length(transforms_latent) < 1L) {
+    stop(context, ": expected a non-empty list of latent transforms", call. = FALSE)
+  }
+  nms <- names(transforms_latent)
+  if (is.null(nms) || any(!nzchar(nms))) {
+    stop(context, ": transforms list must be named by subject", call. = FALSE)
+  }
+  if (!is.character(reference_subject) || length(reference_subject) != 1L) {
+    stop(context, ": reference_subject must be a single character string", call. = FALSE)
+  }
+  if (!reference_subject %in% nms) {
+    stop(
+      sprintf("%s: reference subject '%s' missing from transforms", context, reference_subject),
+      call. = FALSE
+    )
+  }
+
+  A_ref <- transforms_latent[[reference_subject]]
+  if (!.is_matrixish(A_ref)) {
+    stop(
+      sprintf("%s: reference transform for '%s' must be matrix-like", context, reference_subject),
+      call. = FALSE
+    )
+  }
+  U_ref <- t(.as_dense_matrix(A_ref))
+
+  out <- lapply(nms, function(subj) {
+    A <- transforms_latent[[subj]]
+    if (!.is_matrixish(A)) {
+      stop(
+        sprintf("%s: latent transform for '%s' must be matrix-like", context, subj),
+        call. = FALSE
+      )
+    }
+    V <- t(.as_dense_matrix(A))
+    .new_low_rank_transform(U_ref, V)
+  })
+  names(out) <- nms
+
+  list(transforms = out, U_ref = U_ref)
+}
+
 
 .ma_reference_scores <- function(A_ref, X_ref) {
   A_ref %*% X_ref

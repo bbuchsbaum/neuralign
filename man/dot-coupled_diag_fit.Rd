@@ -16,6 +16,7 @@
   max_iter = 200L,
   tol = 1e-06,
   lambda_oos = 0.01,
+  target_space = c("latent", "reference"),
   ...
 )
 }

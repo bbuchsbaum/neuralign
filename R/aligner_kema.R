@@ -35,8 +35,11 @@ NULL
                       u = 0.5,
                       solver = "regression",
                       lambda = 1e-2,
+                      target_space = c("latent", "reference"),
                       ...) {
   .ma_require_manifoldalign("KEMA")
+
+  target_space <- match.arg(target_space)
 
   dots <- list(...)
   if ("preproc" %in% names(dots)) {
@@ -101,6 +104,13 @@ NULL
     }
   }
 
+  U_ref <- NULL
+  if (identical(target_space, "reference")) {
+    lifted <- .ma_lift_latent_transforms_to_reference(transforms, ref$name, context = "kema")
+    transforms <- lifted$transforms
+    U_ref <- lifted$U_ref
+  }
+
   list(
     transforms = transforms,
     reference_data = Z_ref,
@@ -108,6 +118,8 @@ NULL
     space_to   = NULL,
     method_state = list(
       reference = ref$name,
+      target_space = target_space,
+      U_ref = U_ref,
       obs_labels_ref = labels,
       X_ref = ref$data,
       Z_ref = Z_ref,
@@ -140,6 +152,15 @@ NULL
   Xc <- X[, idx$new, drop = FALSE]
   Zc <- Z_ref[, idx$ref, drop = FALSE]
   A_new <- .ma_ridge_map_to_reference_scores(Xc, Zc, lambda = lambda)
+
+  target_space <- st$target_space %||% "latent"
+  if (identical(target_space, "reference")) {
+    U_ref <- st$U_ref %||% NULL
+    if (is.null(U_ref)) stop("kema apply_fn missing U_ref in method_state", call. = FALSE)
+    T_new <- .new_low_rank_transform(U_ref, t(A_new))
+    return(list(transforms = setNames(list(T_new), subj)))
+  }
+
   list(transforms = setNames(list(A_new), subj))
 }
 

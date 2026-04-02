@@ -70,6 +70,9 @@ Capability flags:
 \item{cv_axes}{Which axes support CV: "subject", "observation"}
 \item{needs_geometry}{Requires adjacency/graph in AlignmentData}
 \item{needs_design}{Requires task structure in AlignmentData}
+\item{needs_guidance}{Requires guidance channels (see \code{\link{set_guidance}}).}
+\item{guidance_types}{Optional character vector of guidance \code{$type} values
+required for each subject when \code{needs_guidance=TRUE} (e.g., \code{"projector"}).}
 \item{returns_invertible}{Transform has exact inverse}
 \item{transform_type}{Type: "orthogonal", "linear", "ot", "permutation"}
 \item{mass_preserving}{For OT: does transport preserve mass?}

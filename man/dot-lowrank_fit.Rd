@@ -12,6 +12,7 @@
   mu = 0.5,
   lambda_oos = 0.01,
   simfun = neighborweights::binary_label_matrix,
+  target_space = c("latent", "reference"),
   ...
 )
 }

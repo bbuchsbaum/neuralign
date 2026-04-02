@@ -14,6 +14,7 @@
   u = 0.5,
   solver = "regression",
   lambda = 0.01,
+  target_space = c("latent", "reference"),
   ...
 )
 }

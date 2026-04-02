@@ -27,8 +27,11 @@ NULL
                          mu = 0.5,
                          lambda_oos = 1e-2,
                          simfun = neighborweights::binary_label_matrix,
+                         target_space = c("latent", "reference"),
                          ...) {
   .ma_require_manifoldalign("low-rank")
+
+  target_space <- match.arg(target_space)
 
   dots <- list(...)
   if ("preproc" %in% names(dots)) {
@@ -79,6 +82,13 @@ NULL
     }
   }
 
+  U_ref <- NULL
+  if (identical(target_space, "reference")) {
+    lifted <- .ma_lift_latent_transforms_to_reference(transforms, ref$name, context = "lowrank")
+    transforms <- lifted$transforms
+    U_ref <- lifted$U_ref
+  }
+
   list(
     transforms     = transforms,
     reference_data = Z_ref,
@@ -86,6 +96,8 @@ NULL
     space_to       = NULL,
     method_state   = list(
       reference = ref$name,
+      target_space = target_space,
+      U_ref = U_ref,
       obs_labels_ref = labels,
       X_ref = ref$data,
       Z_ref = Z_ref,
@@ -118,6 +130,15 @@ NULL
     Z_ref[, idx$ref, drop = FALSE],
     lambda = lambda
   )
+
+  target_space <- st$target_space %||% "latent"
+  if (identical(target_space, "reference")) {
+    U_ref <- st$U_ref %||% NULL
+    if (is.null(U_ref)) stop("lowrank apply_fn missing U_ref in method_state", call. = FALSE)
+    T_new <- .new_low_rank_transform(U_ref, t(A_new))
+    return(list(transforms = setNames(list(T_new), subj)))
+  }
+
   list(transforms = setNames(list(A_new), subj))
 }
 
