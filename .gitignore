@@ -2,6 +2,7 @@
 .Rhistory
 .RData
 .Rproj.user/
+.omc/
 
 *.tar.gz
 *.Rcheck/

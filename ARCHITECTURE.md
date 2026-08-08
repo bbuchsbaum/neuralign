@@ -153,6 +153,39 @@ in themselves.
 - `export_alignment()` / `import_alignment()`
 - `as_map_family()` / `from_map_family()` for `fmrigds` integration
 
+## Aligned representation layer (analysis-facing)
+
+`AlignmentResult` is an **algorithm execution artifact**. Long-lived scientific
+workflows should consume an analysis-facing object:
+
+- `SharedFeatureSpace`: typed shared-coordinate identity with stable digest id
+- `AlignedBlock`: one subject/session block (`observations × shared features`)
+- `AlignedStudy`: one common shared space + blocks + model + lineage + safety
+- `AlignedResampleSet`: retained fold models plus fold-specific `AlignedStudy`s
+  (no raw stacking)
+
+Orientation boundary (explicit, tested):
+
+- Algorithm layer (`AlignmentData` / transforms): **features × observations**,
+  left-multiply `Q %*% X`
+- Analysis layer (`AlignedStudy`): **observations × shared features**,
+  with one explicit transpose at the representation boundary
+
+Core entrypoints:
+
+- `as_aligned_study(result, ...)` — common-space results only
+- `as_aligned_resample_set(result, ...)` — fold-specific spaces
+- `align_study(model, data, mode = ...)` — frozen application / other modes
+- `as_hyperdesign(aligned_study)` — adapter toward multidesign-style workflows
+
+Invariant: an aligned numerical matrix is never separated from its observation
+metadata, shared-space identity, model reference, and lineage.
+
+`AlignedStudy` is a **generic scientific-data contract**, not an fMRI object.
+It knows about blocks/subjects, observations, shared features, space identity,
+provenance, CV role, and eager storage — not domain-specific acquisition or
+file-format semantics.
+
 ## Non-goals
 
 - No fMRI-specific feature extraction (GLMs, run/TR semantics, atlas loading).
@@ -163,5 +196,5 @@ Downstream packages should:
 
 1) construct alignment-ready matrices (possibly via feature blocks), then
 2) call `fit_alignment()` / `apply_alignment()`, then
-3) apply resulting operators to their own domain objects.
-
+3) either wrap outputs with `as_aligned_study()` / `align_study()` for analysis,
+   or apply resulting operators to their own domain objects.

@@ -162,6 +162,8 @@ apply_alignment <- function(model,
 
   # Create updated model with new transforms
   all_transforms <- c(model@transforms, new_transforms)
+  updated_provenance <- model@provenance
+  updated_provenance$shared_space_coordinate_id <- .model_coordinate_id(model)
   updated_model <- new("AlignmentModel",
     transforms = all_transforms,
     reference = model@reference,
@@ -169,7 +171,7 @@ apply_alignment <- function(model,
     method = model@method,
     space_from = model@space_from,
     space_to = model@space_to,
-    provenance = model@provenance,
+    provenance = updated_provenance,
     method_state = model@method_state,
     train_subjects = model@train_subjects
   )

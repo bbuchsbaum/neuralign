@@ -25,6 +25,9 @@
 #'   to new subjects or held-out data.
 #' - [AlignmentModel] / [AlignmentResult]: standardized objects for storing
 #'   fitted transforms, aligned outputs, and quality/CV metadata.
+#' - [AlignedStudy] / [SharedFeatureSpace]: analysis-facing aligned data with
+#'   observation metadata, shared-space identity, lineage, and safety records
+#'   (see [align_study()], [as_aligned_study()]).
 #' - Feature blocks: represent heterogeneous alignment signals and harmonize them
 #'   across subjects via shared feature names (see [alignment_feature_block()],
 #'   [harmonize_feature_blocks()], [stack_feature_blocks()]).

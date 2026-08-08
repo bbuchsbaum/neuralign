@@ -491,7 +491,26 @@ run_obs_crossfit_alignment <- function(train_data_by_fold,
 
       transforms <- lapply(transforms, function(Q_subj) Q_map %*% as.matrix(Q_subj))
       transforms_by_fold[[fid]] <- transforms
-      # Do not mutate the stored model object; record mapping in fold_info.
+      mapped_provenance <- model@provenance
+      mapped_provenance$shared_space_coordinate_id <- paste0(
+        "template-",
+        digest::digest(
+          list(template = template_mat, labels = template_labels),
+          algo = "xxhash64"
+        )
+      )
+      model <- AlignmentModel(
+        transforms = transforms,
+        reference = "external_template",
+        reference_data = template_mat,
+        method = model@method,
+        space_from = model@space_from,
+        space_to = model@space_to,
+        method_state = model@method_state,
+        train_subjects = model@train_subjects,
+        provenance = mapped_provenance
+      )
+      models_by_fold[[fid]] <- model
     }
 
     # Apply transforms to held-out data
@@ -519,6 +538,8 @@ run_obs_crossfit_alignment <- function(train_data_by_fold,
     models_by_fold = models_by_fold,
     transforms_by_fold = transforms_by_fold,
     aligned_test_by_fold = aligned_test_by_fold,
+    obs_labels_train_by_fold = train_labels,
+    obs_labels_test_by_fold = test_labels,
     fold_info = list(
       fold_ids = fold_ids,
       subjects = subjects,
@@ -721,7 +742,8 @@ run_obs_crossfit_from_data <- function(data,
     n_folds = obs_folds$n_folds %||% length(fold_ids),
     guard_tr = obs_folds$guard_tr %||% NA_integer_,
     id_policy = obs_folds$id_policy %||% NA_character_,
-    common_ids = obs_folds$common_ids %||% NA
+    common_ids = obs_folds$common_ids %||% NA,
+    folds = folds
   )
 
   res

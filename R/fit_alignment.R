@@ -46,6 +46,10 @@
 #' @param return_fold_transforms Logical; if TRUE and using observation-axis
 #'   fold specs (see \code{\link{create_obs_folds}}), retain per-fold transforms
 #'   in \code{result@cv_info$transforms_by_fold}. Default FALSE.
+#' @param return_resample_artifacts Logical; if TRUE for operator-returning
+#'   subject CV, retain each fold's fitted model plus aligned analysis and
+#'   assessment matrices. These artifacts are required to construct an
+#'   [AlignedResampleSet]. Default FALSE.
 #' @param restrict_to_identified Logical; if TRUE, canonicalize orthogonal
 #'   operators so their action on the orthogonal complement of the identified
 #'   subspace is deterministic. This is useful when correspondence signals are
@@ -91,10 +95,16 @@ fit_alignment <- function(data,
                           compute_quality = TRUE,
                           return_aligned = TRUE,
                           return_fold_transforms = FALSE,
+                          return_resample_artifacts = FALSE,
                           restrict_to_identified = FALSE,
                           restrict_tol = sqrt(.Machine$double.eps),
                           ...) {
   cv <- match.arg(cv)
+  if (!is.logical(return_resample_artifacts) ||
+      length(return_resample_artifacts) != 1L ||
+      is.na(return_resample_artifacts)) {
+    stop("'return_resample_artifacts' must be TRUE or FALSE", call. = FALSE)
+  }
 
   # Coerce data to AlignmentData if needed
   if (inherits(data, "AlignmentData")) {
@@ -164,6 +174,12 @@ fit_alignment <- function(data,
   if (.is_cv_folds_spec(cv_folds)) {
     if (identical(cv_folds$axis, "observation")) {
       if (identical(returns, "embedding")) {
+        if (isTRUE(return_resample_artifacts)) {
+          stop(
+            "return_resample_artifacts is not yet supported for embedding-returning methods",
+            call. = FALSE
+          )
+        }
         if (isTRUE(return_fold_transforms)) {
           stop(
             "return_fold_transforms is not supported for embedding-returning methods",
@@ -180,6 +196,14 @@ fit_alignment <- function(data,
           ...
         )
       } else {
+        if (isTRUE(return_resample_artifacts)) {
+          stop(
+            "Observation-fold artifacts are retained by ",
+            "run_obs_crossfit_from_data(); fit_alignment() currently retains ",
+            "resample artifacts only for subject-axis CV",
+            call. = FALSE
+          )
+        }
         result <- .fit_cv_obs_folds(
           data = data,
           aligner = aligner,
@@ -196,6 +220,12 @@ fit_alignment <- function(data,
     } else {
       validate_cv_setup(cv_folds, reference = reference)
       if (identical(returns, "embedding")) {
+        if (isTRUE(return_resample_artifacts)) {
+          stop(
+            "return_resample_artifacts is not yet supported for embedding-returning methods",
+            call. = FALSE
+          )
+        }
         result <- .fit_cv_folds_embedding(
           data = data,
           aligner = aligner,
@@ -213,6 +243,7 @@ fit_alignment <- function(data,
           cv_folds = cv_folds,
           compute_quality = compute_quality,
           return_aligned = return_aligned,
+          return_resample_artifacts = return_resample_artifacts,
           restrict_to_identified = restrict_to_identified,
           restrict_tol = restrict_tol,
           ...
@@ -220,6 +251,12 @@ fit_alignment <- function(data,
       }
     }
   } else if (cv == "none") {
+    if (isTRUE(return_resample_artifacts)) {
+      stop(
+        "return_resample_artifacts=TRUE requires subject-axis cross-validation",
+        call. = FALSE
+      )
+    }
     result <- .fit_single(data, aligner, reference, train_idx,
       compute_quality = compute_quality,
       return_aligned = return_aligned,
@@ -234,6 +271,7 @@ fit_alignment <- function(data,
       reference = reference,
       compute_quality = compute_quality,
       return_aligned = return_aligned,
+      return_resample_artifacts = return_resample_artifacts,
       restrict_to_identified = restrict_to_identified,
       restrict_tol = restrict_tol,
       ...
@@ -246,6 +284,7 @@ fit_alignment <- function(data,
       k = cv_folds,
       compute_quality = compute_quality,
       return_aligned = return_aligned,
+      return_resample_artifacts = return_resample_artifacts,
       restrict_to_identified = restrict_to_identified,
       restrict_tol = restrict_tol,
       ...

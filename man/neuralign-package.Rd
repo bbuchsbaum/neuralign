@@ -33,6 +33,9 @@ labels, guidance, and other metadata).
 to new subjects or held-out data.
 \item \link{AlignmentModel} / \link{AlignmentResult}: standardized objects for storing
 fitted transforms, aligned outputs, and quality/CV metadata.
+\item \link{AlignedStudy} / \link{SharedFeatureSpace}: analysis-facing aligned data with
+observation metadata, shared-space identity, lineage, and safety records
+(see \code{\link[=align_study]{align_study()}}, \code{\link[=as_aligned_study]{as_aligned_study()}}).
 \item Feature blocks: represent heterogeneous alignment signals and harmonize them
 across subjects via shared feature names (see \code{\link[=alignment_feature_block]{alignment_feature_block()}},
 \code{\link[=harmonize_feature_blocks]{harmonize_feature_blocks()}}, \code{\link[=stack_feature_blocks]{stack_feature_blocks()}}).

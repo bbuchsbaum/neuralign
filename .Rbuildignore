@@ -4,6 +4,7 @@
 
 # Claude/AI config
 ^\.claude$
+^\.omc$
 ^CLAUDE\.md$
 ^AGENTS\.md$
 

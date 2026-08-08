@@ -143,6 +143,7 @@
 #' @keywords internal
 .fit_cv_loso <- function(data, aligner, reference, compute_quality,
                          return_aligned = TRUE,
+                         return_resample_artifacts = FALSE,
                          restrict_to_identified = FALSE,
                          restrict_tol = sqrt(.Machine$double.eps),
                          ...) {
@@ -150,6 +151,12 @@
   validate_cv_setup(cv_folds, reference = reference)
   returns <- aligner$capabilities$returns %||% "operator"
   if (identical(returns, "embedding")) {
+    if (isTRUE(return_resample_artifacts)) {
+      stop(
+        "return_resample_artifacts is not yet supported for embedding-returning methods",
+        call. = FALSE
+      )
+    }
     .fit_cv_folds_embedding(data, aligner, reference, cv_folds,
       compute_quality = compute_quality,
       return_aligned = return_aligned,
@@ -159,6 +166,7 @@
     .fit_cv_folds(data, aligner, reference, cv_folds,
       compute_quality = compute_quality,
       return_aligned = return_aligned,
+      return_resample_artifacts = return_resample_artifacts,
       restrict_to_identified = restrict_to_identified,
       restrict_tol = restrict_tol,
       ...
@@ -171,6 +179,7 @@
 #' @keywords internal
 .fit_cv_kfold <- function(data, aligner, reference, k, compute_quality,
                           return_aligned = TRUE,
+                          return_resample_artifacts = FALSE,
                           restrict_to_identified = FALSE,
                           restrict_tol = sqrt(.Machine$double.eps),
                           ...) {
@@ -179,6 +188,12 @@
   validate_cv_setup(cv_folds, reference = reference)
   returns <- aligner$capabilities$returns %||% "operator"
   if (identical(returns, "embedding")) {
+    if (isTRUE(return_resample_artifacts)) {
+      stop(
+        "return_resample_artifacts is not yet supported for embedding-returning methods",
+        call. = FALSE
+      )
+    }
     .fit_cv_folds_embedding(data, aligner, reference, cv_folds,
       compute_quality = compute_quality,
       return_aligned = return_aligned,
@@ -188,6 +203,7 @@
     .fit_cv_folds(data, aligner, reference, cv_folds,
       compute_quality = compute_quality,
       return_aligned = return_aligned,
+      return_resample_artifacts = return_resample_artifacts,
       restrict_to_identified = restrict_to_identified,
       restrict_tol = restrict_tol,
       ...
@@ -284,6 +300,7 @@
 
 .fit_cv_folds <- function(data, aligner, reference, cv_folds,
                           compute_quality, return_aligned = TRUE,
+                          return_resample_artifacts = FALSE,
                           restrict_to_identified = FALSE,
                           restrict_tol = sqrt(.Machine$double.eps),
                           ...) {
@@ -303,6 +320,7 @@
 
   all_transforms <- list()
   all_aligned <- list()
+  artifacts_by_fold <- if (isTRUE(return_resample_artifacts)) list() else NULL
   anchor_by_subject <- setNames(rep(NA_character_, n_subjects), subjects)
 
   # Fit/apply for each fold
@@ -329,6 +347,21 @@
       context = sprintf("fit_alignment(%s) [cv train]", aligner$name)
     )
 
+    if (isTRUE(restrict_to_identified)) {
+      fit_result$transforms <- lapply(subjects[train_idx], function(subject) {
+        canonicalize_orthogonal_operator(
+          Q = fit_result$transforms[[subject]],
+          x = get_subject_data(data, subject),
+          convention = "left",
+          tol = restrict_tol
+        )
+      })
+      names(fit_result$transforms) <- subjects[train_idx]
+    }
+
+    fold_transforms <- fit_result$transforms
+    fold_assessment_aligned <- list()
+
     # Apply to held-out subjects
     for (test_subj in test_subjects) {
       if (test_subj %in% names(all_transforms)) {
@@ -345,13 +378,59 @@
       test_transform <- .fit_new_subject(
         aligner, fit_result, data, test_i, ref_resolved$reference
       )
+      test_data <- get_subject_data(data, test_subj)
+      if (isTRUE(restrict_to_identified)) {
+        test_transform <- canonicalize_orthogonal_operator(
+          Q = test_transform,
+          x = test_data,
+          convention = "left",
+          tol = restrict_tol
+        )
+      }
       all_transforms[[test_subj]] <- test_transform
+      fold_transforms[[test_subj]] <- test_transform
 
-      if (return_aligned) {
-        test_data <- get_subject_data(data, test_subj)
-        all_aligned[[test_subj]] <- apply_transform(test_transform, test_data)
+      if (return_aligned || isTRUE(return_resample_artifacts)) {
+        test_aligned <- apply_transform(test_transform, test_data)
+        fold_assessment_aligned[[test_subj]] <- test_aligned
+        if (return_aligned) all_aligned[[test_subj]] <- test_aligned
       }
       anchor_by_subject[[test_subj]] <- as.character(ref_resolved$reference_spec)
+    }
+
+    if (isTRUE(return_resample_artifacts)) {
+      train_subjects <- subjects[train_idx]
+      fold_analysis_aligned <- lapply(train_subjects, function(subject) {
+        apply_transform(
+          fit_result$transforms[[subject]],
+          get_subject_data(data, subject)
+        )
+      })
+      names(fold_analysis_aligned) <- train_subjects
+      fold_model <- AlignmentModel(
+        transforms = fold_transforms,
+        reference = ref_resolved$reference_spec,
+        reference_data = fit_result$reference_data %||% NULL,
+        method = aligner$name,
+        space_from = fit_result$space_from %||% data@space,
+        space_to = fit_result$space_to %||% data@space,
+        params = c(list(...), list(
+          restrict_to_identified = isTRUE(restrict_to_identified),
+          restrict_tol = restrict_tol
+        )),
+        method_state = fit_result$method_state %||% list(),
+        train_subjects = train_subjects
+      )
+      artifacts_by_fold[[fold_name]] <- list(
+        model = fold_model,
+        aligned_analysis = fold_analysis_aligned,
+        aligned_assessment = fold_assessment_aligned,
+        analysis_subjects = train_subjects,
+        assessment_subjects = test_subjects,
+        train_indices = train_idx,
+        test_indices = test_idx,
+        reference = ref_resolved$reference_spec
+      )
     }
   }
 
@@ -375,19 +454,6 @@
       }
       anchor_by_subject[[subj]] <- as.character(reference)
     }
-  }
-
-  if (isTRUE(restrict_to_identified)) {
-    data_list <- get_data_list(data)
-    all_transforms <- lapply(subjects, function(subj) {
-      canonicalize_orthogonal_operator(
-        Q = all_transforms[[subj]],
-        x = data_list[[subj]],
-        convention = "left",
-        tol = restrict_tol
-      )
-    })
-    names(all_transforms) <- subjects
   }
 
   reference_kind <- .reference_kind(reference)
@@ -453,6 +519,7 @@
       reference_kind = reference_kind,
       anchor_common = anchor_common,
       anchor_by_subject = anchor_by_subject,
+      artifacts_by_fold = artifacts_by_fold,
       anchor_note = .cv_info_note_fold_specific(anchor_common)
     )
   )

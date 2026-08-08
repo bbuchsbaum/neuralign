@@ -8,10 +8,12 @@ Authors@R:
            comment = c(ORCID = "0000-0002-8268-1465"))
 Description: A unified interface for neural alignment methods that provides
     standardized objects (AlignmentData, AlignmentModel, AlignmentResult),
-    a plugin/registry system for ecosystem extension, reference selection
-    utilities, operator composition, and cross-validation plumbing with
-    leakage detection. Delegates algorithm implementation to specialized
-    packages like manifoldalign while providing orchestration and contracts.
+    an analysis-facing aligned representation layer (AlignedStudy,
+    SharedFeatureSpace, AlignedResampleSet), a plugin/registry system for
+    ecosystem extension, reference selection utilities, operator composition,
+    and cross-validation plumbing with leakage detection. Delegates algorithm
+    implementation to specialized packages like manifoldalign while providing
+    orchestration and contracts.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -24,6 +26,7 @@ Imports:
     methods
 Suggests:
     manifoldalign,
+    multidesign,
     multivarious,
     adjoin,
     fmrigds,
@@ -59,6 +62,13 @@ Collate:
     'fit_alignment.R'
     'fit_alignment_internal.R'
     'apply_alignment.R'
+    'shared_feature_space.R'
+    'orientation.R'
+    'aligned_block.R'
+    'aligned_study.R'
+    'as_aligned_study.R'
+    'align_study.R'
+    'aligned_resample_set.R'
     'compose.R'
     'reference.R'
     'quality.R'
@@ -75,6 +85,7 @@ Collate:
     'aligner_kprocrustes.R'
     'aligner_ot.R'
     'manifoldalign_bridge.R'
+    'as_hyperdesign_aligned.R'
     'multivarious_hyperdesign.R'
     'aligner_kema.R'
     'aligner_gpca.R'

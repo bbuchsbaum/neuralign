@@ -15,6 +15,7 @@ fit_alignment(
   compute_quality = TRUE,
   return_aligned = TRUE,
   return_fold_transforms = FALSE,
+  return_resample_artifacts = FALSE,
   restrict_to_identified = FALSE,
   restrict_tol = sqrt(.Machine$double.eps),
   ...
@@ -64,6 +65,11 @@ memory in pipeline workflows where aligned data is not needed immediately).}
 \item{return_fold_transforms}{Logical; if TRUE and using observation-axis
 fold specs (see \code{\link{create_obs_folds}}), retain per-fold transforms
 in \code{result@cv_info$transforms_by_fold}. Default FALSE.}
+
+\item{return_resample_artifacts}{Logical; if TRUE for operator-returning
+subject CV, retain each fold's fitted model plus aligned analysis and
+assessment matrices. These artifacts are required to construct an
+\link{AlignedResampleSet}. Default FALSE.}
 
 \item{restrict_to_identified}{Logical; if TRUE, canonicalize orthogonal
 operators so their action on the orthogonal complement of the identified
