@@ -47,6 +47,9 @@ setValidity("AlignedStudy", function(object) {
     errors <- c(errors, "'blocks' must be a list")
   }
   block_names <- names(object@blocks)
+  if (!length(object@blocks) && is.null(block_names)) {
+    block_names <- character(0)
+  }
   if (length(object@blocks) > 0 &&
       (is.null(block_names) || anyNA(block_names) || any(!nzchar(block_names)) ||
        anyDuplicated(block_names))) {
@@ -479,7 +482,7 @@ stack_subjects.AlignedStudy <- function(x, include_index = TRUE) {
   if (length(extra_cols)) {
     extras <- lapply(x@blocks, function(b) {
       obs <- b$observation_data
-      out <- data.frame(row.names = NULL)
+      out <- data.frame(row.names = seq_len(nrow(obs)))
       for (nm in extra_cols) {
         out[[nm]] <- if (nm %in% names(obs)) obs[[nm]] else rep(NA, nrow(obs))
       }

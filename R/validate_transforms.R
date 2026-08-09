@@ -65,6 +65,12 @@ NULL
       stop(context, ": aligned embedding for '", subj, "' is not matrix-like", call. = FALSE)
     }
     z <- as.matrix(z)
+    if (!is.numeric(z)) {
+      stop(context, ": aligned embedding for '", subj, "' is not numeric", call. = FALSE)
+    }
+    if (any(!is.finite(z))) {
+      stop(context, ": aligned embedding for '", subj, "' contains non-finite values", call. = FALSE)
+    }
     x <- data_list[[subj]]
     if (!.is_matrixish(x)) x <- as.matrix(x)
 

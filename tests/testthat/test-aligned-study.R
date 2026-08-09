@@ -385,3 +385,196 @@ test_that("observation crossfit converts from retained fold artifacts", {
     }
   }
 })
+
+
+test_that("common-anchor CV evidence verifies subject and observation crossfits", {
+  set.seed(9001)
+  data_list <- setNames(
+    lapply(seq_len(3L), function(i) matrix(rnorm(4L * 6L), 4L, 6L)),
+    paste0("s", seq_len(3L))
+  )
+  adat <- AlignmentData(data_list, obs_labels = paste0("o", seq_len(6L)))
+
+  subject_result <- fit_alignment(
+    adat,
+    method = "procrustes",
+    reference = Reduce(`+`, data_list) / length(data_list),
+    cv = "loso",
+    compute_quality = FALSE
+  )
+  subject_study <- as_aligned_study(subject_result, source_data = adat)
+  subject_safety <- analysis_safety(subject_study)
+
+  expect_identical(subject_safety$status, "verified_safe")
+  expect_identical(subject_safety$verification$evidence$axis, "subject")
+  expect_true(all(vapply(
+    subject_safety$verification$checks,
+    isTRUE,
+    logical(1)
+  )))
+  expect_invisible(assert_analysis_safe(
+    subject_study,
+    purpose = "confirmatory_cross_subject_prediction"
+  ))
+
+  obs_folds <- create_obs_folds(
+    rep(c("run1", "run2"), each = 3L),
+    method = "run"
+  )
+  observation_result <- fit_alignment(
+    adat,
+    method = "procrustes",
+    reference = "s1",
+    cv_folds = obs_folds,
+    compute_quality = FALSE
+  )
+  observation_study <- as_aligned_study(observation_result, source_data = adat)
+  observation_safety <- analysis_safety(observation_study)
+
+  expect_identical(observation_safety$status, "verified_safe")
+  expect_identical(observation_safety$verification$evidence$axis, "observation")
+  expect_true(all(vapply(
+    observation_safety$verification$checks,
+    isTRUE,
+    logical(1)
+  )))
+  expect_invisible(assert_analysis_safe(
+    observation_study,
+    purpose = "confirmatory_cross_subject_prediction"
+  ))
+})
+
+
+test_that("tampered common-anchor folds never earn verified safety", {
+  set.seed(9002)
+  data_list <- list(
+    s1 = matrix(rnorm(4L * 6L), 4L, 6L),
+    s2 = matrix(rnorm(4L * 6L), 4L, 6L)
+  )
+  adat <- AlignmentData(data_list)
+  folds <- create_obs_folds(
+    rep(c("run1", "run2"), each = 3L),
+    method = "run"
+  )
+  result <- fit_alignment(
+    adat,
+    method = "procrustes",
+    reference = "s1",
+    cv_folds = folds,
+    compute_quality = FALSE
+  )
+
+  overlap <- result
+  overlap@cv_info$folds[[1L]]$test_idx <- c(
+    overlap@cv_info$folds[[1L]]$test_idx,
+    overlap@cv_info$folds[[1L]]$train_idx[[1L]]
+  )
+  overlap_study <- as_aligned_study(overlap)
+  expect_identical(analysis_safety(overlap_study)$status, "declared")
+  expect_error(
+    assert_analysis_safe(
+      overlap_study,
+      purpose = "confirmatory_cross_subject_prediction"
+    ),
+    "declared, not verified"
+  )
+
+  out_of_range <- result
+  out_of_range@cv_info$folds[[1L]]$test_idx <- c(
+    out_of_range@cv_info$folds[[1L]]$test_idx,
+    999L
+  )
+  expect_identical(
+    analysis_safety(as_aligned_study(out_of_range))$status,
+    "declared"
+  )
+
+  incomplete <- result
+  incomplete@cv_info$folds[[1L]]$test_idx <-
+    incomplete@cv_info$folds[[1L]]$test_idx[-1L]
+  expect_identical(
+    analysis_safety(as_aligned_study(incomplete))$status,
+    "declared"
+  )
+})
+
+
+test_that("AlignedStudy preserves heterogeneous observation metadata when stacking", {
+  space <- SharedFeatureSpace(2L, coordinate_id = "stack-metadata-fixture")
+  blocks <- list(
+    run1 = AlignedBlock(
+      matrix(1:4, 2L),
+      observation_data = data.frame(
+        observation_id = c("a", "b"),
+        task = c("left", "right")
+      ),
+      subject_id = "s1",
+      shared_space_id = space$id
+    ),
+    run2 = AlignedBlock(
+      matrix(5:8, 2L),
+      observation_data = data.frame(condition = c("x", "y")),
+      subject_id = "s2",
+      shared_space_id = space$id
+    )
+  )
+  study <- AlignedStudy(
+    blocks,
+    space,
+    subject_data = data.frame(subject_id = c("s1", "s2"))
+  )
+
+  expect_identical(study@subject_data$block_id, names(blocks))
+  stacked <- stack_subjects(study)
+  expect_equal(stacked$matrix, do.call(rbind, lapply(blocks, `[[`, "values")))
+  expect_identical(stacked$index$observation_id, c("a", "b", "1", "2"))
+  expect_identical(stacked$index$task, c("left", "right", NA, NA))
+  expect_identical(stacked$index$condition, c(NA, NA, "x", "y"))
+  expect_equal(stack_subjects(study, include_index = FALSE), stacked$matrix)
+  expect_identical(
+    unname(unlist(map_subjects(study, function(block) nrow(block$values)))),
+    c(2L, 2L)
+  )
+})
+
+
+test_that("AlignedStudy handles empty studies and rejects invalid public inputs", {
+  space <- SharedFeatureSpace(2L, coordinate_id = "empty-study-fixture")
+  empty <- AlignedStudy(list(), space)
+  stacked <- stack_subjects(empty)
+
+  expect_length(empty, 0L)
+  expect_equal(dim(stacked$matrix), c(0L, 2L))
+  expect_equal(nrow(stacked$index), 0L)
+  expect_equal(dim(stack_subjects(empty, include_index = FALSE)), c(0L, 2L))
+  expect_error(aligned_matrix(empty), "no blocks")
+
+  block <- AlignedBlock(
+    matrix(1:4, 2L),
+    subject_id = "s1",
+    shared_space_id = space$id
+  )
+  expect_error(AlignedStudy(list(block), space), "named list")
+  expect_error(AlignedStudy(list(s1 = block), NULL), "SharedFeatureSpace")
+  expect_error(AlignedStudy(list(s1 = block), space, model = "bad"), "AlignmentModel")
+  expect_error(
+    AlignedStudy(list(s1 = block), space, subject_data = "bad"),
+    "data.frame"
+  )
+  expect_error(
+    AlignedStudy(
+      list(s1 = block),
+      space,
+      subject_data = data.frame(block_id = "other")
+    ),
+    "match block names"
+  )
+  expect_error(
+    AlignedStudy(list(s1 = block), space, storage = list(mode = "lazy")),
+    "only storage mode 'eager'"
+  )
+  expect_error(
+    AlignedStudy(list(s1 = block), space, metadata = "bad"),
+    "must be lists"
+  )
+})
