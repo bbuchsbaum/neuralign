@@ -213,7 +213,10 @@ serialization.
 
 The aligner contract is intentionally small: a method provides a `fit_fn`,
 optionally an `apply_fn`, and a capability description via
-`register_aligner()`. See the extension vignette for the expected interface.
+`register_aligner()`. Context-aware providers can opt into aligner API v2 for
+one-shot resampling preflight and exact fold/full fit contexts; API-v1
+registrations remain source-compatible. See the extension vignette for the
+expected interfaces.
 
 ## Documentation map
 

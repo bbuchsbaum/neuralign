@@ -4,7 +4,14 @@
 \alias{.fit_new_subject}
 \title{Internal: Fit Transform for New Subject}
 \usage{
-.fit_new_subject(aligner, fit_result, data, subject_idx, reference)
+.fit_new_subject(
+  aligner,
+  fit_result,
+  data,
+  subject_idx,
+  reference,
+  fold_id = NULL
+)
 }
 \description{
 Internal: Fit Transform for New Subject

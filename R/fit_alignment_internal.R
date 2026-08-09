@@ -25,10 +25,12 @@
   ref_resolved <- .resolve_reference_spec(data, reference, train_idx)
 
   # Call the fit function
-  fit_result <- aligner$fit_fn(
+  fit_result <- .invoke_aligner_fit(
+    aligner = aligner,
     data = data,
     reference = ref_resolved$reference,
     train_idx = train_idx,
+    fit_role = "single_fit",
     ...
   )
 
@@ -238,10 +240,12 @@
 .fit_cv_anchor_common <- function(data, aligner, reference, n_subjects, ...) {
   # For a fixed/external anchor, it's safe to store the corresponding reference_data.
   ref_resolved <- .resolve_reference_spec(data, reference, seq_len(n_subjects))
-  fit_result_all <- aligner$fit_fn(
+  fit_result_all <- .invoke_aligner_fit(
+    aligner = aligner,
     data = data,
     reference = ref_resolved$reference,
     train_idx = seq_len(n_subjects),
+    fit_role = "anchor_fit",
     ...
   )
 
@@ -262,10 +266,12 @@
 
 .fit_cv_anchor_common_embedding <- function(data, aligner, reference, n_subjects, ...) {
   ref_resolved <- .resolve_reference_spec(data, reference, seq_len(n_subjects))
-  fit_result_all <- aligner$fit_fn(
+  fit_result_all <- .invoke_aligner_fit(
+    aligner = aligner,
     data = data,
     reference = ref_resolved$reference,
     train_idx = seq_len(n_subjects),
+    fit_role = "anchor_fit",
     ...
   )
 
@@ -334,10 +340,13 @@
     ref_resolved <- .resolve_reference_spec(data, reference, train_idx)
 
     # Fit on training subjects
-    fit_result <- aligner$fit_fn(
+    fit_result <- .invoke_aligner_fit(
+      aligner = aligner,
       data = data,
       reference = ref_resolved$reference,
       train_idx = train_idx,
+      fit_role = "subject_cv_fold",
+      fold_id = fold_name,
       ...
     )
 
@@ -376,7 +385,8 @@
 
       test_i <- match(test_subj, subjects)
       test_transform <- .fit_new_subject(
-        aligner, fit_result, data, test_i, ref_resolved$reference
+        aligner, fit_result, data, test_i, ref_resolved$reference,
+        fold_id = fold_name
       )
       test_data <- get_subject_data(data, test_subj)
       if (isTRUE(restrict_to_identified)) {
@@ -585,10 +595,13 @@
 
     ref_resolved <- .resolve_reference_spec(data, reference, train_idx)
 
-    fit_result <- aligner$fit_fn(
+    fit_result <- .invoke_aligner_fit(
+      aligner = aligner,
       data = data,
       reference = ref_resolved$reference,
       train_idx = train_idx,
+      fit_role = "subject_cv_fold",
+      fold_id = fold_name,
       ...
     )
 
@@ -612,7 +625,8 @@
 
       test_i <- match(test_subj, subjects)
       test_transform <- .fit_new_subject(
-        aligner, fit_result, data, test_i, ref_resolved$reference
+        aligner, fit_result, data, test_i, ref_resolved$reference,
+        fold_id = fold_name
       )
 
       if (!.is_embedding_transform(test_transform)) {
@@ -930,7 +944,7 @@
 #' Internal: Fit Transform for New Subject
 #' @keywords internal
 .fit_new_subject <- function(aligner, fit_result, data, subject_idx,
-                             reference) {
+                             reference, fold_id = NULL) {
   subject <- data@subjects[subject_idx]
   returns <- aligner$capabilities$returns %||% "operator"
 
@@ -970,10 +984,14 @@
     ref_to_use <- reference
   }
 
-  single_fit <- aligner$fit_fn(
+  single_fit <- .invoke_aligner_fit(
+    aligner = aligner,
     data = data,
     reference = ref_to_use,
-    train_idx = subject_idx
+    train_idx = subject_idx,
+    fit_role = "subject_cv_assessment_fit",
+    fold_id = fold_id,
+    subject_id = subject
   )
 
   if (is.list(single_fit$transforms) && subject %in% names(single_fit$transforms)) {
@@ -1109,10 +1127,13 @@
     }
 
     # Fit alignment on training observations (all subjects)
-    fit_result <- aligner$fit_fn(
+    fit_result <- .invoke_aligner_fit(
+      aligner = aligner,
       data = train_data,
       reference = ref_for_fold,
       train_idx = seq_len(n_subjects),
+      fit_role = "observation_cv_fold",
+      fold_id = fold_name,
       ...
     )
 
@@ -1154,10 +1175,12 @@
 
   # Do full fit on all data for the model
   ref_resolved <- .resolve_reference_spec(data, reference, seq_len(n_subjects))
-  fit_result_all <- aligner$fit_fn(
+  fit_result_all <- .invoke_aligner_fit(
+    aligner = aligner,
     data = data,
     reference = ref_resolved$reference,
     train_idx = seq_len(n_subjects),
+    fit_role = "full_fit",
     ...
   )
 
@@ -1361,10 +1384,13 @@
       ref_for_fold <- as.matrix(reference)[, train_obs, drop = FALSE]
     }
 
-    fit_result <- aligner$fit_fn(
+    fit_result <- .invoke_aligner_fit(
+      aligner = aligner,
       data = train_data,
       reference = ref_for_fold,
       train_idx = seq_len(n_subjects),
+      fit_role = "observation_cv_fold",
+      fold_id = fold_name,
       ...
     )
 
@@ -1417,10 +1443,12 @@
   }
 
   ref_resolved <- .resolve_reference_spec(data, reference, seq_len(n_subjects))
-  fit_result_all <- aligner$fit_fn(
+  fit_result_all <- .invoke_aligner_fit(
+    aligner = aligner,
     data = data,
     reference = ref_resolved$reference,
     train_idx = seq_len(n_subjects),
+    fit_role = "full_fit",
     ...
   )
 

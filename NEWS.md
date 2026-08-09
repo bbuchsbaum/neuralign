@@ -2,6 +2,11 @@
 
 ## Core contracts
 
+- Added aligner API v2 with a one-shot provider preflight hook, detached exact
+  subject/observation fit contexts, and explicit API-v1 callback compatibility.
+- Made observation-axis train/test overlap an engine-level error before any
+  provider callback, and materialized generated subject folds once for both
+  preflight and execution.
 - Added a unified fit/apply workflow with target-by-source operator semantics,
   fold-aware reference handling, capability validation, and leakage checks.
 - Added analysis-facing `AlignedStudy`, `SharedFeatureSpace`, and

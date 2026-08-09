@@ -100,6 +100,17 @@ fit_alignment <- function(data,
                           restrict_tol = sqrt(.Machine$double.eps),
                           ...) {
   cv <- match.arg(cv)
+  dots <- list(...)
+  reserved_lifecycle_args <- intersect(
+    names(dots) %||% character(0),
+    c("fit_context", "provider_plan", "resampling_plan")
+  )
+  if (length(reserved_lifecycle_args) > 0L) {
+    stop(sprintf(
+      "Provider lifecycle argument(s) are engine-owned and cannot be supplied through ...: %s",
+      paste(reserved_lifecycle_args, collapse = ", ")
+    ), call. = FALSE)
+  }
   if (!is.logical(return_resample_artifacts) ||
       length(return_resample_artifacts) != 1L ||
       is.na(return_resample_artifacts)) {
@@ -171,6 +182,74 @@ fit_alignment <- function(data,
     data,
     check_features = isTRUE(caps$requires_shared_features %||% TRUE),
     check_observations = isTRUE(caps$requires_shared_observations %||% FALSE)
+  )
+
+  # Resolve generated folds once so provider preflight and execution use the
+  # exact same split. This is especially important for randomized k-fold CV.
+  if (!.is_cv_folds_spec(cv_folds) && identical(cv, "loso")) {
+    cv_folds <- create_cv_folds(data, method = "loso")
+  } else if (!.is_cv_folds_spec(cv_folds) && identical(cv, "kfold")) {
+    cv_folds <- create_cv_folds(data, method = "kfold", k = cv_folds)
+  }
+
+  if (is.list(cv_folds) && !.is_cv_folds_spec(cv_folds)) {
+    stop(
+      "cv_folds must be a fold specification with a non-empty $folds list",
+      call. = FALSE
+    )
+  }
+
+  if (.is_cv_folds_spec(cv_folds) && !identical(cv_folds$axis, "observation")) {
+    validate_cv_setup(cv_folds, reference = reference)
+  }
+
+  observation_cv <- .is_cv_folds_spec(cv_folds) &&
+    identical(cv_folds$axis, "observation")
+  if (isTRUE(return_resample_artifacts)) {
+    if (identical(returns, "embedding")) {
+      stop(
+        "return_resample_artifacts is not yet supported for embedding-returning methods",
+        call. = FALSE
+      )
+    }
+    if (observation_cv) {
+      stop(
+        "Observation-fold artifacts are retained by ",
+        "run_obs_crossfit_from_data(); fit_alignment() currently retains ",
+        "resample artifacts only for subject-axis CV",
+        call. = FALSE
+      )
+    }
+    if (!.is_cv_folds_spec(cv_folds) && identical(cv, "none")) {
+      stop(
+        "return_resample_artifacts=TRUE requires subject-axis cross-validation",
+        call. = FALSE
+      )
+    }
+  }
+  if (observation_cv && identical(returns, "embedding") &&
+      isTRUE(return_fold_transforms)) {
+    stop(
+      "return_fold_transforms is not supported for embedding-returning methods",
+      call. = FALSE
+    )
+  }
+
+  # Build and validate the complete resampling plan before provider code can
+  # run. Observation train/test overlap is an error at this boundary.
+  resampling_plan <- .build_resampling_plan(
+    data = data,
+    method = method,
+    cv = cv,
+    cv_folds = cv_folds,
+    train_idx = train_idx
+  )
+  aligner <- .prepare_aligner_runtime(
+    aligner = aligner,
+    data = data,
+    reference = reference,
+    resampling_plan = resampling_plan,
+    dots = dots
   )
 
   # Route based on CV strategy

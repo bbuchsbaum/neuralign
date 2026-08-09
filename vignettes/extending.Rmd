@@ -336,13 +336,55 @@ mapping, contact the neuralign maintainers or submit a PR.
 ## API versioning
 
 neuralign declares `NEURALIGN_ALIGNER_API_VERSION` (currently `r NEURALIGN_ALIGNER_API_VERSION`).
-Your registration can declare which API version it implements. If a future
-neuralign release bumps the API version, older registrations will still work
-but may trigger compatibility warnings.
+Registrations that omit `api_version` continue to use API v1: their fit
+callbacks receive exactly the historical arguments. Providers opt into API v2
+explicitly with `api_version = 2L`.
 
 ```{r api-version}
 NEURALIGN_ALIGNER_API_VERSION
 ```
+
+### API v2: preflight and exact fit contexts
+
+API v2 is intended for estimators whose internal cross-fitting, nuisance
+models, or provenance must be bound to neuralign's outer resampling plan. An
+optional `prepare_fn` runs once, after neuralign has normalized and validated
+the complete plan but before any fit callback. Its return value is copied into
+each fit call as `provider_plan`.
+
+```r
+prepare_fn <- function(data, reference, resampling_plan, ...) {
+  # Validate every outer fold and prepare provider-owned immutable metadata.
+  list(provider_contract = "my_provider_v1", plan = resampling_plan)
+}
+
+fit_fn_v2 <- function(data, reference, train_idx = NULL,
+                      fit_context, provider_plan, ...) {
+  stopifnot(
+    identical(fit_context$contract, "neuralign_fit_context_v2"),
+    identical(provider_plan$provider_contract, "my_provider_v1")
+  )
+  # Fit only the subjects/observations represented by data and train_idx.
+  # Return the ordinary aligner result list.
+}
+
+register_aligner(
+  name = "my_context_aware_method",
+  fit_fn = fit_fn_v2,
+  prepare_fn = prepare_fn,
+  capabilities = my_capabilities,
+  api_version = 2L
+)
+```
+
+The resampling plan and every callback context contain exact full, train,
+test, and guard subject IDs/indices plus named per-subject observation
+IDs/indices. Roles distinguish `single_fit`, `subject_cv_fold`,
+`subject_cv_assessment_fit`, `observation_cv_fold`, `full_fit`, and (when
+needed) `anchor_fit`. Neuralign
+passes detached copies, so provider-local mutations cannot change the
+engine-owned plan or later callbacks. Observation train/test overlap is always
+an error before `prepare_fn` runs.
 
 ## Querying the registry
 

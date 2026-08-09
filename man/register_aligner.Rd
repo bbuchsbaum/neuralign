@@ -12,7 +12,8 @@ register_aligner(
   package = NA_character_,
   description = "",
   version = "0.0.0",
-  api_version = NEURALIGN_ALIGNER_API_VERSION
+  api_version = 1L,
+  prepare_fn = NULL
 )
 }
 \arguments{
@@ -35,7 +36,14 @@ a list with a \code{transforms} element.}
 \item{version}{Version string for the method implementation.}
 
 \item{api_version}{Integer declaring which neuralign aligner API version
-this method implements. Defaults to \code{NEURALIGN_ALIGNER_API_VERSION}.}
+this method implements. The default remains API v1 for source
+compatibility; providers opt into lifecycle contexts with \code{2L}.}
+
+\item{prepare_fn}{Optional API-v2 preflight function. It receives the full
+\code{data}, unresolved \code{reference}, normalized
+\code{resampling_plan}, and method-specific \code{...} once, before any
+fit callback. Its return value is passed to API-v2 fit callbacks as
+\code{provider_plan}.}
 }
 \value{
 Invisibly returns TRUE.

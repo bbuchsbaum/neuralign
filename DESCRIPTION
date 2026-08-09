@@ -58,6 +58,7 @@ Collate:
     'alignment_model.R'
     'alignment_result.R'
     'registry.R'
+    'provider_contract.R'
     'transforms.R'
     'validate_transforms.R'
     'uncertainty.R'

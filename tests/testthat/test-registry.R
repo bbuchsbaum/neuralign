@@ -462,7 +462,7 @@ test_that("register_aligner stores api_version in registry entry", {
 
 test_that("NEURALIGN_ALIGNER_API_VERSION is exported and integer", {
   expect_true(is.integer(NEURALIGN_ALIGNER_API_VERSION))
-  expect_equal(NEURALIGN_ALIGNER_API_VERSION, 1L)
+  expect_equal(NEURALIGN_ALIGNER_API_VERSION, 2L)
 })
 
 
