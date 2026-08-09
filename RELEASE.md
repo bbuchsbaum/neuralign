@@ -11,13 +11,27 @@ Linux or Windows.
 | Full local tests | testthat result on release commit | 1,814 pass, 4 expected-condition warnings, 7 availability skips, 0 failures on macOS/R 4.5.1 |
 | Local package check | exact E/W/N counts | `Status: OK` (0 errors, 0 warnings, 0 notes); unavailable `dkge` reported as INFO |
 | Clean source install | built tarball installs and public smoke test passes | full-vignette source tarball installed into an empty task library; smoke passed |
-| Minimal Suggests | optional backends absent; package check passes | workflow added; remote receipt pending |
-| Cross-platform | Linux, macOS, Windows jobs pass on release commit | workflow added; remote receipt pending |
+| Minimal Suggests | optional backends absent; package check passes | externally blocked: run 31289323505 attempts 1-2 failed before runner assignment (zero steps) |
+| Cross-platform | Linux, macOS, Windows jobs pass on release commit | externally blocked: all three hosted-runner jobs in run 31289323505 failed before runner assignment |
 | Backend conformance | KEMA/GRASP semantics and accuracy run without opt-in flags | 70 focused backend assertions pass locally |
-| Ecosystem | current `dkge` provider registers and fits | scheduled workflow added; remote receipt pending |
+| Ecosystem | current `dkge` provider registers and fits | externally blocked: dispatched run 31289462992 failed before runner assignment (zero steps) |
 | Documentation | roxygen output current; examples/check pass | Rd consistency, examples, installed vignettes, and vignette rebuild pass locally |
-| Tracker | completed issues closed and JSONL exported | implementation issues closed; CI/release items await remote receipts |
-| Git | clean release commit, `v0.1.0` tag, local/remote SHA agreement | pending |
+| Tracker | completed issues closed and JSONL exported | implementation issues closed; CI issue remains in progress for hosted-runner receipts |
+| Git | clean release commit, `v0.1.0` tag, local/remote SHA agreement | implementation commit pushed; tag is correctly withheld pending remote gates |
+
+## Remote CI receipt
+
+GitHub accepted and enabled both workflow files. On 2026-08-08, [R CMD check
+run 31289323505](https://github.com/bbuchsbaum/neuralign/actions/runs/31289323505)
+failed identically on attempts 1 and 2: Linux, macOS, Windows, clean-install,
+minimal-Suggests, and backend-conformance jobs were assigned no runner and
+recorded zero steps. [Ecosystem run
+31289462992](https://github.com/bbuchsbaum/neuralign/actions/runs/31289462992)
+did the same. Repository Actions are enabled with all actions allowed, and the
+[GitHub status API](https://www.githubstatus.com/api/v2/status.json) reported
+Actions operational. This is an account-level hosted-runner or billing gate,
+not package or workflow execution evidence. Do not tag until a fresh run starts
+steps and passes.
 
 ## Local commands
 
