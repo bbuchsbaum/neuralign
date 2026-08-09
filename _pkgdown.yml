@@ -1,0 +1,33 @@
+url: https://bbuchsbaum.github.io/neuralign/
+
+template:
+  bootstrap: 5
+
+navbar:
+  structure:
+    left: [intro, reference, articles, news]
+    right: [search, github]
+  components:
+    intro:
+      text: Get started
+      href: articles/neuralign.html
+    articles:
+      text: Guides
+      menu:
+        - text: Package overview
+          href: articles/introduction.html
+        - text: Cross-validation and leakage
+          href: articles/cv_leakage.html
+        - text: Feature blocks
+          href: articles/advanced_blocks.html
+        - text: Anchors and guidance
+          href: articles/anchors.html
+        - text: Extending neuralign
+          href: articles/extending.html
+        - text: fMRI profile
+          href: articles/fmri_profile.html
+
+footer:
+  structure:
+    left: developed_by
+    right: built_with

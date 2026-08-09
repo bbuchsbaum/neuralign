@@ -1,7 +1,8 @@
 #' KEMA Alignment
 #'
-#' Kernel Manifold Alignment (KEMA) via manifoldalign. Produces per-subject
-#' projection operators into a shared latent space.
+#' Kernel Manifold Alignment (KEMA) via manifoldalign. Produces the fitted
+#' nonlinear training embeddings in a shared latent space. It does not pretend
+#' that KEMA's primal-vector diagnostic is an exact out-of-sample operator.
 #'
 #' @name aligner_kema
 #' @keywords internal
@@ -17,13 +18,15 @@ NULL
 #' @param knn Number of nearest neighbours for graph construction.
 #' @param sigma Kernel bandwidth (NULL for auto).
 #' @param u Trade-off between manifold and class alignment (0-1).
-#' @param solver KEMA solver: "regression" or "exact".
+#' @param solver KEMA solver. Only the truthful upstream contract, "exact", is
+#'   supported.
 #' @param lambda Regularisation parameter.
 #' @param ... Additional arguments forwarded to manifoldalign::kema()
-#'   (except \code{preproc}; neuralign forces \code{preproc=multivarious::pass()}
-#'   to keep transforms linear).
+#'   (except \code{preproc}; neuralign owns the input orientation and forces
+#'   \code{preproc=multivarious::pass()}).
 #'
-#' @return List with transforms, reference_data, etc.
+#' @return List with named training embeddings, reference data, spaces, and
+#'   method state.
 #'
 #' @keywords internal
 .kema_fit <- function(data,
@@ -33,19 +36,33 @@ NULL
                       knn = 5L,
                       sigma = NULL,
                       u = 0.5,
-                      solver = "regression",
+                      solver = "exact",
                       lambda = 1e-2,
-                      target_space = c("latent", "reference"),
+                      target_space = "latent",
                       ...) {
   .ma_require_manifoldalign("KEMA")
 
-  target_space <- match.arg(target_space)
+  if (!identical(target_space, "latent")) {
+    stop(
+      "KEMA returns a nonlinear latent embedding; target_space='reference' ",
+      "would require an exact decoder and is not supported.",
+      call. = FALSE
+    )
+  }
+  if (!identical(solver, "exact")) {
+    stop(
+      "KEMA currently supports only solver='exact'; other solvers do not ",
+      "provide neuralign's verified training-score contract.",
+      call. = FALSE
+    )
+  }
 
   dots <- list(...)
   if ("preproc" %in% names(dots)) {
     stop(
       "manifoldalign 'preproc' is not supported via neuralign adapters. ",
-      "neuralign forces preproc=multivarious::pass() to keep transforms linear. ",
+      "neuralign forces preproc=multivarious::pass() to preserve the declared ",
+      "input orientation. ",
       "Preprocess your inputs explicitly (e.g. preprocess_alignment_data(center='rows')) before fit_alignment().",
       call. = FALSE
     )
@@ -53,6 +70,14 @@ NULL
 
   if (is.null(train_idx)) {
     train_idx <- seq_along(data@subjects)
+  }
+  if (!setequal(as.integer(train_idx), seq_along(data@subjects))) {
+    stop(
+      "KEMA currently returns training embeddings only; subject-subset fitting ",
+      "and subject cross-validation require a truthful out-of-sample kernel ",
+      "extension and are not supported.",
+      call. = FALSE
+    )
   }
   train_data <- data[train_idx]
   labels <- .ma_require_shared_obs_labels(train_data, method = "kema")
@@ -84,102 +109,47 @@ NULL
   )
 
   data_list_train <- get_data_list(train_data)
-  feature_counts <- vapply(data_list_train, nrow, integer(1))
-  v_blocks <- .ma_mbp_split_loadings(kema_result, names(data_list_train), feature_counts)
-  transforms_train <- .ma_projection_transforms_from_loadings(v_blocks)
-
-  # Reference latent scores (k x n_obs)
-  A_ref <- transforms_train[[ref$name]]
-  Z_ref <- .ma_reference_scores(A_ref, ref$data)
-
-  # Produce transforms for all subjects (train + heldout/new)
-  data_list_all <- get_data_list(data)
-  transforms <- list()
-  for (subj in names(data_list_all)) {
-    if (!is.null(transforms_train[[subj]])) {
-      transforms[[subj]] <- transforms_train[[subj]]
-    } else {
-      X_subj <- data_list_all[[subj]]
-      transforms[[subj]] <- .ma_ridge_map_to_reference_scores(X_subj, Z_ref, lambda = lambda)
-    }
-  }
-
-  U_ref <- NULL
-  if (identical(target_space, "reference")) {
-    lifted <- .ma_lift_latent_transforms_to_reference(transforms, ref$name, context = "kema")
-    transforms <- lifted$transforms
-    U_ref <- lifted$U_ref
-  }
+  observation_counts <- vapply(data_list_train, ncol, integer(1))
+  aligned <- .ma_mbp_split_scores(
+    kema_result,
+    domain_names = names(data_list_train),
+    observation_counts = observation_counts
+  )
+  Z_ref <- aligned[[ref$name]]
 
   list(
-    transforms = transforms,
+    aligned = aligned,
     reference_data = Z_ref,
     space_from = train_data@space,
     space_to   = NULL,
     method_state = list(
       reference = ref$name,
       target_space = target_space,
-      U_ref = U_ref,
-      obs_labels_ref = labels,
-      X_ref = ref$data,
-      Z_ref = Z_ref,
-      lambda = lambda,
+      embedding_contract = "training_scores",
+      out_of_sample = "unsupported",
+      upstream_backend = kema_result$backend %||% NULL,
+      upstream_fidelity = kema_result$fidelity %||% NULL,
       kema_args = kema_args
     )
   )
-}
-
-.kema_apply <- function(fit_result, new_data, ...) {
-  if (!inherits(new_data, "AlignmentData") || length(new_data@subjects) != 1L) {
-    stop("kema apply_fn expects new_data to contain exactly one subject", call. = FALSE)
-  }
-  subj <- new_data@subjects[[1L]]
-  X <- get_subject_data(new_data, subj)
-
-  st <- fit_result$method_state %||% list()
-  Z_ref <- st$Z_ref %||% NULL
-  obs_ref <- st$obs_labels_ref %||% NULL
-  lambda <- st$lambda %||% 1e-2
-  if (is.null(Z_ref) || is.null(obs_ref)) {
-    stop("kema apply_fn missing reference latent scores/labels in method_state", call. = FALSE)
-  }
-
-  obs_new <- .ma_get_single_subject_obs_labels(new_data)
-  if (is.null(obs_new)) {
-    stop("kema apply_fn requires obs_labels on new_data", call. = FALSE)
-  }
-  idx <- .ma_match_obs_indices(obs_ref, obs_new)
-  Xc <- X[, idx$new, drop = FALSE]
-  Zc <- Z_ref[, idx$ref, drop = FALSE]
-  A_new <- .ma_ridge_map_to_reference_scores(Xc, Zc, lambda = lambda)
-
-  target_space <- st$target_space %||% "latent"
-  if (identical(target_space, "reference")) {
-    U_ref <- st$U_ref %||% NULL
-    if (is.null(U_ref)) stop("kema apply_fn missing U_ref in method_state", call. = FALSE)
-    T_new <- .new_low_rank_transform(U_ref, t(A_new))
-    return(list(transforms = setNames(list(T_new), subj)))
-  }
-
-  list(transforms = setNames(list(A_new), subj))
 }
 
 
 #' KEMA Capabilities
 #' @keywords internal
 .kema_capabilities <- list(
-  supports_cv                = TRUE,
-  cv_axes                    = c("subject"),
+  supports_cv                = FALSE,
+  cv_axes                    = character(0),
   needs_geometry             = FALSE,
   needs_design               = FALSE,
-  requires_shared_features   = TRUE,
+  requires_shared_features   = FALSE,
   requires_shared_observations = TRUE,
   returns_invertible         = FALSE,
-  transform_type             = "linear",
+  transform_type             = "embedding",
   mass_preserving            = FALSE,
-  returns                    = "operator",
-  supports_new_subject       = TRUE,
-  supports_new_data          = TRUE,
+  returns                    = "embedding",
+  supports_new_subject       = FALSE,
+  supports_new_data          = FALSE,
   reference_types            = c("subject")
 )
 
@@ -190,10 +160,10 @@ NULL
   register_aligner(
     name        = "kema",
     fit_fn      = .kema_fit,
-    apply_fn    = .kema_apply,
+    apply_fn    = NULL,
     capabilities = .kema_capabilities,
     package     = "manifoldalign",
-    description = "Kernel Manifold Alignment (KEMA)",
+    description = "Kernel Manifold Alignment training embeddings (KEMA)",
     version     = "0.1.0"
   )
 }

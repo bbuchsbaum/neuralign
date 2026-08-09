@@ -13,6 +13,9 @@
 ^ARCHITECTURE\.md$
 ^SYNTHESIS_REPORT\.md$
 ^VETTED_INTEGRATION_REPORT\.md$
+^RELEASE\.md$
+^API_STABILITY\.md$
+^tools$
 
 # Git
 ^\.git$

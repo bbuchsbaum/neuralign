@@ -71,22 +71,48 @@ test_that("manifoldalign projection methods recover shared latent structure on t
 })
 
 
-test_that("KEMA nonlinear embedding conformance is quarantined", {
-  skip(
-    paste(
-      "neuralign-7nu.4.5: KEMA kernel-sample coefficients are currently",
-      "misrepresented as linear feature operators"
+test_that("KEMA training embeddings recover labelled correspondences above chance", {
+  skip_if_not_installed("manifoldalign")
+
+  set.seed(1)
+  p <- 40L
+  n <- 40L
+  k <- 5L
+  Z <- matrix(stats::rnorm(k * n), k, n)
+  xs <- lapply(seq_len(2L), function(i) {
+    V <- qr.Q(qr(matrix(stats::rnorm(p * k), p, k)))
+    V %*% Z + matrix(stats::rnorm(p * n, sd = 1e-2), p, n)
+  })
+  names(xs) <- c("s1", "s2")
+  data <- AlignmentData(xs, obs_labels = sprintf("obs-%02d", seq_len(n)))
+
+  with_temp_registry(neuralign:::.register_kema, {
+    res <- fit_alignment(
+      data,
+      method = "kema",
+      reference = "s1",
+      ncomp = k,
+      compute_quality = FALSE
     )
-  )
+    aligned <- get_aligned(res)
+    a <- t(aligned$s1)
+    b <- t(aligned$s2)
+    distances <- as.matrix(stats::dist(rbind(a, b)))[
+      seq_len(n), n + seq_len(n), drop = FALSE
+    ]
+    predicted <- max.col(-distances, ties.method = "first")
+    accuracy <- mean(predicted == seq_len(n))
+
+    expect_true(
+      accuracy >= 0.20,
+      info = sprintf("KEMA labelled-correspondence accuracy %.3f < 0.200", accuracy)
+    )
+  })
 })
 
 
-test_that("manifoldalign graph accuracy smoke tests are opt-in (grasp/cone)", {
+test_that("GRASP graph accuracy meets the mandatory permutation contract", {
   skip_if_not_installed("manifoldalign")
-
-  if (!identical(Sys.getenv("NEURALIGN_RUN_GRAPH_ACCURACY_TESTS"), "true")) {
-    skip("Set NEURALIGN_RUN_GRAPH_ACCURACY_TESTS=true to run graph accuracy smoke tests")
-  }
 
   set.seed(1)
 
@@ -110,18 +136,22 @@ test_that("manifoldalign graph accuracy smoke tests are opt-in (grasp/cone)", {
   }
   perm_inv <- match(seq_len(p), perm)
 
-  cases <- list(
-    grasp = neuralign:::.register_grasp,
-    cone = neuralign:::.register_cone
-  )
+  with_temp_registry(neuralign:::.register_grasp, {
+    res <- fit_alignment(adat, method = "grasp", reference = "s1", compute_quality = FALSE)
+    A <- get_transform(get_model(res), "s2")
+    pred <- operator_to_perm(A)
+    acc <- mean(pred == perm_inv)
+    expect_true(acc >= 0.5, info = sprintf("grasp: perm accuracy %.3f", acc))
+  })
+})
 
-  with_temp_registry(unname(cases), {
-    for (nm in names(cases)) {
-      res <- fit_alignment(adat, method = nm, reference = "s1", compute_quality = FALSE)
-      A <- get_transform(get_model(res), "s2")
-      pred <- operator_to_perm(A)
-      acc <- mean(pred == perm_inv)
-      expect_true(acc >= 0.5, info = sprintf("%s: perm accuracy %.3f", nm, acc))
-    }
+
+test_that("CONE remains fail-closed after failing the graph oracle", {
+  skip_if_not_installed("manifoldalign")
+
+  with_temp_registry(NULL, {
+    expect_false(is_aligner_registered("cone"))
+    expect_false(is_aligner_registered("cone_align"))
+    expect_error(neuralign:::.register_cone(), "accuracy contract")
   })
 })

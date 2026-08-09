@@ -32,7 +32,6 @@ NULL
     tryCatch(.register_coupled_diag(), error = function(e) NULL)
     tryCatch(.register_gpca(), error = function(e) NULL)
     tryCatch(.register_grasp(), error = function(e) NULL)
-    tryCatch(.register_cone(), error = function(e) NULL)
     tryCatch(.register_lowrank(), error = function(e) NULL)
   }
 }

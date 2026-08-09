@@ -115,6 +115,10 @@ fit_alignment <- function(data,
 
   # Try to load aligner if not registered
   if (!is_aligner_registered(method)) {
+    disabled_reason <- .disabled_aligner_reason(method)
+    if (!is.null(disabled_reason)) {
+      stop(sprintf("Method '%s' is disabled. %s", method, disabled_reason), call. = FALSE)
+    }
     if (!.try_autoload_aligner(method)) {
       stop(sprintf(
         "Unknown method '%s'. Available methods: %s",

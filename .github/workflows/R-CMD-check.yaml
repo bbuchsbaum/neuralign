@@ -1,0 +1,132 @@
+name: R CMD check
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r-cmd-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cross-platform-check:
+    name: ${{ matrix.config.os }} / R ${{ matrix.config.r }}
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {os: ubuntu-latest, r: release}
+          - {os: macos-latest, r: release}
+          - {os: windows-latest, r: release}
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+      _R_CHECK_FORCE_SUGGESTS_: false
+    steps:
+      - uses: actions/checkout@v6
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ matrix.config.r }}
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          dependencies: '"hard"'
+          extra-packages: |
+            any::rcmdcheck
+            any::knitr
+            any::rmarkdown
+            any::testthat
+          needs: check
+      - name: Check package
+        shell: Rscript {0}
+        run: |
+          rcmdcheck::rcmdcheck(
+            args = "--no-manual",
+            error_on = "warning",
+            check_dir = "check"
+          )
+
+  clean-install:
+    name: Clean source build and install
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          dependencies: '"hard"'
+      - name: Build, install, and run a public-API smoke test
+        shell: bash
+        run: |
+          R CMD build --no-build-vignettes .
+          R CMD INSTALL neuralign_*.tar.gz
+          Rscript -e 'library(neuralign); x <- list(s1 = diag(4), s2 = diag(4)); fit <- fit_alignment(x, method = "procrustes", reference = "s1", compute_quality = FALSE); stopifnot(inherits(fit, "AlignmentResult"))'
+
+  minimal-suggests:
+    name: Minimal Suggests
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      _R_CHECK_FORCE_SUGGESTS_: false
+    steps:
+      - uses: actions/checkout@v6
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          dependencies: '"hard"'
+          extra-packages: |
+            any::rcmdcheck
+            any::testthat
+      - name: Check without optional backends
+        shell: Rscript {0}
+        run: |
+          stopifnot(!requireNamespace("manifoldalign", quietly = TRUE))
+          rcmdcheck::rcmdcheck(
+            args = c("--no-manual", "--ignore-vignettes"),
+            build_args = "--no-build-vignettes",
+            error_on = "warning",
+            check_dir = "check-minimal"
+          )
+
+  backend-conformance:
+    name: Mandatory manifoldalign conformance
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          dependencies: '"hard"'
+          extra-packages: |
+            any::devtools
+            any::pak
+            any::testthat
+      - name: Install manifoldalign and its declared dependencies
+        shell: Rscript {0}
+        run: pak::pkg_install("bbuchsbaum/manifoldalign")
+      - name: Run backend semantic and accuracy contracts
+        shell: Rscript {0}
+        run: |
+          devtools::test(
+            filter = "manifoldalign_(adapters|toy_accuracy|projection_reference_data)",
+            stop_on_failure = TRUE
+          )

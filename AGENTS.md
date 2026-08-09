@@ -13,7 +13,7 @@ This project uses **beads** (`bd`) for git-backed issue tracking. See https://gi
 | `bd close <id> --reason "text"` | Close completed task |
 | `bd dep add <child> <parent>` | Add dependency |
 | `bd list --json` | List all open issues |
-| `bd sync` | Force sync to git |
+| `bd export --no-memories -o .beads/issues.jsonl` | Export embedded tracker state to Git |
 
 ## Critical Rules for Agents
 
@@ -25,7 +25,9 @@ This project uses **beads** (`bd`) for git-backed issue tracking. See https://gi
 
 2. **Always use `--json` flag** for programmatic access
 
-3. **Run `bd sync` after changes** to ensure immediate git sync
+3. **Export after tracker changes** with
+   `bd export --no-memories -o .beads/issues.jsonl`. The installed embedded-Dolt
+   `bd` no longer provides `bd sync`.
 
 ## Landing the Plane Protocol
 
@@ -36,7 +38,8 @@ When ending a work session, you MUST complete these steps in order:
 3. **Update issue statuses** - close completed, update in-progress
 4. **Sync and push**:
    ```bash
-   bd sync
+   bd export --no-memories -o .beads/issues.jsonl
+   git add .beads/issues.jsonl .beads/interactions.jsonl
    git pull --rebase
    git push
    ```
@@ -60,7 +63,7 @@ bd ready              # Find available work
 bd show <id>          # View issue details
 bd update <id> --status in_progress  # Claim work
 bd close <id>         # Complete work
-bd sync               # Sync with git
+bd export --no-memories -o .beads/issues.jsonl  # Export tracker state
 ```
 
 ## Critical Rules

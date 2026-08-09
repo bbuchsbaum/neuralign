@@ -11,6 +11,27 @@ NULL
 # Internal registry environment
 .aligner_registry <- new.env(parent = emptyenv())
 
+.disabled_aligner_reasons <- c(
+  cone = paste(
+    "CONE is disabled because its upstream estimator fails neuralign's",
+    "deterministic graph-correspondence accuracy contract (neuralign-tzc).",
+    "Use 'grasp' for the supported graph-alignment path."
+  ),
+  cone_align = paste(
+    "CONE is disabled because its upstream estimator fails neuralign's",
+    "deterministic graph-correspondence accuracy contract (neuralign-tzc).",
+    "Use 'grasp' for the supported graph-alignment path."
+  )
+)
+
+.disabled_aligner_reason <- function(name) {
+  if (!is.character(name) || length(name) != 1L || is.na(name) ||
+      !name %in% names(.disabled_aligner_reasons)) {
+    return(NULL)
+  }
+  unname(.disabled_aligner_reasons[[name]])
+}
+
 #' Aligner API Version
 #'
 #' The current version of the aligner registration API. Third-party packages
@@ -533,8 +554,6 @@ unregister_aligner <- function(name) {
     "coupled_diagonalization" = "manifoldalign",
     "gpca"          = "manifoldalign",
     "grasp"         = "manifoldalign",
-    "cone"          = "manifoldalign",
-    "cone_align"    = "manifoldalign",
     "lowrank"       = "manifoldalign",
     "dkge"          = "dkge",
     "nef"           = "fmrireg.gnef"

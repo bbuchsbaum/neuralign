@@ -2,10 +2,10 @@
 % Please edit documentation in R/aligner_cone.R
 \name{aligner_cone}
 \alias{aligner_cone}
-\title{CONE-Align}
+\title{CONE-Align (Disabled)}
 \description{
-Consensus Optimisation for Node Embedding Alignment via manifoldalign.
-Iteratively alternates between Procrustes rotation of spectral
-embeddings and Hungarian assignment of node correspondences.
+The adapter is retained internally for diagnosis, but registration fails
+closed because the upstream estimator does not meet neuralign's deterministic
+graph-correspondence accuracy contract.
 }
 \keyword{internal}

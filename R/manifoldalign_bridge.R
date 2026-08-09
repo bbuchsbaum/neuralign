@@ -5,12 +5,16 @@
 #' and (b) computationally tractable.
 #'
 #' Key principle:
-#' - For manifoldalign's multiblock methods (KEMA/GPCA/coupled_diag/lowrank),
+#' - For manifoldalign's linear multiblock methods
+#'   (GPCA/coupled_diag/lowrank),
 #'   we treat *observations* as samples: `x = t(X)` where neuralign stores
 #'   `X` as `(features x observations)`.
 #'   These methods naturally produce per-domain loadings `v_i (features x k)`.
 #'   neuralign operators become `A_i = t(v_i)` (shape `k x features`), mapping
 #'   into a shared latent space with `A_i %*% X_i -> (k x observations)`.
+#' - KEMA is nonlinear. neuralign splits its fitted `$s` score blocks and
+#'   returns training embeddings; it does not turn `$v` into an application
+#'   operator.
 #' - For graph correspondence methods (CONE/GRASP), we treat *features* as nodes
 #'   and use the returned assignment to build sparse permutation-style operators
 #'   into a fixed reference feature space.
@@ -209,6 +213,40 @@ NULL
   })
   names(v_blocks) <- domain_names
   v_blocks
+}
+
+
+.ma_mbp_split_scores <- function(mbp, domain_names, observation_counts) {
+  if (is.null(mbp$s)) {
+    stop("manifoldalign result missing $s training scores", call. = FALSE)
+  }
+  scores <- as.matrix(mbp$s)
+  observation_counts <- as.integer(observation_counts)
+
+  if (length(domain_names) != length(observation_counts)) {
+    stop("Observation-count length mismatch with number of domains", call. = FALSE)
+  }
+  if (anyNA(observation_counts) || any(observation_counts <= 0L)) {
+    stop("Observation counts must be positive integers", call. = FALSE)
+  }
+  if (nrow(scores) != sum(observation_counts)) {
+    stop(
+      sprintf(
+        "Score row mismatch: expected %d total observations, got %d",
+        sum(observation_counts), nrow(scores)
+      ),
+      call. = FALSE
+    )
+  }
+
+  ends <- cumsum(observation_counts)
+  starts <- c(1L, utils::head(ends, -1L) + 1L)
+  blocks <- lapply(seq_along(domain_names), function(i) {
+    # neuralign's public aligned-data orientation is components x observations.
+    t(scores[seq.int(starts[[i]], ends[[i]]), , drop = FALSE])
+  })
+  names(blocks) <- domain_names
+  blocks
 }
 
 

@@ -1,8 +1,8 @@
-#' CONE-Align
+#' CONE-Align (Disabled)
 #'
-#' Consensus Optimisation for Node Embedding Alignment via manifoldalign.
-#' Iteratively alternates between Procrustes rotation of spectral
-#' embeddings and Hungarian assignment of node correspondences.
+#' The adapter is retained internally for diagnosis, but registration fails
+#' closed because the upstream estimator does not meet neuralign's deterministic
+#' graph-correspondence accuracy contract.
 #'
 #' @name aligner_cone
 #' @keywords internal
@@ -121,24 +121,5 @@ NULL
 
 #' @keywords internal
 .register_cone <- function() {
-  register_aligner(
-    name         = "cone",
-    fit_fn       = .cone_fit,
-    apply_fn     = .cone_apply,
-    capabilities = .cone_capabilities,
-    package      = "manifoldalign",
-    description  = "CONE-Align graph alignment",
-    version      = "0.1.0"
-  )
-
-  # Terminology alias: mirror manifoldalign function name
-  register_aligner(
-    name         = "cone_align",
-    fit_fn       = .cone_fit,
-    apply_fn     = .cone_apply,
-    capabilities = .cone_capabilities,
-    package      = "manifoldalign",
-    description  = "CONE-Align graph alignment (alias)",
-    version      = "0.1.0"
-  )
+  stop(.disabled_aligner_reason("cone"), call. = FALSE)
 }

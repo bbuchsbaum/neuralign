@@ -30,6 +30,9 @@ plumbing.
 - `AlignmentModel`: fitted transforms, reference information, method metadata,
   and provenance
 - `AlignmentResult`: aligned outputs, quality summaries, and CV metadata
+- `AlignedStudy`: analysis-facing observations in one identified shared space
+- `AlignedResampleSet`: retained fold artifacts when each split has a different
+  shared coordinate system
 - `fit_alignment()` / `apply_alignment()`: one fit/apply workflow across methods
 - `compose_alignment()`: linear composition of alignment models
 - `register_aligner()`: a registry for extending the ecosystem with new methods
@@ -127,11 +130,51 @@ additional methods including:
 - `coupled_diag`
 - `gpca`
 - `grasp`
-- `cone`
 - `lowrank`
+
+`cone` is intentionally disabled: the upstream estimator does not currently
+meet neuralign's deterministic graph-correspondence accuracy contract. Use
+`grasp` for the supported graph-alignment path.
 
 Use `available_aligners()` or `available_aligners(details = TRUE)` to inspect
 what is registered in your current session.
+
+Capabilities are method-specific. In particular, `kema` returns nonlinear
+training embeddings and deliberately does not support new-subject or new-data
+application. Registration should never be read as a promise that every method
+supports the same fit/apply lifecycle.
+
+## From a fit to an analysis artifact
+
+`AlignmentResult` records one algorithm run. Convert a non-fold-specific result
+to an `AlignedStudy` when downstream code needs analysis-facing
+`observations x shared features` matrices plus coordinate identity, lineage,
+and safety metadata:
+
+```r
+study <- as_aligned_study(fit, source_data = adat)
+aligned_matrix(study, "sub-01")
+shared_space(study)$id
+```
+
+For cross-validation with fold-specific coordinates, refit with
+`return_resample_artifacts = TRUE` and use `as_aligned_resample_set()`. Raw
+coordinates from different splits cannot be stacked; aggregate metrics or
+predictions instead.
+
+## Saving artifacts
+
+`save_alignment()` and `load_alignment()` support models, results,
+`AlignedStudy` objects, and `AlignedResampleSet` objects. The RDS envelope is
+versioned and integrity checked. Saving an `AlignmentResult` stores its model by
+default; set `include_data = TRUE` to retain aligned matrices.
+
+```r
+path <- tempfile(fileext = ".rds")
+save_alignment(study, path)
+restored <- load_alignment(path)
+unlink(path)
+```
 
 ## Cross-validation and leakage control
 
@@ -189,6 +232,8 @@ Additional project context:
 
 - [ARCHITECTURE.md](ARCHITECTURE.md)
 - [PRD.md](PRD.md)
+- [API_STABILITY.md](API_STABILITY.md)
+- [RELEASE.md](RELEASE.md)
 
 ## Scope
 

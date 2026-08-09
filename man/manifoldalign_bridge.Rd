@@ -11,12 +11,16 @@ and (b) computationally tractable.
 \details{
 Key principle:
 \itemize{
-\item For manifoldalign's multiblock methods (KEMA/GPCA/coupled_diag/lowrank),
+\item For manifoldalign's linear multiblock methods
+(GPCA/coupled_diag/lowrank),
 we treat \emph{observations} as samples: \code{x = t(X)} where neuralign stores
 \code{X} as \verb{(features x observations)}.
 These methods naturally produce per-domain loadings \verb{v_i (features x k)}.
 neuralign operators become \code{A_i = t(v_i)} (shape \verb{k x features}), mapping
 into a shared latent space with \verb{A_i \%*\% X_i -> (k x observations)}.
+\item KEMA is nonlinear. neuralign splits its fitted \verb{$s} score blocks and
+returns training embeddings; it does not turn \verb{$v} into an application
+operator.
 \item For graph correspondence methods (CONE/GRASP), we treat \emph{features} as nodes
 and use the returned assignment to build sparse permutation-style operators
 into a fixed reference feature space.

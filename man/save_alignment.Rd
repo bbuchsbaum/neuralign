@@ -2,26 +2,29 @@
 % Please edit documentation in R/serialize.R
 \name{save_alignment}
 \alias{save_alignment}
-\title{Save an Alignment Model}
+\title{Save an Alignment Artifact}
 \usage{
 save_alignment(model, path, compress = "gzip", include_data = FALSE)
 }
 \arguments{
-\item{model}{An AlignmentModel or AlignmentResult.}
+\item{model}{An AlignmentModel, AlignmentResult, AlignedStudy, or
+AlignedResampleSet.}
 
 \item{path}{File path for saving. If doesn't end in .rds, .rds is appended.}
 
 \item{compress}{Compression type: "gzip" (default), "bzip2", "xz", or FALSE.}
 
-\item{include_data}{Logical; if TRUE and model is an AlignmentResult,
-also save the aligned data.}
+\item{include_data}{Logical; if TRUE and model is an AlignmentResult, also
+save the aligned data. AlignedStudy and AlignedResampleSet objects always
+retain their analysis-facing data.}
 }
 \value{
-Invisibly returns the path where the model was saved.
+Invisibly returns the path where the artifact was saved.
 }
 \description{
-Save an alignment model to disk. The model can be loaded later with
-\code{\link{load_alignment}} and applied to new data.
+Save an alignment artifact to a versioned RDS envelope. The artifact can be
+loaded later with \code{\link{load_alignment}}. Reusable models can then be
+applied to new data when their aligner capabilities permit it.
 }
 \examples{
 set.seed(1)

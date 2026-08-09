@@ -2,9 +2,10 @@
 % Please edit documentation in R/serialize.R
 \name{serialize}
 \alias{serialize}
-\title{Save and Load Alignment Models}
+\title{Save and Load Alignment Artifacts}
 \description{
-Serialize alignment models for storage and later reuse.
+Serialize alignment models, results, studies, and retained resample sets for
+storage and later reuse.
 }
 \seealso{
 Other serialization: 

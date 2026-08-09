@@ -92,6 +92,21 @@ The initial implementation accepts in-memory base matrices and `Matrix`
 objects. A storage list describes this eager representation; it is not a lazy
 backend API.
 
+### Persistence
+
+`neuralign` owns one versioned RDS envelope for `AlignmentModel`,
+`AlignmentResult`, `AlignedStudy`, and `AlignedResampleSet`. Serialization format
+version 2 records an object kind, package and R versions, and a SHA-256 hash of
+the object. Loading verifies the hash and S4 validity. A newer unknown format
+fails with an error that tells the caller to update `neuralign`.
+
+The pre-existing model/result envelope is treated as version 1 and retains its
+MD5 verification path. Raw legacy RDS artifacts may load with an explicit
+warning that integrity and format metadata are unavailable. `neuralign`, not a
+backend provider, owns future envelope migrations. Any format increment must
+land with round-trip fixtures for all four artifact families and an explicit
+migration from each supported prior format.
+
 ## Package boundaries
 
 `multidesign` owns `multidesign` and `hyperdesign`. The optional adapter in
@@ -110,6 +125,6 @@ the aligner contract.
 
 ## Deferred work
 
-The first release does not expose generic effect decoding, lazy storage,
-cross-version schema migration, or an XPA-specific class. These require
-separate provider or aligner contracts and conformance tests.
+The first release does not expose generic effect decoding, lazy storage, or an
+XPA-specific class. These require separate provider or aligner contracts and
+conformance tests.

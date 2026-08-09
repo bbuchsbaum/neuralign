@@ -2,7 +2,7 @@
 % Please edit documentation in R/serialize.R
 \name{load_alignment}
 \alias{load_alignment}
-\title{Load an Alignment Model}
+\title{Load an Alignment Artifact}
 \usage{
 load_alignment(path, verify = TRUE)
 }
@@ -12,10 +12,14 @@ load_alignment(path, verify = TRUE)
 \item{verify}{Logical; if TRUE, verify the loaded model's integrity.}
 }
 \value{
-The loaded AlignmentModel or AlignmentResult.
+The loaded AlignmentModel, AlignmentResult, AlignedStudy, or
+AlignedResampleSet.
 }
 \description{
-Load a previously saved alignment model from disk.
+Load a previously saved alignment artifact from disk. Version-2 envelopes
+are checked for object kind, supported format version, S4 validity, and
+SHA-256 integrity. Legacy version-1 envelopes and raw RDS objects have
+explicit compatibility paths.
 }
 \examples{
 set.seed(1)

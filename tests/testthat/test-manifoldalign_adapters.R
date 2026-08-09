@@ -1,4 +1,4 @@
-test_that("projection manifoldalign adapters fit and apply to new subjects", {
+test_that("linear projection manifoldalign adapters fit and apply to new subjects", {
   skip_if_not_installed("manifoldalign")
 
   set.seed(1)
@@ -15,7 +15,6 @@ test_that("projection manifoldalign adapters fit and apply to new subjects", {
   data_new <- neuralign::AlignmentData(list(s3 = X3), obs_labels = labs)
 
   cases <- list(
-    kema = list(register = neuralign:::.register_kema, args = list(ncomp = k, knn = 5L)),
     coupled_diag = list(
       register = neuralign:::.register_coupled_diag,
       args = list(ncomp = k, ncomp_per_domain = 6L, max_iter = 25L)
@@ -60,6 +59,99 @@ test_that("projection manifoldalign adapters fit and apply to new subjects", {
   }
 })
 
+test_that("KEMA exposes nonlinear training embeddings and rejects out-of-sample use", {
+  skip_if_not_installed("manifoldalign")
+
+  set.seed(11)
+  p <- 12L
+  n <- 24L
+  k <- 3L
+  Z <- matrix(stats::rnorm(k * n), k, n)
+  xs <- lapply(seq_len(2L), function(i) {
+    V <- qr.Q(qr(matrix(stats::rnorm(p * k), p, k)))
+    V %*% Z + matrix(stats::rnorm(p * n, sd = 1e-2), p, n)
+  })
+  names(xs) <- c("s1", "s2")
+  labs <- sprintf("obs-%02d", seq_len(n))
+  data <- AlignmentData(xs, obs_labels = labs)
+
+  with_temp_registry(neuralign:::.register_kema, {
+    res <- fit_alignment(
+      data,
+      method = "kema",
+      reference = "s1",
+      ncomp = k,
+      compute_quality = FALSE
+    )
+
+    aligned <- get_aligned(res)
+    model <- get_model(res)
+    caps <- aligner_capabilities("kema")
+
+    expect_equal(vapply(aligned, nrow, integer(1)), c(s1 = k, s2 = k))
+    expect_equal(vapply(aligned, ncol, integer(1)), c(s1 = n, s2 = n))
+    expect_true(all(vapply(
+      get_transforms(model),
+      inherits,
+      logical(1),
+      "neuralign_embedding_transform"
+    )))
+    expect_identical(caps$returns, "embedding")
+    expect_false(caps$supports_new_subject)
+    expect_false(caps$supports_new_data)
+    expect_identical(model@method_state$embedding_contract, "training_scores")
+
+    expect_error(
+      apply_alignment(res, data, warn_leakage = FALSE),
+      "does not support applying existing transforms to new data"
+    )
+    expect_error(
+      fit_alignment(data, method = "kema", reference = "s1", train_idx = 1L),
+      "training embeddings only"
+    )
+    expect_error(
+      fit_alignment(
+        data,
+        method = "kema",
+        reference = "s1",
+        target_space = "reference"
+      ),
+      "nonlinear latent embedding"
+    )
+    expect_error(
+      fit_alignment(
+        data,
+        method = "kema",
+        reference = "s1",
+        solver = "regression"
+      ),
+      "only solver='exact'"
+    )
+  })
+})
+
+test_that("manifoldalign score blocks use observation axes", {
+  mock <- list(s = matrix(seq_len(30L), nrow = 10L, ncol = 3L))
+  blocks <- neuralign:::.ma_mbp_split_scores(
+    mock,
+    domain_names = c("a", "b"),
+    observation_counts = c(4L, 6L)
+  )
+
+  expect_equal(dim(blocks$a), c(3L, 4L))
+  expect_equal(dim(blocks$b), c(3L, 6L))
+  expect_equal(t(blocks$a), mock$s[1:4, , drop = FALSE])
+  expect_equal(t(blocks$b), mock$s[5:10, , drop = FALSE])
+  expect_error(
+    neuralign:::.ma_mbp_split_scores(mock, c("a", "b"), c(5L, 6L)),
+    "Score row mismatch"
+  )
+  expect_error(
+    neuralign:::.ma_mbp_split_scores(mock, c("a", "b"), c(0L, 10L)),
+    "positive integers"
+  )
+})
+
 test_that("projection manifoldalign adapters reject manifoldalign preproc argument", {
   skip_if_not_installed("manifoldalign")
   skip_if_not_installed("multivarious")
@@ -90,7 +182,7 @@ test_that("projection manifoldalign adapters reject manifoldalign preproc argume
   })
 })
 
-test_that("graph manifoldalign adapters return sparse assignment operators and can apply to new subjects", {
+test_that("GRASP returns sparse assignment operators and can apply to new subjects", {
   skip_if_not_installed("manifoldalign")
 
   set.seed(2)
@@ -104,10 +196,7 @@ test_that("graph manifoldalign adapters return sparse assignment operators and c
   data_train <- neuralign::AlignmentData(list(s1 = X1, s2 = X2))
   data_new <- neuralign::AlignmentData(list(s3 = X3))
 
-  cases <- list(
-    grasp = neuralign:::.register_grasp,
-    cone = neuralign:::.register_cone
-  )
+  cases <- list(grasp = neuralign:::.register_grasp)
 
   for (method in names(cases)) {
     register_fn <- cases[[method]]
@@ -176,15 +265,16 @@ test_that("manifoldalign method name aliases work", {
     expect_true("s1" %in% names(neuralign::get_aligned(res)))
   })
 
-  with_temp_registry(list(neuralign:::.register_cone), {
-    res <- neuralign::fit_alignment(
-      data,
-      method = "cone_align",
-      reference = "s1",
-      ncomp = 5L,
-      max_iter = 5L,
-      compute_quality = FALSE
+  with_temp_registry(NULL, {
+    expect_error(neuralign:::.register_cone(), "accuracy contract")
+    expect_error(
+      neuralign::fit_alignment(
+        data,
+        method = "cone_align",
+        reference = "s1",
+        compute_quality = FALSE
+      ),
+      "disabled.*accuracy contract"
     )
-    expect_true("s1" %in% names(neuralign::get_aligned(res)))
   })
 })

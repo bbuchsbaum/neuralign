@@ -4,7 +4,8 @@
 \alias{aligner_kema}
 \title{KEMA Alignment}
 \description{
-Kernel Manifold Alignment (KEMA) via manifoldalign. Produces per-subject
-projection operators into a shared latent space.
+Kernel Manifold Alignment (KEMA) via manifoldalign. Produces the fitted
+nonlinear training embeddings in a shared latent space. It does not pretend
+that KEMA's primal-vector diagnostic is an exact out-of-sample operator.
 }
 \keyword{internal}

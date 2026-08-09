@@ -181,17 +181,17 @@ test_that("save_alignment errors on invalid model argument", {
 
   expect_error(
     save_alignment("not_a_model", tmp_file),
-    "must be an AlignmentModel or AlignmentResult"
+    "must be an AlignmentModel, AlignmentResult, AlignedStudy, or AlignedResampleSet"
   )
 
   expect_error(
     save_alignment(42, tmp_file),
-    "must be an AlignmentModel or AlignmentResult"
+    "must be an AlignmentModel, AlignmentResult, AlignedStudy, or AlignedResampleSet"
   )
 
   expect_error(
     save_alignment(data.frame(x = 1), tmp_file),
-    "must be an AlignmentModel or AlignmentResult"
+    "must be an AlignmentModel, AlignmentResult, AlignedStudy, or AlignedResampleSet"
   )
 })
 
@@ -242,11 +242,11 @@ test_that("load_alignment errors on non-alignment RDS file", {
 
   expect_error(
     load_alignment(tmp_file),
-    "does not contain an alignment model"
+    "does not contain a supported alignment object"
   )
 })
 
-test_that("load_alignment warns on integrity check failure", {
+test_that("load_alignment fails closed on integrity check failure", {
   transforms <- list("sub-01" = diag(5))
   model <- AlignmentModel(transforms, reference = NULL, method = "test")
 
@@ -262,13 +262,10 @@ test_that("load_alignment warns on integrity check failure", {
   # Keep original hash so verification will fail
   saveRDS(save_data, tmp_file)
 
-  expect_warning(
-    loaded <- load_alignment(tmp_file, verify = TRUE),
+  expect_error(
+    load_alignment(tmp_file, verify = TRUE),
     "integrity check failed"
   )
-
-  # The (tampered) model should still load
-  expect_s4_class(loaded, "AlignmentModel")
 })
 
 test_that("load_alignment shows version mismatch message", {
@@ -283,17 +280,89 @@ test_that("load_alignment shows version mismatch message", {
   # Tamper with the saved version so it differs from the current version
 
   save_data <- readRDS(tmp_file)
-  save_data$neuralign_version <- "0.0.0.9000"
-  # Also fix the hash so it doesn't trigger an integrity warning
-  save_data$hash <- digest::digest(save_data$object, algo = "md5")
+  save_data$package_version <- "0.0.0.9000"
   saveRDS(save_data, tmp_file)
 
   expect_message(
     loaded <- load_alignment(tmp_file, verify = TRUE),
-    "Model was saved with neuralign 0\\.0\\.0\\.9000"
+    "Object was saved with neuralign 0\\.0\\.0\\.9000"
   )
 
   expect_s4_class(loaded, "AlignmentModel")
+})
+
+test_that("versioned serialization round-trips analysis-facing representations", {
+  model <- AlignmentModel(
+    transforms = list(s1 = diag(2)),
+    reference = "s1",
+    method = "procrustes",
+    train_subjects = "s1"
+  )
+  space <- shared_feature_space_from_model(model, dimension = 2L)
+  block <- AlignedBlock(
+    values = matrix(1:6, nrow = 3L, ncol = 2L),
+    subject_id = "s1",
+    shared_space_id = space$id
+  )
+  study <- AlignedStudy(
+    blocks = list(s1 = block),
+    shared_space = space,
+    model = model
+  )
+  resamples <- AlignedResampleSet(splits = list(
+    fold_1 = list(
+      model = model,
+      shared_space = space,
+      analysis = study,
+      assessment = study,
+      metadata = list(fold_id = "fold_1")
+    )
+  ))
+  result <- AlignmentResult(model, aligned = list(s1 = diag(2)))
+
+  objects <- list(
+    model = model,
+    result = result,
+    study = study,
+    resamples = resamples
+  )
+  for (nm in names(objects)) {
+    path <- tempfile(fileext = ".rds")
+    on.exit(unlink(path), add = TRUE)
+    save_alignment(objects[[nm]], path, include_data = TRUE)
+    envelope <- readRDS(path)
+
+    expect_identical(envelope$format_id, "neuralign-alignment", info = nm)
+    expect_identical(envelope$format_version, 2L, info = nm)
+    expect_identical(envelope$integrity$algorithm, "sha256", info = nm)
+    expect_s4_class(load_alignment(path), class(objects[[nm]])[[1L]])
+  }
+})
+
+test_that("load_alignment reads the legacy version-1 envelope", {
+  model <- AlignmentModel(list(s1 = diag(2)), reference = "s1", method = "test")
+  legacy <- list(
+    object = model,
+    neuralign_version = as.character(utils::packageVersion("neuralign")),
+    hash = digest::digest(model, algo = "md5")
+  )
+  path <- tempfile(fileext = ".rds")
+  on.exit(unlink(path))
+  saveRDS(legacy, path)
+
+  expect_s4_class(load_alignment(path), "AlignmentModel")
+})
+
+test_that("load_alignment rejects a newer envelope version", {
+  model <- AlignmentModel(list(s1 = diag(2)), reference = "s1", method = "test")
+  path <- tempfile(fileext = ".rds")
+  on.exit(unlink(path))
+  save_alignment(model, path)
+  envelope <- readRDS(path)
+  envelope$format_version <- 3L
+  saveRDS(envelope, path)
+
+  expect_error(load_alignment(path), "newer than supported")
 })
 
 test_that("export_alignment handles AlignmentResult by extracting model", {
@@ -580,7 +649,7 @@ test_that("load_alignment errors on non-alignment object", {
   on.exit(unlink(tmp))
   saveRDS(list(foo = "bar"), tmp)
 
-  expect_error(load_alignment(tmp), "does not contain an alignment model")
+  expect_error(load_alignment(tmp), "does not contain a supported alignment object")
 })
 
 test_that("load_alignment errors on nonexistent file", {
@@ -611,10 +680,10 @@ test_that("load_alignment detects hash mismatch", {
 
   # Corrupt the hash
   save_data <- readRDS(tmp)
-  save_data$hash <- "bogus_hash"
+  save_data$integrity$hash <- "bogus_hash"
   saveRDS(save_data, tmp)
 
-  expect_warning(
+  expect_error(
     load_alignment(tmp),
     "integrity check failed"
   )

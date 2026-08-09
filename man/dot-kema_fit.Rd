@@ -12,9 +12,9 @@
   knn = 5L,
   sigma = NULL,
   u = 0.5,
-  solver = "regression",
+  solver = "exact",
   lambda = 0.01,
-  target_space = c("latent", "reference"),
+  target_space = "latent",
   ...
 )
 }
@@ -33,16 +33,18 @@
 
 \item{u}{Trade-off between manifold and class alignment (0-1).}
 
-\item{solver}{KEMA solver: "regression" or "exact".}
+\item{solver}{KEMA solver. Only the truthful upstream contract, "exact", is
+supported.}
 
 \item{lambda}{Regularisation parameter.}
 
 \item{...}{Additional arguments forwarded to manifoldalign::kema()
-(except \code{preproc}; neuralign forces \code{preproc=multivarious::pass()}
-to keep transforms linear).}
+(except \code{preproc}; neuralign owns the input orientation and forces
+\code{preproc=multivarious::pass()}).}
 }
 \value{
-List with transforms, reference_data, etc.
+List with named training embeddings, reference data, spaces, and
+method state.
 }
 \description{
 KEMA Fit Function

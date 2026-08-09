@@ -1,4 +1,9 @@
-# Neuralign Synthesis Report: Cross-Package Analysis and Architecture Design
+# Neuralign Synthesis Report: Historical Cross-Package Analysis
+
+> This document records the design synthesis that preceded the current package.
+> It is not the backend support matrix or release ledger. Use `PRD.md`,
+> `API_STABILITY.md`, `NEWS.md`, and `RELEASE.md` for current contracts and
+> status.
 
 ## Executive Summary
 
