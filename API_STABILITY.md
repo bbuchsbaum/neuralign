@@ -1,12 +1,12 @@
 # API stability policy
 
-This policy applies to the 0.1 release series. `neuralign` is still young, but
+This policy applies to the 0.2 release series. `neuralign` is still young, but
 its ordinary workflow should not require users to chase unannounced renames.
 
 ## Stable core
 
 These entry points define the ordinary workflow and are source-stable within
-0.1.x:
+0.2.x:
 
 - construction: `AlignmentData()`, `AlignmentModel()`, `AlignmentResult()`;
 - fitting and application: `fit_alignment()`, `apply_alignment()`;
@@ -34,7 +34,7 @@ release uses API 2; API-1 compatibility is not retained.
 ## Provisional surfaces
 
 The following expert surfaces are public so current research pipelines can use
-them, but their ergonomics may change in a minor 0.1 release with a documented
+them, but their ergonomics may change in a minor 0.2 release with a documented
 migration:
 
 - guidance and intrinsic-geometry channels;
@@ -58,6 +58,6 @@ migration behavior are part of the persistence contract.
 - Export count is reviewed before each minor release. New aliases are not added
   merely to mirror an upstream package's vocabulary.
 
-For 0.1.0, KEMA is corrected from a linear-proxy claim to a nonlinear training
+For 0.2.0, KEMA is corrected from a linear-proxy claim to a nonlinear training
 embedding contract, and CONE is disabled after failing the mandatory graph
 oracle.
