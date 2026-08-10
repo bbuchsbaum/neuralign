@@ -1,4 +1,4 @@
-identity_provider_fit <- function(data, reference, train_idx = NULL, ...) {
+identity_provider_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
   subjects <- data@subjects[train_idx %||% seq_along(data@subjects)]
   transforms <- lapply(subjects, function(subject) {
     diag(nrow(get_subject_data(data, subject)))
@@ -277,58 +277,44 @@ test_that("API v2 fallback new-subject fits receive assessment contexts", {
   })
 })
 
-test_that("API v1 providers do not receive v2 lifecycle arguments", {
+test_that("API v1 provider registrations fail closed", {
   with_temp_registry(code = {
-    seen <- new.env(parent = emptyenv())
-    seen$dots <- NULL
-    fit <- function(data, reference, train_idx = NULL, ...) {
-      seen$dots <- names(list(...))
+    fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
       identity_provider_fit(data, reference, train_idx)
     }
 
-    register_aligner(
-      "provider_v1_compat",
-      fit,
-      api_version = 1L,
-      capabilities = list(reference_types = "subject")
+    expect_error(
+      register_aligner(
+        "provider_v1_compat",
+        fit,
+        api_version = 1L,
+        capabilities = list(reference_types = "subject")
+      ),
+      "supports only API 2"
     )
-    adat <- make_test_alignment_data(
-      n_subjects = 2,
-      n_features = 4,
-      n_obs = 6
-    )
-
-    result <- fit_alignment(
-      adat,
-      method = "provider_v1_compat",
-      reference = "sub-01",
-      compute_quality = FALSE,
-      return_aligned = FALSE
-    )
-
-    expect_s4_class(result, "AlignmentResult")
-    expect_null(seen$dots)
+    expect_false(is_aligner_registered("provider_v1_compat"))
   })
 })
 
-test_that("API v1 positional registration remains source compatible", {
+test_that("positional registration uses the current API", {
   with_temp_registry(code = {
     expect_true(register_aligner(
-      "provider_v1_positional",
+      "provider_positional",
       identity_provider_fit,
       NULL,
       list(reference_types = "subject")
     ))
-    entry <- get_aligner("provider_v1_positional")
-    expect_identical(entry$api_version, 1L)
+    entry <- get_aligner("provider_positional")
+    expect_identical(entry$api_version, NEURALIGN_ALIGNER_API_VERSION)
     expect_null(entry$prepare_fn)
     expect_identical(entry$capabilities$reference_types, "subject")
   })
 })
 
-test_that("API v2 validates provider lifecycle signatures", {
-  fit_v2 <- function(data, reference, fit_context, provider_plan, ...) {
-    identity_provider_fit(data, reference)
+test_that("the provider API validates lifecycle signatures", {
+  fit_v2 <- function(data, reference, train_idx = NULL, fit_context,
+                     provider_plan, ...) {
+    identity_provider_fit(data, reference, train_idx)
   }
   bad_prepare <- function(x) NULL
 
@@ -345,6 +331,6 @@ test_that("API v2 validates provider lifecycle signatures", {
   bad_fit <- function(data, reference) NULL
   expect_error(
     validate_aligner_contract("bad_fit_v2", bad_fit, api_version = 2L),
-    "fit_fn missing API v2 formals"
+    "fit_fn missing required formals"
   )
 })

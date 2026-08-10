@@ -51,7 +51,7 @@ norm(pr$U_aligned - Uref, "F")
 
 }
 \seealso{
-Other k_procrustes: 
+Other k_procrustes:
 \code{\link{k_align_bases}()},
 \code{\link{k_consensus_basis}()},
 \code{\link{k_kernel_roots}()},

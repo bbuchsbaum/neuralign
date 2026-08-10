@@ -29,7 +29,7 @@ is.null(ref) || is.matrix(ref)
 \seealso{
 \code{\link{get_reference_spec}} for the reference specification.
 
-Other alignment_model: 
+Other alignment_model:
 \code{\link{AlignmentModel}},
 \code{\link{AlignmentModel-class}},
 \code{\link{add_transform}()},

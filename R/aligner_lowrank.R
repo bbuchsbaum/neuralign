@@ -28,6 +28,8 @@ NULL
                          lambda_oos = 1e-2,
                          simfun = adjoin::binary_label_matrix,
                          target_space = c("latent", "reference"),
+                         fit_context = NULL,
+                         provider_plan = NULL,
                          ...) {
   .ma_require_manifoldalign("low-rank")
 

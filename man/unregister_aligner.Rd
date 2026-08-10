@@ -16,7 +16,8 @@ Invisibly returns TRUE if removed, FALSE if not found.
 Remove an aligner from the registry. Primarily useful for testing.
 }
 \examples{
-tmp_fit <- function(data, reference, ...) {
+tmp_fit <- function(data, reference, train_idx = NULL,
+                    fit_context, provider_plan, ...) {
   list(
     transforms = list(),
     reference_data = NULL,
@@ -37,7 +38,7 @@ unregister_aligner("tmp_registry_example")
 
 }
 \seealso{
-Other registry: 
+Other registry:
 \code{\link{aligner_capabilities}()},
 \code{\link{available_aligners}()},
 \code{\link{get_aligner}()},

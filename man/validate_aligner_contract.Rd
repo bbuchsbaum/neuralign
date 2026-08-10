@@ -9,7 +9,7 @@ validate_aligner_contract(
   fit_fn,
   apply_fn = NULL,
   capabilities = list(),
-  api_version = 1L,
+  api_version = NEURALIGN_ALIGNER_API_VERSION,
   prepare_fn = NULL
 )
 }
@@ -22,10 +22,10 @@ validate_aligner_contract(
 
 \item{capabilities}{Capabilities list to validate.}
 
-\item{api_version}{API version the aligner declares. Registrations that omit
-this value use the backward-compatible API-v1 callback contract.}
+\item{api_version}{API version the aligner declares. neuralign accepts only
+\code{NEURALIGN_ALIGNER_API_VERSION}.}
 
-\item{prepare_fn}{Optional API-v2 preflight function to validate.}
+\item{prepare_fn}{Optional provider preflight function to validate.}
 }
 \value{
 TRUE invisibly if valid; otherwise throws an error.
@@ -36,19 +36,20 @@ This validates the fit_fn and apply_fn signatures, capabilities structure,
 and other requirements.
 }
 \details{
-The \code{fit_fn} must accept at minimum: \code{data}, \code{reference},
-\code{train_idx}, and \code{...}.
-For API v2, it must also accept \code{fit_context} and
-\code{provider_plan}, either explicitly or through \code{...}. If supplied,
-\code{prepare_fn} must accept \code{data}, \code{reference}, and
-\code{resampling_plan}, either explicitly or through \code{...}.
+The \code{fit_fn} must explicitly accept \code{data}, \code{reference},
+\code{train_idx}, \code{fit_context}, and \code{provider_plan}. Requiring
+lifecycle arguments as named formals prevents them from leaking through
+\code{...} into an estimator backend. If supplied, \code{prepare_fn} must
+explicitly accept \code{data}, \code{reference}, and
+\code{resampling_plan}.
 
 If provided, \code{apply_fn} must accept at minimum: \code{fit_result},
 \code{new_data}, and \code{...}. It should return a list with a
 \code{transforms} element (named list of operators).
 }
 \examples{
-dummy_fit <- function(data, reference, ...) {
+dummy_fit <- function(data, reference, train_idx = NULL,
+                      fit_context, provider_plan, ...) {
   list(
     transforms = list(),
     reference_data = NULL,
@@ -65,7 +66,7 @@ validate_aligner_contract(
 
 }
 \seealso{
-Other registry: 
+Other registry:
 \code{\link{aligner_capabilities}()},
 \code{\link{available_aligners}()},
 \code{\link{get_aligner}()},

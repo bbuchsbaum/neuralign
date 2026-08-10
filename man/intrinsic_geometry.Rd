@@ -12,7 +12,7 @@ These coordinates are \emph{guidance} only: they provide a smooth positional
 encoding that methods can use as priors/costs, not the alignment target.
 }
 \seealso{
-Other guidance: 
+Other guidance:
 \code{\link{get_guidance}()},
 \code{\link{guidance_channel}()},
 \code{\link{laplacian_eigenmodes}()},

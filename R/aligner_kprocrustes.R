@@ -165,6 +165,8 @@ NULL
                              min_overlap = 1L,
                              warn_sparse_below = 0.5,
                              reflection = NULL,
+                             fit_context = NULL,
+                             provider_plan = NULL,
                              ...) {
   if (!is.null(reflection)) {
     if (!missing(allow_reflection) && isTRUE(allow_reflection) != isTRUE(reflection)) {

@@ -32,7 +32,7 @@ has_transform(mdl2, "s3")
 
 }
 \seealso{
-Other alignment_model: 
+Other alignment_model:
 \code{\link{AlignmentModel}},
 \code{\link{AlignmentModel-class}},
 \code{\link{get_reference}()},

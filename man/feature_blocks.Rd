@@ -8,7 +8,7 @@ Lightweight helpers for constructing, harmonizing, and stacking alignment
 feature matrices in a way that can be shared across downstream packages.
 }
 \seealso{
-Other feature_blocks: 
+Other feature_blocks:
 \code{\link{alignment_feature_block}()}
 }
 \concept{feature_blocks}

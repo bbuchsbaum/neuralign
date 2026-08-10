@@ -41,6 +41,8 @@ NULL
                               tol = 1e-6,
                               lambda_oos = 1e-2,
                               target_space = c("latent", "reference"),
+                              fit_context = NULL,
+                              provider_plan = NULL,
                               ...) {
   .ma_require_manifoldalign("coupled diagonalization")
 

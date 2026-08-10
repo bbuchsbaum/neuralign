@@ -189,7 +189,7 @@ test_that("fit_alignment warns when method does not support CV", {
   }, add = TRUE)
 
   # Register a test aligner with supports_cv = FALSE
-  test_fit <- function(data, reference, train_idx = NULL, ...) {
+  test_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     n_feat <- nrow(data@data[[1]])
     n_obs <- ncol(data@data[[1]])
     if (is.null(train_idx)) train_idx <- seq_along(data@subjects)
@@ -266,7 +266,7 @@ test_that("fit_alignment restrict_to_identified errors for non-orthogonal operat
     }
   }, add = TRUE)
 
-  test_fit <- function(data, reference, train_idx = NULL, ...) {
+  test_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     n_feat <- nrow(data@data[[1]])
     transforms <- lapply(data@subjects, function(s) diag(n_feat))
     names(transforms) <- data@subjects
@@ -393,7 +393,7 @@ test_that(".fit_new_subject uses apply_fn when available", {
   adat <- AlignmentData(data_list)
 
   # Create a mock aligner with apply_fn
-  test_fit <- function(data, reference, train_idx = NULL, ...) {
+  test_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     transforms <- lapply(data@subjects, function(s) diag(n_feat))
     names(transforms) <- data@subjects
     list(
@@ -449,7 +449,7 @@ test_that(".fit_new_subject falls back to fit_fn without apply_fn and uses refer
 
   # fit_fn that records which reference was passed
   captured_ref <- NULL
-  test_fit <- function(data, reference, train_idx = NULL, ...) {
+  test_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     captured_ref <<- reference
     transforms <- lapply(data@subjects, function(s) diag(n_feat))
     names(transforms) <- data@subjects
@@ -465,13 +465,28 @@ test_that(".fit_new_subject falls back to fit_fn without apply_fn and uses refer
     name = "no_apply_test",
     fit_fn = test_fit,
     apply_fn = NULL,
+    prepare_fn = NULL,
+    api_version = NEURALIGN_ALIGNER_API_VERSION,
     capabilities = list(supports_cv = TRUE)
   )
+
+  folds <- create_cv_folds(adat, method = "loso")
+  plan <- neuralign:::.build_resampling_plan(
+    adat, aligner$name, cv = "loso", cv_folds = folds
+  )
+  aligner <- neuralign:::.prepare_aligner_runtime(
+    aligner, adat, "consensus", plan, list()
+  )
+  fold_id <- names(plan$folds)[vapply(plan$folds, function(context) {
+    "sub-03" %in% context$test_subject_ids
+  }, logical(1))][[1L]]
 
   fit_result <- test_fit(adat, reference = "consensus")
   captured_ref <- NULL  # reset
 
-  result <- neuralign:::.fit_new_subject(aligner, fit_result, adat, 3, "consensus")
+  result <- neuralign:::.fit_new_subject(
+    aligner, fit_result, adat, 3, "consensus", fold_id = fold_id
+  )
 
   # The fallback path should use reference_data from fit_result, not "consensus"
   expect_true(is.matrix(captured_ref))
@@ -497,7 +512,7 @@ test_that(".fit_new_subject falls back to original reference when reference_data
   adat <- AlignmentData(data_list)
 
   captured_ref <- NULL
-  test_fit <- function(data, reference, train_idx = NULL, ...) {
+  test_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     captured_ref <<- reference
     transforms <- lapply(data@subjects, function(s) diag(n_feat))
     names(transforms) <- data@subjects
@@ -513,13 +528,28 @@ test_that(".fit_new_subject falls back to original reference when reference_data
     name = "null_ref_test",
     fit_fn = test_fit,
     apply_fn = NULL,
+    prepare_fn = NULL,
+    api_version = NEURALIGN_ALIGNER_API_VERSION,
     capabilities = list(supports_cv = TRUE)
   )
+
+  folds <- create_cv_folds(adat, method = "loso")
+  plan <- neuralign:::.build_resampling_plan(
+    adat, aligner$name, cv = "loso", cv_folds = folds
+  )
+  aligner <- neuralign:::.prepare_aligner_runtime(
+    aligner, adat, "consensus", plan, list()
+  )
+  fold_id <- names(plan$folds)[vapply(plan$folds, function(context) {
+    "sub-03" %in% context$test_subject_ids
+  }, logical(1))][[1L]]
 
   fit_result <- test_fit(adat, reference = "consensus")
   captured_ref <- NULL  # reset
 
-  result <- neuralign:::.fit_new_subject(aligner, fit_result, adat, 3, "consensus")
+  result <- neuralign:::.fit_new_subject(
+    aligner, fit_result, adat, 3, "consensus", fold_id = fold_id
+  )
 
   # Should fall back to the original reference since reference_data is NULL
   expect_equal(captured_ref, "consensus")
@@ -693,7 +723,7 @@ test_that("observation-axis CV warns when method doesn't declare observation in 
     }
   }, add = TRUE)
 
-  test_fit <- function(data, reference, train_idx = NULL, ...) {
+  test_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     n_feat <- nrow(data@data[[1]])
     transforms <- lapply(data@subjects, function(s) diag(n_feat))
     names(transforms) <- data@subjects
@@ -840,7 +870,7 @@ test_that(".validate_reference_for_aligner errors when ref type not in supported
 
 test_that("fit_alignment supports embedding-returning aligners under CV", {
   with_temp_registry(code = {
-    embed_fit <- function(data, reference, train_idx = NULL, ...) {
+    embed_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
       k <- 3
       aligned <- lapply(data@subjects, function(s) {
         X <- get_subject_data(data, s)
@@ -898,7 +928,7 @@ test_that("fit_alignment supports embedding-returning aligners under CV", {
 
 test_that("fit_alignment can apply low-rank operator transforms", {
   with_temp_registry(code = {
-    low_rank_fit <- function(data, reference, train_idx = NULL, ...) {
+    low_rank_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
       k <- 2
       transforms <- lapply(data@subjects, function(s) {
         p <- nrow(get_subject_data(data, s))

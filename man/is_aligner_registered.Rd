@@ -20,7 +20,7 @@ is_aligner_registered("procrustes")
 
 }
 \seealso{
-Other registry: 
+Other registry:
 \code{\link{aligner_capabilities}()},
 \code{\link{available_aligners}()},
 \code{\link{get_aligner}()},

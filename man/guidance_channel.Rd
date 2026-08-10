@@ -39,7 +39,7 @@ get_guidance(adat2, subject = "s1")
 get_guidance(adat2, type = "projector")
 }
 \seealso{
-Other guidance: 
+Other guidance:
 \code{\link{get_guidance}()},
 \code{\link{intrinsic_geometry}},
 \code{\link{laplacian_eigenmodes}()},

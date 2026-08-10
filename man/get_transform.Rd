@@ -30,7 +30,7 @@ dim(Q_s2)
 
 }
 \seealso{
-Other alignment_model: 
+Other alignment_model:
 \code{\link{AlignmentModel}},
 \code{\link{AlignmentModel-class}},
 \code{\link{add_transform}()},

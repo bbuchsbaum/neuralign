@@ -20,7 +20,7 @@ aligner_capabilities("procrustes")$transform_type
 
 }
 \seealso{
-Other registry: 
+Other registry:
 \code{\link{available_aligners}()},
 \code{\link{get_aligner}()},
 \code{\link{is_aligner_registered}()},

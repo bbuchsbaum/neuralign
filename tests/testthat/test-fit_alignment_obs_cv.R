@@ -309,7 +309,7 @@ test_that("obs-CV with template reference sets anchor_common=TRUE", {
 
 test_that("obs-CV supports embedding-returning aligners (with apply_fn)", {
   with_temp_registry(code = {
-    embed_fit <- function(data, reference, train_idx = NULL, ...) {
+    embed_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
       k <- 3
       aligned <- lapply(data@subjects, function(s) {
         X <- get_subject_data(data, s)

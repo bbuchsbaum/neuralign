@@ -12,7 +12,7 @@ register_aligner(
   package = NA_character_,
   description = "",
   version = "0.0.0",
-  api_version = 1L,
+  api_version = NEURALIGN_ALIGNER_API_VERSION,
   prepare_fn = NULL
 )
 }
@@ -36,13 +36,13 @@ a list with a \code{transforms} element.}
 \item{version}{Version string for the method implementation.}
 
 \item{api_version}{Integer declaring which neuralign aligner API version
-this method implements. The default remains API v1 for source
-compatibility; providers opt into lifecycle contexts with \code{2L}.}
+this method implements. The only accepted value is
+\code{NEURALIGN_ALIGNER_API_VERSION}.}
 
-\item{prepare_fn}{Optional API-v2 preflight function. It receives the full
+\item{prepare_fn}{Optional provider preflight function. It receives the full
 \code{data}, unresolved \code{reference}, normalized
 \code{resampling_plan}, and method-specific \code{...} once, before any
-fit callback. Its return value is passed to API-v2 fit callbacks as
+fit callback. Its return value is passed to fit callbacks as
 \code{provider_plan}.}
 }
 \value{
@@ -56,10 +56,13 @@ unified interface.
 \details{
 The \code{fit_fn} must have the following signature:
 \preformatted{
-fit_fn <- function(data, reference, train_idx = NULL, ...) {
+fit_fn <- function(data, reference, train_idx = NULL,
+                   fit_context, provider_plan, ...) {
   # data: AlignmentData object
   # reference: subject_id, matrix, or "consensus"
   # train_idx: indices of subjects to use for fitting (for CV)
+  # fit_context: exact subjects and observations assigned to this fit
+  # provider_plan: result returned by prepare_fn, or NULL
   # ...: method-specific parameters
 
   list(
@@ -96,7 +99,8 @@ if (is_aligner_registered("identity_example")) {
   unregister_aligner("identity_example")
 }
 
-identity_fit <- function(data, reference, train_idx = NULL, ...) {
+identity_fit <- function(data, reference, train_idx = NULL,
+                         fit_context, provider_plan, ...) {
   transforms <- lapply(data@subjects, function(s) {
     diag(nrow(get_subject_data(data, s)))
   })
@@ -128,7 +132,7 @@ unregister_aligner("identity_example")
 
 }
 \seealso{
-Other registry: 
+Other registry:
 \code{\link{aligner_capabilities}()},
 \code{\link{available_aligners}()},
 \code{\link{get_aligner}()},

@@ -32,7 +32,7 @@ AlignmentResult(model = get_model(res), aligned = get_aligned(res))
 
 }
 \seealso{
-Other alignment_result: 
+Other alignment_result:
 \code{\link{AlignmentResult-class}},
 \code{\link{get_aligned}()},
 \code{\link{get_cv_info}()},

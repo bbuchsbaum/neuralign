@@ -56,7 +56,7 @@ cv_kfold <- create_cv_folds(data, method = "kfold", k = 2)
 
 }
 \seealso{
-Other cross_validation: 
+Other cross_validation:
 \code{\link{create_obs_folds}()}
 }
 \concept{cross_validation}

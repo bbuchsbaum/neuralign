@@ -323,10 +323,6 @@
   aligner$resampling_plan <- resampling_plan
   aligner$provider_plan <- NULL
 
-  if (!identical(as.integer(aligner$api_version %||% 1L), 2L)) {
-    return(aligner)
-  }
-
   if (!is.null(aligner$prepare_fn)) {
     args <- c(list(
       data = data,
@@ -376,13 +372,11 @@
     train_idx = train_idx
   ), list(...))
 
-  if (identical(as.integer(aligner$api_version %||% 1L), 2L)) {
-    context <- .provider_fit_context(
-      aligner, fit_role, fold_id, subject_id = subject_id
-    )
-    args$fit_context <- .copy_provider_value(context)
-    args$provider_plan <- .copy_provider_value(aligner$provider_plan)
-  }
+  context <- .provider_fit_context(
+    aligner, fit_role, fold_id, subject_id = subject_id
+  )
+  args$fit_context <- .copy_provider_value(context)
+  args$provider_plan <- .copy_provider_value(aligner$provider_plan)
 
   do.call(aligner$fit_fn, args)
 }

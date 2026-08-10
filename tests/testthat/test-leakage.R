@@ -140,7 +140,7 @@ test_that("assess_leakage_risk checks method CV support", {
   # Register a method that doesn't support CV
   register_aligner(
     name = "no_cv_method",
-    fit_fn = function(data, reference, ...) {
+    fit_fn = function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
       list(transforms = list(), reference_data = NULL)
     },
     capabilities = list(supports_cv = FALSE, returns = "operator"),

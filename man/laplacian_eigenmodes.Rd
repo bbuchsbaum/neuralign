@@ -49,7 +49,7 @@ Z <- laplacian_eigenmodes(A, k = 2)
 dim(Z)
 }
 \seealso{
-Other guidance: 
+Other guidance:
 \code{\link{get_guidance}()},
 \code{\link{guidance_channel}()},
 \code{\link{intrinsic_geometry}},

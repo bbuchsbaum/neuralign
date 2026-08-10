@@ -24,6 +24,7 @@
 
 # R CMD check artifacts
 ^.*\.Rcheck$
+^\.rcmdcheck_result\.rds$
 
 # Build artifacts
 ^.*\.tar\.gz$

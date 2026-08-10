@@ -3,7 +3,7 @@ test_that("embedding providers must return complete, conformable named matrices"
   method <- "embedding_validation_shapes"
   on.exit(unregister_aligner(method), add = TRUE)
 
-  fit_embedding <- function(data, reference, train_idx = NULL, ...) {
+  fit_embedding <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     aligned <- setNames(
       lapply(data@subjects, function(subject) matrix(seq_len(6L), 2L, 3L)),
       data@subjects
@@ -73,7 +73,7 @@ test_that("embedding providers must return numeric finite values", {
   method <- "embedding_validation_values"
   on.exit(unregister_aligner(method), add = TRUE)
 
-  fit_embedding <- function(data, reference, train_idx = NULL, ...) {
+  fit_embedding <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     aligned <- setNames(
       lapply(data@subjects, function(subject) matrix(seq_len(6L), 2L, 3L)),
       data@subjects

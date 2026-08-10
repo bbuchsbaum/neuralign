@@ -8,7 +8,7 @@ Serialize alignment models, results, studies, and retained resample sets for
 storage and later reuse.
 }
 \seealso{
-Other serialization: 
+Other serialization:
 \code{\link{export_alignment}()},
 \code{\link{import_alignment}()},
 \code{\link{load_alignment}()},

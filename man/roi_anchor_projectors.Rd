@@ -41,7 +41,7 @@ proj <- roi_anchor_projectors(roi_by_subject, anchor_policy = "intersection", sp
 lapply(proj, dim)
 }
 \seealso{
-Other guidance: 
+Other guidance:
 \code{\link{get_guidance}()},
 \code{\link{guidance_channel}()},
 \code{\link{intrinsic_geometry}},

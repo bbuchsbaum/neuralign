@@ -29,6 +29,8 @@ NULL
                       u = 0.5,
                       lambda = 1e-2,
                       target_space = c("latent", "reference"),
+                      fit_context = NULL,
+                      provider_plan = NULL,
                       ...) {
   .ma_require_manifoldalign("GPCA")
 

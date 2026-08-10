@@ -28,6 +28,8 @@ NULL
                     epsilon = 0.01,
                     max_iter = 100,
                     tol = 1e-6,
+                    fit_context = NULL,
+                    provider_plan = NULL,
                     ...) {
   dots <- list(...)
 
@@ -276,6 +278,8 @@ NULL
                       epsilon = 0.01,
                       max_iter = 100,
                       tol = 1e-6,
+                      fit_context = NULL,
+                      provider_plan = NULL,
                       ...) {
   dots <- list(...)
 

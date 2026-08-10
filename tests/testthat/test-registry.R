@@ -3,7 +3,7 @@ test_that("register_aligner works", {
   neuralign:::.clear_registry()
 
   # Register a test aligner
-  test_fit <- function(data, reference, train_idx = NULL, ...) {
+  test_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     n <- length(data@subjects)
     transforms <- lapply(data@subjects, function(s) diag(10))
     names(transforms) <- data@subjects
@@ -31,7 +31,7 @@ test_that("available_aligners returns registered methods", {
   neuralign:::.clear_registry()
 
   # Register some aligners
-  dummy_fit <- function(data, reference, train_idx = NULL, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     list(transforms = list(), reference_data = NULL, space_from = NULL, space_to = NULL)
   }
 
@@ -52,7 +52,7 @@ test_that("available_aligners returns registered methods", {
 test_that("list_aligners is an alias for available_aligners", {
   neuralign:::.clear_registry()
 
-  dummy_fit <- function(data, reference, train_idx = NULL, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     list(transforms = list(), reference_data = NULL, space_from = NULL, space_to = NULL)
   }
 
@@ -65,7 +65,7 @@ test_that("list_aligners is an alias for available_aligners", {
 test_that("get_aligner returns aligner info", {
   neuralign:::.clear_registry()
 
-  dummy_fit <- function(data, reference, train_idx = NULL, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     list(transforms = list(), reference_data = NULL, space_from = NULL, space_to = NULL)
   }
 
@@ -88,7 +88,7 @@ test_that("get_aligner returns aligner info", {
 test_that("aligner_capabilities returns capability info", {
   neuralign:::.clear_registry()
 
-  dummy_fit <- function(data, reference, train_idx = NULL, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     list(transforms = list(), reference_data = NULL, space_from = NULL, space_to = NULL)
   }
 
@@ -112,7 +112,7 @@ test_that("aligner_capabilities returns capability info", {
 test_that("unregister_aligner removes aligner", {
   neuralign:::.clear_registry()
 
-  dummy_fit <- function(data, reference, train_idx = NULL, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     list(transforms = list(), reference_data = NULL, space_from = NULL, space_to = NULL)
   }
 
@@ -131,7 +131,7 @@ test_that("unregister_aligner removes aligner", {
 test_that("default capabilities are set correctly", {
   neuralign:::.clear_registry()
 
-  dummy_fit <- function(data, reference, train_idx = NULL, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     list(transforms = list(), reference_data = NULL, space_from = NULL, space_to = NULL)
   }
 
@@ -151,7 +151,7 @@ test_that("default capabilities are set correctly", {
 test_that("register_aligner enforces supports_new_data=FALSE for embedding-returning aligners", {
   neuralign:::.clear_registry()
 
-  dummy_fit <- function(data, reference, train_idx = NULL, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     k <- 3
     n_obs <- ncol(get_subject_data(data, data@subjects[[1L]]))
     aligned <- lapply(data@subjects, function(s) matrix(0, k, n_obs))
@@ -179,7 +179,7 @@ test_that("register_aligner enforces supports_new_data=FALSE for embedding-retur
 test_that("register_aligner validates guidance capability fields", {
   neuralign:::.clear_registry()
 
-  dummy_fit <- function(data, reference, train_idx = NULL, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     transforms <- setNames(lapply(data@subjects, function(s) diag(nrow(get_subject_data(data, s)))), data@subjects)
     list(transforms = transforms, reference_data = NULL, space_from = NULL, space_to = NULL)
   }
@@ -205,7 +205,7 @@ test_that("register_aligner validates guidance capability fields", {
 # ---------- New tests appended below ----------
 
 test_that("register_aligner errors when name is not a single character string", {
-  dummy_fit <- function(data, reference, train_idx = NULL, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     list(transforms = list(), reference_data = NULL, space_from = NULL, space_to = NULL)
   }
 
@@ -231,7 +231,7 @@ test_that("register_aligner errors when fit_fn is not a function", {
 })
 
 test_that("register_aligner errors when apply_fn is not a function or NULL", {
-  dummy_fit <- function(data, reference, train_idx = NULL, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     list(transforms = list(), reference_data = NULL, space_from = NULL, space_to = NULL)
   }
 
@@ -242,7 +242,7 @@ test_that("register_aligner errors when apply_fn is not a function or NULL", {
 })
 
 test_that("register_aligner errors when capabilities$returns is not a string", {
-  dummy_fit <- function(data, reference, train_idx = NULL, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     list(transforms = list(), reference_data = NULL, space_from = NULL, space_to = NULL)
   }
 
@@ -257,7 +257,7 @@ test_that("register_aligner errors when capabilities$returns is not a string", {
 })
 
 test_that("register_aligner errors when capabilities$returns is an invalid string", {
-  dummy_fit <- function(data, reference, train_idx = NULL, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     list(transforms = list(), reference_data = NULL, space_from = NULL, space_to = NULL)
   }
 
@@ -322,7 +322,7 @@ test_that(".validate_aligner_requirements errors for unknown aligner", {
 test_that(".validate_aligner_requirements errors when needs_geometry but data has no geometry", {
   neuralign:::.clear_registry()
 
-  dummy_fit <- function(data, reference, train_idx = NULL, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     list(transforms = list(), reference_data = NULL, space_from = NULL, space_to = NULL)
   }
 
@@ -348,7 +348,7 @@ test_that(".validate_aligner_requirements errors when needs_geometry but data ha
 test_that(".validate_aligner_requirements errors when needs_design but data has no design", {
   neuralign:::.clear_registry()
 
-  dummy_fit <- function(data, reference, train_idx = NULL, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     list(transforms = list(), reference_data = NULL, space_from = NULL, space_to = NULL)
   }
 
@@ -375,7 +375,7 @@ test_that(".validate_aligner_requirements errors when needs_design but data has 
 # ---------- validate_aligner_contract() tests ----------
 
 test_that("validate_aligner_contract passes for valid aligner", {
-  fit_fn <- function(data, reference, train_idx = NULL, ...) {
+  fit_fn <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     list(transforms = list(), reference_data = NULL)
   }
   apply_fn <- function(fit_result, new_data, ...) {
@@ -403,15 +403,18 @@ test_that("validate_aligner_contract errors when fit_fn lacks required formals",
   )
 })
 
-test_that("validate_aligner_contract accepts fit_fn with ... in lieu of formals", {
+test_that("validate_aligner_contract requires explicit lifecycle formals", {
   fit_dots <- function(...) {
     list(transforms = list())
   }
-  expect_true(validate_aligner_contract("dots", fit_dots))
+  expect_error(
+    validate_aligner_contract("dots", fit_dots),
+    "fit_fn missing required formals: data, reference, train_idx, fit_context, provider_plan"
+  )
 })
 
 test_that("validate_aligner_contract errors when apply_fn lacks required formals", {
-  good_fit <- function(data, reference, ...) {}
+  good_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {}
   bad_apply <- function(x) {}
 
   expect_error(
@@ -421,7 +424,7 @@ test_that("validate_aligner_contract errors when apply_fn lacks required formals
 })
 
 test_that("validate_aligner_contract errors for invalid capabilities$returns", {
-  good_fit <- function(data, reference, ...) {}
+  good_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {}
 
   expect_error(
     validate_aligner_contract("bad", good_fit,
@@ -431,32 +434,36 @@ test_that("validate_aligner_contract errors for invalid capabilities$returns", {
 })
 
 test_that("validate_aligner_contract errors when capabilities is not a list", {
-  good_fit <- function(data, reference, ...) {}
+  good_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {}
   expect_error(
     validate_aligner_contract("bad", good_fit, capabilities = "not_list"),
     "capabilities must be a list"
   )
 })
 
-test_that("validate_aligner_contract errors for future api_version", {
-  good_fit <- function(data, reference, ...) {}
+test_that("validate_aligner_contract rejects every non-current api_version", {
+  good_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {}
   expect_error(
     validate_aligner_contract("future", good_fit, api_version = 999L),
-    "supports up to"
+    "supports only API 2"
+  )
+  expect_error(
+    validate_aligner_contract("legacy", good_fit, api_version = 1L),
+    "supports only API 2"
   )
 })
 
-test_that("register_aligner stores api_version in registry entry", {
+test_that("register_aligner stores the sole supported API version", {
   neuralign:::.clear_registry()
 
-  dummy_fit <- function(data, reference, train_idx = NULL, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     list(transforms = list(), reference_data = NULL)
   }
 
-  register_aligner("api_test", dummy_fit, api_version = 1L)
+  register_aligner("api_test", dummy_fit)
 
   entry <- get_aligner("api_test")
-  expect_equal(entry$api_version, 1L)
+  expect_identical(entry$api_version, NEURALIGN_ALIGNER_API_VERSION)
   unregister_aligner("api_test")
 })
 
@@ -465,11 +472,38 @@ test_that("NEURALIGN_ALIGNER_API_VERSION is exported and integer", {
   expect_equal(NEURALIGN_ALIGNER_API_VERSION, 2L)
 })
 
+test_that("all built-in aligners implement the sole provider API explicitly", {
+  register_fns <- lapply(
+    c(
+      ".register_procrustes", ".register_procrustes_graph",
+      ".register_kprocrustes", ".register_gw", ".register_fpgw",
+      ".register_kema", ".register_coupled_diag", ".register_gpca",
+      ".register_grasp", ".register_lowrank"
+    ),
+    getFromNamespace,
+    ns = "neuralign"
+  )
+
+  with_temp_registry(register_fns = register_fns, code = {
+    methods <- available_aligners()
+    expect_length(methods, 11L)
+    required <- c(
+      "data", "reference", "train_idx", "fit_context", "provider_plan"
+    )
+    for (method in methods) {
+      entry <- get_aligner(method)
+      expect_identical(entry$api_version, NEURALIGN_ALIGNER_API_VERSION,
+                       info = method)
+      expect_true(all(required %in% names(formals(entry$fit_fn))), info = method)
+    }
+  })
+})
+
 
 # ---------- validate_aligner_contract capability field validation ----------
 
 test_that("validate_aligner_contract errors on non-character transform_type", {
-  good_fit <- function(data, reference, ...) {}
+  good_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {}
   expect_error(
     validate_aligner_contract("bad_tt", good_fit,
       capabilities = list(transform_type = 42)),
@@ -478,7 +512,7 @@ test_that("validate_aligner_contract errors on non-character transform_type", {
 })
 
 test_that("validate_aligner_contract errors on non-character cv_axes", {
-  good_fit <- function(data, reference, ...) {}
+  good_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {}
   expect_error(
     validate_aligner_contract("bad_cva", good_fit,
       capabilities = list(cv_axes = 123)),
@@ -487,7 +521,7 @@ test_that("validate_aligner_contract errors on non-character cv_axes", {
 })
 
 test_that("validate_aligner_contract errors on non-character reference_types", {
-  good_fit <- function(data, reference, ...) {}
+  good_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {}
   expect_error(
     validate_aligner_contract("bad_ref", good_fit,
       capabilities = list(reference_types = TRUE)),
@@ -496,7 +530,7 @@ test_that("validate_aligner_contract errors on non-character reference_types", {
 })
 
 test_that("validate_aligner_contract errors on invalid returns value", {
-  good_fit <- function(data, reference, ...) {}
+  good_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {}
   expect_error(
     validate_aligner_contract("bad_ret", good_fit,
       capabilities = list(returns = "bogus")),
@@ -505,7 +539,7 @@ test_that("validate_aligner_contract errors on invalid returns value", {
 })
 
 test_that("validate_aligner_contract passes with valid embedding returns", {
-  good_fit <- function(data, reference, ...) {}
+  good_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {}
   expect_invisible(
     validate_aligner_contract("emb_ok", good_fit,
       capabilities = list(returns = "embedding"))
@@ -518,7 +552,7 @@ test_that("validate_aligner_contract passes with valid embedding returns", {
 test_that(".validate_aligner_requirements errors when guidance is needed but absent", {
   neuralign:::.clear_registry()
 
-  dummy_fit <- function(data, reference, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     list(transforms = list(), reference_data = NULL)
   }
   register_aligner("needs_guide", dummy_fit,
@@ -535,7 +569,7 @@ test_that(".validate_aligner_requirements errors when guidance is needed but abs
 test_that(".validate_aligner_requirements errors when specific guidance types missing", {
   neuralign:::.clear_registry()
 
-  dummy_fit <- function(data, reference, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     list(transforms = list(), reference_data = NULL)
   }
   register_aligner("needs_type", dummy_fit,
@@ -559,7 +593,7 @@ test_that(".validate_aligner_requirements errors when specific guidance types mi
 test_that(".validate_aligner_requirements passes with correct guidance", {
   neuralign:::.clear_registry()
 
-  dummy_fit <- function(data, reference, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     list(transforms = list(), reference_data = NULL)
   }
   register_aligner("guide_ok", dummy_fit,

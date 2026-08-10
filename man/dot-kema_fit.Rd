@@ -15,6 +15,8 @@
   solver = "exact",
   lambda = 0.01,
   target_space = "latent",
+  fit_context = NULL,
+  provider_plan = NULL,
   ...
 )
 }

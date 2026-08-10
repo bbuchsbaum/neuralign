@@ -345,7 +345,8 @@ External packages can register their methods. See `?register_aligner` for detail
 # Minimal example
 register_aligner(
   name = "my_method",
-  fit_fn = function(data, reference, train_idx = NULL, ...) {
+  fit_fn = function(data, reference, train_idx = NULL,
+                    fit_context, provider_plan, ...) {
     # ... compute transforms ...
     list(
       transforms = named_list_of_matrices,

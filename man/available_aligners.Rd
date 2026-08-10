@@ -32,7 +32,7 @@ available_aligners(details = TRUE)
 
 }
 \seealso{
-Other registry: 
+Other registry:
 \code{\link{aligner_capabilities}()},
 \code{\link{get_aligner}()},
 \code{\link{is_aligner_registered}()},

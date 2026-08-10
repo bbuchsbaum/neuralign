@@ -1,9 +1,10 @@
-# neuralign 0.1.0
+# neuralign 0.2.0
 
 ## Core contracts
 
-- Added aligner API v2 with a one-shot provider preflight hook, detached exact
-  subject/observation fit contexts, and explicit API-v1 callback compatibility.
+- Made aligner API v2 the sole provider contract, with a one-shot provider
+  preflight hook and detached exact subject/observation fit contexts. API-v1
+  registrations now fail during contract validation.
 - Made observation-axis train/test overlap an engine-level error before any
   provider callback, and materialized generated subject folds once for both
   preflight and execution.

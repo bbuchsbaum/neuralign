@@ -29,7 +29,7 @@ validate_cv_setup(folds, reference = "medoid")
 
 }
 \seealso{
-Other leakage: 
+Other leakage:
 \code{\link{assess_leakage_risk}()},
 \code{\link{check_obs_leakage}()},
 \code{\link{leakage}}

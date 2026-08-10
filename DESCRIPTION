@@ -1,6 +1,6 @@
 Package: neuralign
 Title: Unified Neural Alignment Framework
-Version: 0.1.0
+Version: 0.2.0
 Author: Bradley Buchsbaum [aut, cre] (<https://orcid.org/0000-0002-8268-1465>)
 Maintainer: Bradley Buchsbaum <brad.buchsbaum@gmail.com>
 Authors@R:

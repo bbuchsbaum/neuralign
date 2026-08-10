@@ -30,7 +30,7 @@ inherits(mdl2, "AlignmentModel")
 
 }
 \seealso{
-Other serialization: 
+Other serialization:
 \code{\link{export_alignment}()},
 \code{\link{load_alignment}()},
 \code{\link{save_alignment}()},

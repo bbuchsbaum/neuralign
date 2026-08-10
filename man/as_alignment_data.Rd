@@ -28,7 +28,7 @@ stopifnot(inherits(adat, "AlignmentData"))
 
 }
 \seealso{
-Other alignment_data: 
+Other alignment_data:
 \code{\link{AlignmentData}},
 \code{\link{AlignmentData-class}},
 \code{\link{get_data_list}()},

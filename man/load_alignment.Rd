@@ -36,7 +36,7 @@ inherits(mdl, "AlignmentModel") || inherits(mdl, "AlignmentResult")
 
 }
 \seealso{
-Other serialization: 
+Other serialization:
 \code{\link{export_alignment}()},
 \code{\link{import_alignment}()},
 \code{\link{save_alignment}()},

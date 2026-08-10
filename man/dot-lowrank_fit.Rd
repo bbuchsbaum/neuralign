@@ -13,6 +13,8 @@
   lambda_oos = 0.01,
   simfun = adjoin::binary_label_matrix,
   target_space = c("latent", "reference"),
+  fit_context = NULL,
+  provider_plan = NULL,
   ...
 )
 }

@@ -48,7 +48,7 @@ adat <- AlignmentData(data_list)
 
 }
 \seealso{
-Other alignment_data: 
+Other alignment_data:
 \code{\link{AlignmentData-class}},
 \code{\link{as_alignment_data}()},
 \code{\link{get_data_list}()},

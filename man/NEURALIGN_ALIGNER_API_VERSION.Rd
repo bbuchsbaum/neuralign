@@ -11,9 +11,9 @@ An object of class \code{integer} of length 1.
 NEURALIGN_ALIGNER_API_VERSION
 }
 \description{
-The current version of the aligner registration API. Third-party packages
-should declare which API version they implement. This allows detection of
-incompatible changes as the interface evolves.
+The sole supported version of the aligner registration API. Third-party
+packages should declare this version so incompatible provider contracts fail
+during registration rather than during fitting.
 }
 \examples{
 NEURALIGN_ALIGNER_API_VERSION

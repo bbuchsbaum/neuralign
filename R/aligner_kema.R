@@ -39,6 +39,8 @@ NULL
                       solver = "exact",
                       lambda = 1e-2,
                       target_space = "latent",
+                      fit_context = NULL,
+                      provider_plan = NULL,
                       ...) {
   .ma_require_manifoldalign("KEMA")
 

@@ -43,7 +43,7 @@ unlink(path)
 
 }
 \seealso{
-Other serialization: 
+Other serialization:
 \code{\link{export_alignment}()},
 \code{\link{import_alignment}()},
 \code{\link{load_alignment}()},

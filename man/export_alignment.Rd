@@ -34,7 +34,7 @@ unlink(paste0(base, "_transforms"), recursive = TRUE)
 
 }
 \seealso{
-Other serialization: 
+Other serialization:
 \code{\link{import_alignment}()},
 \code{\link{load_alignment}()},
 \code{\link{save_alignment}()},

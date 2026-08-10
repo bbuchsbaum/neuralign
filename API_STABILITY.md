@@ -26,8 +26,10 @@ capabilities.
 
 External method providers register through `register_aligner()` and declare an
 `api_version`. Compatibility is governed by
-`NEURALIGN_ALIGNER_API_VERSION`, independently of the package version. A
-provider that declares a newer API fails validation.
+`NEURALIGN_ALIGNER_API_VERSION`, independently of the package version.
+neuralign supports one provider API at a time: a provider whose declaration
+does not equal the current version fails during registration. The 0.2.0
+release uses API 2; API-1 compatibility is not retained.
 
 ## Provisional surfaces
 

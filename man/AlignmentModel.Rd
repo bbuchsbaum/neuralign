@@ -57,7 +57,7 @@ model_subjects(mdl)
 
 }
 \seealso{
-Other alignment_model: 
+Other alignment_model:
 \code{\link{AlignmentModel-class}},
 \code{\link{add_transform}()},
 \code{\link{get_reference}()},

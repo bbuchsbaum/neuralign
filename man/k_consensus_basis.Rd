@@ -49,7 +49,7 @@ cons <- k_consensus_basis(U_list, K, max_iter = 5)
 dim(cons$U)
 }
 \seealso{
-Other k_procrustes: 
+Other k_procrustes:
 \code{\link{k_align_bases}()},
 \code{\link{k_kernel_roots}()},
 \code{\link{k_orthonormalize}()},

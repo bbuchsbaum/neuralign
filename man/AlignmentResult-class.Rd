@@ -30,7 +30,7 @@ fit_alignment(adat, method = "procrustes", reference = "s1", compute_quality = F
 
 }
 \seealso{
-Other alignment_result: 
+Other alignment_result:
 \code{\link{AlignmentResult}},
 \code{\link{get_aligned}()},
 \code{\link{get_cv_info}()},

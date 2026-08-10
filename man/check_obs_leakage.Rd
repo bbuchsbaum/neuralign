@@ -29,7 +29,7 @@ check_obs_leakage(train_obs, test_obs)
 
 }
 \seealso{
-Other leakage: 
+Other leakage:
 \code{\link{assess_leakage_risk}()},
 \code{\link{leakage}},
 \code{\link{validate_cv_setup}()}

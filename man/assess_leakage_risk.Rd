@@ -31,7 +31,7 @@ assess_leakage_risk(res)$overall_risk
 
 }
 \seealso{
-Other leakage: 
+Other leakage:
 \code{\link{check_obs_leakage}()},
 \code{\link{leakage}},
 \code{\link{validate_cv_setup}()}

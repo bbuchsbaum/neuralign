@@ -141,7 +141,8 @@ method, but it illustrates the full registration flow.
 ### Step 1: Write the fit function
 
 ```{r scaling-fit}
-.scaling_fit <- function(data, reference, train_idx = NULL, ...) {
+.scaling_fit <- function(data, reference, train_idx = NULL,
+                         fit_context, provider_plan, ...) {
   # Determine which subjects to train on
   if (!is.null(train_idx)) {
     train_data <- data[train_idx]
@@ -288,7 +289,8 @@ Use `validate_aligner_contract()` to check your functions before registering:
 tryCatch(
   validate_aligner_contract(
     name = "test",
-    fit_fn = function(data, reference, ...) list(),
+    fit_fn = function(data, reference, train_idx = NULL,
+                      fit_context, provider_plan, ...) list(),
     capabilities = list(returns = "invalid_value")
   ),
   error = function(e) message("Validation failed: ", e$message)
@@ -311,7 +313,8 @@ becomes available as soon as the package is loaded:
       capabilities = .my_method_caps,
       package = pkgname,
       description = "My alignment method",
-      version = as.character(utils::packageVersion(pkgname))
+      version = as.character(utils::packageVersion(pkgname)),
+      api_version = 2L
     )
   }
 }
@@ -333,36 +336,38 @@ isn't registered but neuralign knows which package provides it, it will
 attempt to load that package. To add your package to the known-method
 mapping, contact the neuralign maintainers or submit a PR.
 
-## API versioning
+## Provider API contract
 
 neuralign declares `NEURALIGN_ALIGNER_API_VERSION` (currently `r NEURALIGN_ALIGNER_API_VERSION`).
-Registrations that omit `api_version` continue to use API v1: their fit
-callbacks receive exactly the historical arguments. Providers opt into API v2
-explicitly with `api_version = 2L`.
+API 2 is the only supported provider contract. `register_aligner()` defaults to
+the current version for concise interactive registration. External packages
+should declare `api_version = 2L`; any other value fails during registration.
 
 ```{r api-version}
 NEURALIGN_ALIGNER_API_VERSION
 ```
 
-### API v2: preflight and exact fit contexts
+### Preflight and exact fit contexts
 
-API v2 is intended for estimators whose internal cross-fitting, nuisance
+Every fit callback receives the exact context selected by neuralign. This is
+especially important for estimators whose internal cross-fitting, nuisance
 models, or provenance must be bound to neuralign's outer resampling plan. An
 optional `prepare_fn` runs once, after neuralign has normalized and validated
 the complete plan but before any fit callback. Its return value is copied into
-each fit call as `provider_plan`.
+each fit call as `provider_plan`; without a preflight callback, `provider_plan`
+is `NULL`.
 
 ```r
 prepare_fn <- function(data, reference, resampling_plan, ...) {
   # Validate every outer fold and prepare provider-owned immutable metadata.
-  list(provider_contract = "my_provider_v1", plan = resampling_plan)
+  list(provider_contract = "my_provider_plan_v1", plan = resampling_plan)
 }
 
-fit_fn_v2 <- function(data, reference, train_idx = NULL,
-                      fit_context, provider_plan, ...) {
+fit_fn <- function(data, reference, train_idx = NULL,
+                   fit_context, provider_plan, ...) {
   stopifnot(
     identical(fit_context$contract, "neuralign_fit_context_v2"),
-    identical(provider_plan$provider_contract, "my_provider_v1")
+    identical(provider_plan$provider_contract, "my_provider_plan_v1")
   )
   # Fit only the subjects/observations represented by data and train_idx.
   # Return the ordinary aligner result list.
@@ -370,7 +375,7 @@ fit_fn_v2 <- function(data, reference, train_idx = NULL,
 
 register_aligner(
   name = "my_context_aware_method",
-  fit_fn = fit_fn_v2,
+  fit_fn = fit_fn,
   prepare_fn = prepare_fn,
   capabilities = my_capabilities,
   api_version = 2L
@@ -409,9 +414,9 @@ caps$returns_invertible
 
 To register a custom alignment method:
 
-1. Write a `fit_fn(data, reference, train_idx, ...)` that returns a list with
-   `transforms`, `reference_data`, and optionally `space_from`, `space_to`,
-   `method_state`.
+1. Write a `fit_fn(data, reference, train_idx, fit_context, provider_plan, ...)`
+   that returns a list with `transforms`, `reference_data`, and optionally
+   `space_from`, `space_to`, `method_state`.
 2. Optionally write an `apply_fn(fit_result, new_data, ...)` for efficient
    application to new subjects.
 3. Declare capabilities (CV support, data requirements, transform properties).

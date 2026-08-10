@@ -40,7 +40,7 @@ Y <- X + 0.01 * matrix(rnorm(15), 3, 5)
 procrustes_distance(X, Y)
 }
 \seealso{
-Other procrustes: 
+Other procrustes:
 \code{\link{procrustes_rotation}()}
 }
 \concept{procrustes}

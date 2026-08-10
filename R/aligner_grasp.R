@@ -32,6 +32,8 @@ NULL
                        sigma = 0.73,
                        lambda = 0.1,
                        solver = "linear",
+                       fit_context = NULL,
+                       provider_plan = NULL,
                        ...) {
   .ma_require_manifoldalign("GRASP")
 

@@ -10,7 +10,7 @@ parcellation definitions. These projectors can be used as anatomy/parcel
 coordinates when native feature counts differ).
 }
 \seealso{
-Other guidance: 
+Other guidance:
 \code{\link{get_guidance}()},
 \code{\link{guidance_channel}()},
 \code{\link{intrinsic_geometry}},

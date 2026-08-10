@@ -35,7 +35,7 @@ dim(s1_aligned)
 
 }
 \seealso{
-Other alignment_result: 
+Other alignment_result:
 \code{\link{AlignmentResult}},
 \code{\link{AlignmentResult-class}},
 \code{\link{get_cv_info}()},

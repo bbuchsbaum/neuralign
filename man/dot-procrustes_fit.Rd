@@ -14,6 +14,8 @@
   tol = 1e-06,
   max_iter = 100,
   allow_reflection = NULL,
+  fit_context = NULL,
+  provider_plan = NULL,
   ...
 )
 }

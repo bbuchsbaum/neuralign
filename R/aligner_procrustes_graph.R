@@ -176,6 +176,8 @@ NULL
                                   weight = c("overlap", "uniform"),
                                   reflection = FALSE,
                                   allow_reflection = NULL,
+                                  fit_context = NULL,
+                                  provider_plan = NULL,
                                   ...) {
   if (!is.null(allow_reflection)) {
     if (!missing(reflection) && isTRUE(reflection) != isTRUE(allow_reflection)) {

@@ -35,7 +35,7 @@ adat2 <- set_guidance(adat, g)
 names(get_guidance(adat2, subject = "s1"))
 }
 \seealso{
-Other guidance: 
+Other guidance:
 \code{\link{get_guidance}()},
 \code{\link{guidance_channel}()},
 \code{\link{intrinsic_geometry}},

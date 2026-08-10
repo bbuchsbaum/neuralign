@@ -71,7 +71,7 @@ max(abs(fit$Q - Q_true)) < 1e-6
 
 }
 \seealso{
-Other procrustes: 
+Other procrustes:
 \code{\link{procrustes_distance}()}
 }
 \concept{procrustes}

@@ -46,7 +46,7 @@ P <- roi_anchor_projector(roi, normalize = TRUE, sparse = FALSE)
 dim(P)
 }
 \seealso{
-Other guidance: 
+Other guidance:
 \code{\link{get_guidance}()},
 \code{\link{guidance_channel}()},
 \code{\link{intrinsic_geometry}},

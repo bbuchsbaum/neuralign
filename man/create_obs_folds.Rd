@@ -53,7 +53,7 @@ names(obs_spec$folds)
 
 }
 \seealso{
-Other cross_validation: 
+Other cross_validation:
 \code{\link{create_cv_folds}()}
 }
 \concept{cross_validation}

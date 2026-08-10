@@ -496,7 +496,7 @@ test_that("compose_alignment errors when model1 has non-operator returns", {
 
   # Register a method that claims it returns something other than "operator"
   # We can't register "embedding" (rejected), so modify directly after registration
-  dummy_fit <- function(data, reference, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     list(transforms = list(), reference_data = NULL)
   }
   register_aligner("op_method", dummy_fit)
@@ -529,7 +529,7 @@ test_that("compose_alignment errors when model1 has non-operator returns", {
 test_that("compose_alignment errors when model2 has non-operator returns", {
   neuralign:::.clear_registry()
 
-  dummy_fit <- function(data, reference, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     list(transforms = list(), reference_data = NULL)
   }
   register_aligner("op_method2", dummy_fit)

@@ -9,7 +9,7 @@ alignment workflows. Leakage occurs when test data influences the
 alignment transformation, leading to overly optimistic results.
 }
 \seealso{
-Other leakage: 
+Other leakage:
 \code{\link{assess_leakage_risk}()},
 \code{\link{check_obs_leakage}()},
 \code{\link{validate_cv_setup}()}

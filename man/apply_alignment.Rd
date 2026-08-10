@@ -49,7 +49,7 @@ new_result <- apply_alignment(result, new_data)
 \seealso{
 \code{\link{fit_alignment}}, \code{\link{AlignmentModel}}
 
-Other alignment_workflow: 
+Other alignment_workflow:
 \code{\link{fit_alignment}()}
 }
 \concept{alignment_workflow}

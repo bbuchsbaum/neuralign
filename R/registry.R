@@ -34,9 +34,9 @@ NULL
 
 #' Aligner API Version
 #'
-#' The current version of the aligner registration API. Third-party packages
-#' should declare which API version they implement. This allows detection of
-#' incompatible changes as the interface evolves.
+#' The sole supported version of the aligner registration API. Third-party
+#' packages should declare this version so incompatible provider contracts fail
+#' during registration rather than during fitting.
 #'
 #' @examples
 #' NEURALIGN_ALIGNER_API_VERSION
@@ -55,27 +55,28 @@ NEURALIGN_ALIGNER_API_VERSION <- 2L
 #' @param name Method name.
 #' @param fit_fn The fit function to validate.
 #' @param apply_fn Optional apply function to validate.
-#' @param prepare_fn Optional API-v2 preflight function to validate.
+#' @param prepare_fn Optional provider preflight function to validate.
 #' @param capabilities Capabilities list to validate.
-#' @param api_version API version the aligner declares. Registrations that omit
-#'   this value use the backward-compatible API-v1 callback contract.
+#' @param api_version API version the aligner declares. neuralign accepts only
+#'   \code{NEURALIGN_ALIGNER_API_VERSION}.
 #'
 #' @return TRUE invisibly if valid; otherwise throws an error.
 #'
 #' @details
-#' The \code{fit_fn} must accept at minimum: \code{data}, \code{reference},
-#' \code{train_idx}, and \code{...}.
-#' For API v2, it must also accept \code{fit_context} and
-#' \code{provider_plan}, either explicitly or through \code{...}. If supplied,
-#' \code{prepare_fn} must accept \code{data}, \code{reference}, and
-#' \code{resampling_plan}, either explicitly or through \code{...}.
+#' The \code{fit_fn} must explicitly accept \code{data}, \code{reference},
+#' \code{train_idx}, \code{fit_context}, and \code{provider_plan}. Requiring
+#' lifecycle arguments as named formals prevents them from leaking through
+#' \code{...} into an estimator backend. If supplied, \code{prepare_fn} must
+#' explicitly accept \code{data}, \code{reference}, and
+#' \code{resampling_plan}.
 #'
 #' If provided, \code{apply_fn} must accept at minimum: \code{fit_result},
 #' \code{new_data}, and \code{...}. It should return a list with a
 #' \code{transforms} element (named list of operators).
 #'
 #' @examples
-#' dummy_fit <- function(data, reference, ...) {
+#' dummy_fit <- function(data, reference, train_idx = NULL,
+#'                       fit_context, provider_plan, ...) {
 #'   list(
 #'     transforms = list(),
 #'     reference_data = NULL,
@@ -95,20 +96,19 @@ validate_aligner_contract <- function(name,
                                       fit_fn,
                                       apply_fn = NULL,
                                       capabilities = list(),
-                                      api_version = 1L,
+                                      api_version = NEURALIGN_ALIGNER_API_VERSION,
                                       prepare_fn = NULL) {
   errors <- character(0)
 
   # Check API version compatibility
   api_version_valid <- is.numeric(api_version) && length(api_version) == 1L &&
     !is.na(api_version) && is.finite(api_version) &&
-    api_version == as.integer(api_version) && api_version >= 1L
-  api_v2 <- isTRUE(api_version_valid) && identical(as.integer(api_version), 2L)
+    api_version == as.integer(api_version)
   if (!api_version_valid) {
-    errors <- c(errors, "api_version must be a positive integer")
-  } else if (api_version > NEURALIGN_ALIGNER_API_VERSION) {
+    errors <- c(errors, "api_version must be one integer")
+  } else if (!identical(as.integer(api_version), NEURALIGN_ALIGNER_API_VERSION)) {
     errors <- c(errors, sprintf(
-      "Aligner declares api_version=%d but neuralign supports up to %d",
+      "Aligner declares api_version=%d but neuralign supports only API %d",
       api_version, NEURALIGN_ALIGNER_API_VERSION
     ))
   }
@@ -118,37 +118,27 @@ validate_aligner_contract <- function(name,
     errors <- c(errors, "fit_fn must be a function")
   } else {
     fit_args <- names(formals(fit_fn))
-    required_fit <- c("data", "reference")
+    required_fit <- c(
+      "data", "reference", "train_idx", "fit_context", "provider_plan"
+    )
     missing_fit <- setdiff(required_fit, fit_args)
-    if (length(missing_fit) > 0 && !"..." %in% fit_args) {
+    if (length(missing_fit) > 0L) {
       errors <- c(errors, sprintf(
         "fit_fn missing required formals: %s",
         paste(missing_fit, collapse = ", ")
       ))
     }
-    if (api_v2) {
-      missing_v2_fit <- setdiff(c("fit_context", "provider_plan"), fit_args)
-      if (length(missing_v2_fit) > 0L && !"..." %in% fit_args) {
-        errors <- c(errors, sprintf(
-          "fit_fn missing API v2 formals: %s",
-          paste(missing_v2_fit, collapse = ", ")
-        ))
-      }
-    }
   }
 
-  # Validate prepare_fn signature if provided. Preflight is an API-v2 feature.
+  # Validate prepare_fn signature if provided.
   if (!is.null(prepare_fn)) {
-    if (!api_v2) {
-      errors <- c(errors, "prepare_fn requires api_version=2")
-    }
     if (!is.function(prepare_fn)) {
       errors <- c(errors, "prepare_fn must be a function or NULL")
     } else {
       prepare_args <- names(formals(prepare_fn))
       required_prepare <- c("data", "reference", "resampling_plan")
       missing_prepare <- setdiff(required_prepare, prepare_args)
-      if (length(missing_prepare) > 0L && !"..." %in% prepare_args) {
+      if (length(missing_prepare) > 0L) {
         errors <- c(errors, sprintf(
           "prepare_fn missing required formals: %s",
           paste(missing_prepare, collapse = ", ")
@@ -238,26 +228,29 @@ validate_aligner_contract <- function(name,
 #'   \code{fit_result} (list with transforms, reference_data, space_from,
 #'   space_to, method_state) and \code{new_data} (AlignmentData), and return
 #'   a list with a \code{transforms} element.
-#' @param prepare_fn Optional API-v2 preflight function. It receives the full
+#' @param prepare_fn Optional provider preflight function. It receives the full
 #'   \code{data}, unresolved \code{reference}, normalized
 #'   \code{resampling_plan}, and method-specific \code{...} once, before any
-#'   fit callback. Its return value is passed to API-v2 fit callbacks as
+#'   fit callback. Its return value is passed to fit callbacks as
 #'   \code{provider_plan}.
 #' @param capabilities Named list of capability flags. See Details.
 #' @param package Character string identifying the providing package.
 #' @param description Brief description of the method.
 #' @param version Version string for the method implementation.
 #' @param api_version Integer declaring which neuralign aligner API version
-#'   this method implements. The default remains API v1 for source
-#'   compatibility; providers opt into lifecycle contexts with \code{2L}.
+#'   this method implements. The only accepted value is
+#'   \code{NEURALIGN_ALIGNER_API_VERSION}.
 #'
 #' @details
 #' The \code{fit_fn} must have the following signature:
 #' \preformatted{
-#' fit_fn <- function(data, reference, train_idx = NULL, ...) {
+#' fit_fn <- function(data, reference, train_idx = NULL,
+#'                    fit_context, provider_plan, ...) {
 #'   # data: AlignmentData object
 #'   # reference: subject_id, matrix, or "consensus"
 #'   # train_idx: indices of subjects to use for fitting (for CV)
+#'   # fit_context: exact subjects and observations assigned to this fit
+#'   # provider_plan: result returned by prepare_fn, or NULL
 #'   # ...: method-specific parameters
 #'
 #'   list(
@@ -296,7 +289,8 @@ validate_aligner_contract <- function(name,
 #'   unregister_aligner("identity_example")
 #' }
 #'
-#' identity_fit <- function(data, reference, train_idx = NULL, ...) {
+#' identity_fit <- function(data, reference, train_idx = NULL,
+#'                          fit_context, provider_plan, ...) {
 #'   transforms <- lapply(data@subjects, function(s) {
 #'     diag(nrow(get_subject_data(data, s)))
 #'   })
@@ -334,7 +328,7 @@ register_aligner <- function(name,
                              package = NA_character_,
                              description = "",
                              version = "0.0.0",
-                             api_version = 1L,
+                             api_version = NEURALIGN_ALIGNER_API_VERSION,
                              prepare_fn = NULL) {
   # Validate name
   if (!is.character(name) || length(name) != 1) {
@@ -551,7 +545,8 @@ is_aligner_registered <- function(name) {
 #' @return Invisibly returns TRUE if removed, FALSE if not found.
 #'
 #' @examples
-#' tmp_fit <- function(data, reference, ...) {
+#' tmp_fit <- function(data, reference, train_idx = NULL,
+#'                     fit_context, provider_plan, ...) {
 #'   list(
 #'     transforms = list(),
 #'     reference_data = NULL,

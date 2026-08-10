@@ -157,7 +157,7 @@ test_that("apply_alignment handles method that doesn't support new subjects", {
   # Register a method that doesn't support new subjects
   register_aligner(
     name = "no_new_subj",
-    fit_fn = function(data, reference, ...) {
+    fit_fn = function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
       list(
         transforms = list("x" = diag(5)),
         reference_data = NULL
@@ -191,7 +191,7 @@ test_that("apply_alignment handles method that doesn't support new subjects", {
 test_that("apply_alignment validates guidance requirements when fitting new subjects", {
   register_aligner(
     name = "needs_guidance_apply",
-    fit_fn = function(data, reference, train_idx = NULL, ...) {
+    fit_fn = function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
       if (is.null(train_idx)) train_idx <- seq_along(data@subjects)
       train_data <- data[train_idx]
       transforms <- setNames(
@@ -358,7 +358,7 @@ test_that("inverse_transform auto errors for non-square operator", {
 test_that("inverse_transform rejects OT transforms", {
   register_aligner(
     name = "ot_dummy",
-    fit_fn = function(data, reference, ...) {
+    fit_fn = function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
       list(transforms = list("x" = diag(2)), reference_data = NULL)
     },
     capabilities = list(transform_type = "ot", returns_invertible = FALSE),
@@ -436,7 +436,7 @@ test_that(".fit_transform_for_subject uses custom apply_fn when provided", {
   # Register an aligner that has a custom apply_fn
   register_aligner(
     name = "custom_apply_test",
-    fit_fn = function(data, reference, train_idx = NULL, ...) {
+    fit_fn = function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
       if (is.null(train_idx)) train_idx <- seq_along(data@subjects)
       train_data <- data[train_idx]
       subjects <- train_data@subjects
@@ -489,7 +489,7 @@ test_that(".fit_transform_for_subject uses custom apply_fn when provided", {
 test_that("inverse_transform method=auto errors when caps say returns_invertible=FALSE", {
   register_aligner(
     name = "noninvertible_test",
-    fit_fn = function(data, reference, ...) {
+    fit_fn = function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
       list(transforms = list("x" = diag(3)), reference_data = NULL)
     },
     capabilities = list(
@@ -517,7 +517,7 @@ test_that("inverse_transform method=auto errors when caps say returns_invertible
 test_that("inverse_transform method=auto uses solve for linear invertible transforms", {
   register_aligner(
     name = "linear_invertible_test",
-    fit_fn = function(data, reference, ...) {
+    fit_fn = function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
       list(transforms = list("x" = diag(3)), reference_data = NULL)
     },
     capabilities = list(
@@ -752,7 +752,7 @@ test_that("apply_alignment with fit_new=FALSE warns for new subjects", {
 
 test_that("inverse_transform errors on OT-style transform_type", {
   neuralign:::.clear_registry()
-  dummy_fit <- function(data, reference, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     list(transforms = list(), reference_data = NULL)
   }
   register_aligner("ot_method", dummy_fit,
@@ -773,7 +773,7 @@ test_that("inverse_transform errors on OT-style transform_type", {
 
 test_that("inverse_transform auto errors when not invertible", {
   neuralign:::.clear_registry()
-  dummy_fit <- function(data, reference, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     list(transforms = list(), reference_data = NULL)
   }
   register_aligner("non_inv", dummy_fit,
@@ -839,7 +839,7 @@ test_that("apply_transform errors on non-matrix transform", {
 
 test_that("apply_alignment errors on non-operator returns method", {
   with_temp_registry(code = {
-    dummy_fit <- function(data, reference, train_idx = NULL, ...) {
+    dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
       k <- 2
       aligned <- lapply(data@subjects, function(s) {
         matrix(0, k, ncol(get_subject_data(data, s)))
@@ -1008,7 +1008,7 @@ test_that(".fit_transform_for_subject uses custom apply_fn when available", {
   neuralign:::.clear_registry()
 
   # Register aligner with a custom apply_fn
-  dummy_fit <- function(data, reference, ...) {
+  dummy_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     list(transforms = list(), reference_data = NULL)
   }
   custom_apply <- function(fit_result, new_data, ...) {
@@ -1041,7 +1041,7 @@ test_that(".fit_transform_for_subject uses custom apply_fn when available", {
 
 test_that("apply_alignment blocks existing subjects when supports_new_data=FALSE (embedding returns)", {
   with_temp_registry(code = {
-    embed_fit <- function(data, reference, train_idx = NULL, ...) {
+    embed_fit <- function(data, reference, train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
       k <- 3
       aligned <- lapply(data@subjects, function(s) {
         X <- get_subject_data(data, s)

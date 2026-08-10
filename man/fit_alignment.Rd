@@ -121,7 +121,7 @@ result <- fit_alignment(adat, method = "procrustes", cv = "loso")
 \code{\link{apply_alignment}}, \code{\link{AlignmentData}},
 \code{\link{available_aligners}}
 
-Other alignment_workflow: 
+Other alignment_workflow:
 \code{\link{apply_alignment}()}
 }
 \concept{alignment_workflow}

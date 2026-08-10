@@ -12,6 +12,8 @@
   u = 0.5,
   lambda = 0.01,
   target_space = c("latent", "reference"),
+  fit_context = NULL,
+  provider_plan = NULL,
   ...
 )
 }

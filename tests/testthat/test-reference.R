@@ -229,7 +229,8 @@ test_that(".validate_reference_for_method accepts valid reference types (lines 2
   # Register a test aligner with limited reference_types
   register_aligner(
     name = "test_ref_validator",
-    fit_fn = function(data, ...) list(),
+    fit_fn = function(data, reference, train_idx = NULL,
+                      fit_context = NULL, provider_plan = NULL, ...) list(),
     capabilities = list(
       reference_types = c("subject", "consensus")
     ),
@@ -257,7 +258,8 @@ test_that(".validate_reference_for_method rejects unsupported template reference
   # Register aligner that only supports subject references
   register_aligner(
     name = "test_ref_subject_only",
-    fit_fn = function(data, ...) list(),
+    fit_fn = function(data, reference, train_idx = NULL,
+                      fit_context = NULL, provider_plan = NULL, ...) list(),
     capabilities = list(
       reference_types = c("subject")
     ),

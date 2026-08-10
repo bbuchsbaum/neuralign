@@ -17,6 +17,8 @@
   tol = 1e-06,
   lambda_oos = 0.01,
   target_space = c("latent", "reference"),
+  fit_context = NULL,
+  provider_plan = NULL,
   ...
 )
 }

@@ -9,6 +9,7 @@
 ..Rcheck/
 neuralign.Rcheck/
 check-out-*/
+.rcmdcheck_result.rds
 
 # pkgdown output
 docs/

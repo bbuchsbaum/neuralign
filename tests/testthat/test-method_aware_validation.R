@@ -19,7 +19,7 @@ test_that("fit_alignment checks shared features only when required", {
   # early validation when nrow differs across subjects.
   tryCatch(unregister_aligner("dummy_varfeat"), error = function(e) NULL)
 
-  dummy_fit <- function(data, reference = "first", train_idx = NULL, ...) {
+  dummy_fit <- function(data, reference = "first", train_idx = NULL, fit_context = NULL, provider_plan = NULL, ...) {
     if (is.null(train_idx)) train_idx <- seq_along(data@subjects)
     train_data <- data[train_idx]
     data_list <- get_data_list(train_data)

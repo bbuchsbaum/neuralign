@@ -43,7 +43,7 @@ out <- k_align_bases(U_list, K, ref = 1)
 length(out$U_aligned)
 }
 \seealso{
-Other k_procrustes: 
+Other k_procrustes:
 \code{\link{k_consensus_basis}()},
 \code{\link{k_kernel_roots}()},
 \code{\link{k_orthonormalize}()},

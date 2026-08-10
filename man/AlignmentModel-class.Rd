@@ -41,7 +41,7 @@ get_model(res)
 
 }
 \seealso{
-Other alignment_model: 
+Other alignment_model:
 \code{\link{AlignmentModel}},
 \code{\link{add_transform}()},
 \code{\link{get_reference}()},

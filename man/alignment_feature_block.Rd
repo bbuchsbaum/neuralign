@@ -37,7 +37,7 @@ blk <- alignment_feature_block(
 blk$name
 }
 \seealso{
-Other feature_blocks: 
+Other feature_blocks:
 \code{\link{feature_blocks}}
 }
 \concept{feature_blocks}

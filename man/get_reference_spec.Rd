@@ -27,7 +27,7 @@ get_reference_spec(get_model(res))
 
 }
 \seealso{
-Other alignment_model: 
+Other alignment_model:
 \code{\link{AlignmentModel}},
 \code{\link{AlignmentModel-class}},
 \code{\link{add_transform}()},
