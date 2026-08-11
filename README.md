@@ -139,6 +139,11 @@ meet neuralign's deterministic graph-correspondence accuracy contract. Use
 Use `available_aligners()` or `available_aligners(details = TRUE)` to inspect
 what is registered in your current session.
 
+Companion methods are loaded when requested. For example, when `xpar` is
+installed, `fit_alignment(xpar_data, method = "a_corrca")` loads xpar's sole
+provider registration and its canonical data coercion automatically. There is
+no separate registration or bundle step.
+
 Capabilities are method-specific. In particular, `kema` returns nonlinear
 training embeddings and deliberately does not support new-subject or new-data
 application. Registration should never be read as a promise that every method

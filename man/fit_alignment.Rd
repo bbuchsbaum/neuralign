@@ -22,8 +22,9 @@ fit_alignment(
 )
 }
 \arguments{
-\item{data}{AlignmentData object, or a named list of matrices that will
-be coerced to AlignmentData.}
+\item{data}{An \code{AlignmentData} object or an object supported by
+\code{\link[=as_alignment_data]{as_alignment_data()}}. Provider packages may register coercion methods;
+for example, xpar supplies a direct \code{xpar_data} method for \code{a_corrca}.}
 
 \item{method}{Character string specifying the alignment method. Use
 \code{\link{available_aligners}} to see registered methods.}

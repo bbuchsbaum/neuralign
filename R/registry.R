@@ -591,30 +591,47 @@ unregister_aligner <- function(name) {
     return(TRUE)
   }
 
-  # Known method -> package mappings for lazy loading
+  # Known method -> provider mappings for lazy loading. Most providers
+  # register from .onLoad. A provider may instead expose one explicit,
+  # idempotent registration hook; neuralign invokes that hook only when the
+  # requested method is still absent after the namespace has loaded.
   known_methods <- list(
-    "fugw"          = "topofmri",
-    "gw"            = "manifoldalign",
-    "fpgw"          = "manifoldalign",
-    "kema"          = "manifoldalign",
-    "coupled_diag"  = "manifoldalign",
-    "coupled_diagonalization" = "manifoldalign",
-    "gpca"          = "manifoldalign",
-    "grasp"         = "manifoldalign",
-    "lowrank"       = "manifoldalign",
-    "dkge"          = "dkge",
-    "nef"           = "fmrireg.gnef"
+    "fugw"          = list(package = "topofmri"),
+    "gw"            = list(package = "manifoldalign"),
+    "fpgw"          = list(package = "manifoldalign"),
+    "kema"          = list(package = "manifoldalign"),
+    "coupled_diag"  = list(package = "manifoldalign"),
+    "coupled_diagonalization" = list(package = "manifoldalign"),
+    "gpca"          = list(package = "manifoldalign"),
+    "grasp"         = list(package = "manifoldalign"),
+    "lowrank"       = list(package = "manifoldalign"),
+    "dkge"          = list(package = "dkge"),
+    "nef"           = list(package = "fmrireg.gnef"),
+    "a_corrca"      = list(
+      package = "xpar",
+      register = "register_xpar_neuralign"
+    )
   )
 
-  pkg <- known_methods[[name]]
-  if (!is.null(pkg)) {
-    if (requireNamespace(pkg, quietly = TRUE)) {
-      # Package loading should trigger registration
-      return(is_aligner_registered(name))
-    }
+  provider <- known_methods[[name]]
+  if (is.null(provider) ||
+      !requireNamespace(provider$package, quietly = TRUE)) {
+    return(FALSE)
   }
 
-  FALSE
+  registration <- provider$register %||% NULL
+  if (!is_aligner_registered(name) && !is.null(registration)) {
+    exports <- getNamespaceExports(provider$package)
+    if (!registration %in% exports) {
+      stop(sprintf(
+        "Provider package '%s' does not export its declared registration hook '%s'",
+        provider$package, registration
+      ), call. = FALSE)
+    }
+    getExportedValue(provider$package, registration)()
+  }
+
+  is_aligner_registered(name)
 }
 
 

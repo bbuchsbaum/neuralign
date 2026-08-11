@@ -2,6 +2,9 @@
 
 ## Core contracts
 
+- Added lazy `a_corrca` provider discovery. `fit_alignment()` now resolves a
+  provider before coercing its input, so xpar can supply both its sole
+  registration hook and the `xpar_data` coercion without manual setup.
 - Made aligner API v2 the sole provider contract, with a one-shot provider
   preflight hook and detached exact subject/observation fit contexts. API-v1
   registrations now fail during contract validation.

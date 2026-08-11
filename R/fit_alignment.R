@@ -12,8 +12,9 @@
 #' feature blocks (e.g., \code{\link{preprocess_alignment_data}} or
 #' \code{\link{preprocess_matrix}}) before fitting.
 #'
-#' @param data AlignmentData object, or a named list of matrices that will
-#'   be coerced to AlignmentData.
+#' @param data An `AlignmentData` object or an object supported by
+#'   [as_alignment_data()]. Provider packages may register coercion methods;
+#'   for example, xpar supplies a direct `xpar_data` method for `a_corrca`.
 #' @param method Character string specifying the alignment method. Use
 #'   \code{\link{available_aligners}} to see registered methods.
 #' @param reference How to select the reference for alignment:
@@ -117,14 +118,8 @@ fit_alignment <- function(data,
     stop("'return_resample_artifacts' must be TRUE or FALSE", call. = FALSE)
   }
 
-  # Coerce data to AlignmentData if needed
-  if (inherits(data, "AlignmentData")) {
-    data <- .set_obs_labels_if_missing(data, obs_labels)
-  } else {
-    data <- as_alignment_data(data, obs_labels = obs_labels)
-  }
-
-  # Try to load aligner if not registered
+  # Resolve the provider before coercion. Provider namespaces may register the
+  # S3 method that converts their canonical data object to AlignmentData.
   if (!is_aligner_registered(method)) {
     disabled_reason <- .disabled_aligner_reason(method)
     if (!is.null(disabled_reason)) {
@@ -137,6 +132,13 @@ fit_alignment <- function(data,
         paste(available_aligners(), collapse = ", ")
       ))
     }
+  }
+
+  # Coerce data to AlignmentData after provider discovery.
+  if (inherits(data, "AlignmentData")) {
+    data <- .set_obs_labels_if_missing(data, obs_labels)
+  } else {
+    data <- as_alignment_data(data, obs_labels = obs_labels)
   }
 
   # Validate method requirements

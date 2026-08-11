@@ -305,6 +305,25 @@ test_that(".try_autoload_aligner returns FALSE for known method whose package is
   expect_false(result)
 })
 
+test_that("a_corrca discovers xpar through its sole registration hook", {
+  skip_if_not_installed("xpar")
+
+  saved <- as.list(neuralign:::.aligner_registry)
+  neuralign:::.clear_registry()
+  on.exit({
+    neuralign:::.clear_registry()
+    for (name in names(saved)) {
+      assign(name, saved[[name]], envir = neuralign:::.aligner_registry)
+    }
+  }, add = TRUE)
+
+  expect_true(neuralign:::.try_autoload_aligner("a_corrca"))
+  expect_true(is_aligner_registered("a_corrca"))
+  entry <- get_aligner("a_corrca")
+  expect_identical(entry$package, "xpar")
+  expect_identical(entry$api_version, NEURALIGN_ALIGNER_API_VERSION)
+})
+
 test_that(".validate_aligner_requirements errors for unknown aligner", {
   set.seed(42)
   data_list <- list(
