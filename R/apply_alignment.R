@@ -17,6 +17,9 @@
 #'   subjects that were used in training.
 #' @param ... Additional arguments passed to the aligner's apply function.
 #'
+#' Fold-specific CV models (`reference = "fold_specific"`) cannot be applied
+#' as a unit; use [as_aligned_resample_set()] or a retained fold model.
+#'
 #' @return An AlignmentResult object with aligned data for the new subjects.
 #'
 #' @examples
@@ -43,6 +46,15 @@ apply_alignment <- function(model,
                             warn_leakage = TRUE,
                             ...) {
   model <- .ensure_model(model, what = "model")
+  if (.model_is_fold_specific(model)) {
+    stop(
+      paste0(
+        "apply_alignment() is not available for fold-specific models: there is no common space/anchor. ",
+        "Use as_aligned_resample_set() or a retained fold model from cv_info$artifacts_by_fold."
+      ),
+      call. = FALSE
+    )
+  }
 
   caps <- aligner_capabilities(model@method)
 

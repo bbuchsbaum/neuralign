@@ -723,7 +723,7 @@ test_that("apply_alignment errors on fold_specific reference with new subjects",
   )
 
   new_data <- AlignmentData(list("sub-99" = matrix(rnorm(25), 5, 5)))
-  expect_error(apply_alignment(model, new_data), "fold-specific anchors")
+  expect_error(apply_alignment(model, new_data), "fold-specific")
 })
 
 test_that("apply_alignment with fit_new=FALSE warns for new subjects", {

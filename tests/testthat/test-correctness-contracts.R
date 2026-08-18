@@ -55,6 +55,42 @@ test_that("data-driven CV cannot expose or stack a global aligned matrix", {
   expect_error(as_aligned_matrix(res, by = "observation"), "fold-specific|common space|anchor")
   expect_error(alignment_quality(res), "fold-specific|common space|anchor")
   expect_error(compose_alignment(get_model(res), get_model(res)), "fold-specific|common space|anchor")
+  expect_error(
+    apply_alignment(get_model(res), adat, fit_new = FALSE, warn_leakage = FALSE),
+    "fold-specific|common space|anchor|as_aligned_resample_set"
+  )
+})
+
+
+test_that("retained fold models can be applied; the stitched CV model cannot", {
+  ensure_test_aligner("procrustes")
+  set.seed(16)
+  adat <- AlignmentData(list(
+    s1 = matrix(rnorm(40), 8, 5),
+    s2 = matrix(rnorm(40), 8, 5),
+    s3 = matrix(rnorm(40), 8, 5)
+  ))
+  res <- fit_alignment(
+    adat, method = "procrustes", reference = "medoid",
+    cv = "loso", compute_quality = FALSE
+  )
+  expect_error(
+    apply_alignment(res, adat, fit_new = FALSE, warn_leakage = FALSE),
+    "fold-specific|as_aligned_resample_set"
+  )
+
+  fold <- get_cv_info(res)$artifacts_by_fold[[1L]]
+  applied <- apply_alignment(
+    fold$model, adat, fit_new = FALSE, warn_leakage = FALSE
+  )
+  expect_s4_class(applied, "AlignmentResult")
+  for (subj in fold$assessment_subjects) {
+    expect_equal(
+      get_aligned(applied, subj),
+      fold$aligned_assessment[[subj]],
+      tolerance = 1e-8
+    )
+  }
 })
 
 
