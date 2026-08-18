@@ -51,25 +51,7 @@ setClass("AlignmentModel",
 )
 
 setValidity("AlignmentModel", function(object) {
-  errors <- character()
-  if (!is.list(object@transforms)) {
-    errors <- c(errors, "'transforms' must be a list")
-  }
-  if (length(object@transforms) > 0 && is.null(names(object@transforms))) {
-    errors <- c(errors, "'transforms' must be named with subject IDs")
-  }
-  if (!is.character(object@method)) {
-    errors <- c(errors, "'method' must be a character string")
-  }
-  if (!is.list(object@provenance)) {
-    errors <- c(errors, "'provenance' must be a list")
-  }
-  if (!is.list(object@method_state)) {
-    errors <- c(errors, "'method_state' must be a list")
-  }
-  if (!is.character(object@train_subjects)) {
-    errors <- c(errors, "'train_subjects' must be a character vector")
-  }
+  errors <- .validate_alignment_model_object(object)
   if (length(errors) == 0L) TRUE else errors
 })
 
@@ -120,9 +102,7 @@ AlignmentModel <- function(transforms,
   if (!is.list(transforms)) {
     stop("'transforms' must be a named list of operators", call. = FALSE)
   }
-  if (is.null(names(transforms))) {
-    stop("'transforms' must be named with subject IDs", call. = FALSE)
-  }
+  .validate_named_transforms(transforms)
 
   # Build provenance if not provided
   if (is.null(provenance)) {
@@ -470,8 +450,12 @@ get_reference_spec <- function(model) {
 #'
 #' @export
 add_transform <- function(model, subject, transform) {
+  if (!is.character(subject) || length(subject) != 1L || is.na(subject) || !nzchar(subject)) {
+    stop("'subject' must be a non-empty character scalar", call. = FALSE)
+  }
   new_transforms <- model@transforms
   new_transforms[[subject]] <- transform
+  .validate_named_transforms(new_transforms)
 
   new("AlignmentModel",
     transforms = new_transforms,

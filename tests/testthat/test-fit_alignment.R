@@ -921,7 +921,7 @@ test_that("fit_alignment supports embedding-returning aligners under CV", {
 
     res_cv <- fit_alignment(adat, method = "embedder", cv = "loso", reference = "medoid", compute_quality = FALSE)
     expect_s4_class(res_cv, "AlignmentResult")
-    expect_equal(dim(res_cv@aligned[[1L]]), c(3, 5))
+    expect_equal(length(res_cv@aligned), 0)
     expect_identical(get_model(res_cv)@reference, "fold_specific")
   })
 })

@@ -46,6 +46,7 @@ alignment_quality <- function(result,
                               reference = NULL) {
   # Extract aligned data
   if (inherits(result, "AlignmentResult")) {
+    .abort_if_fold_specific_aligned(result, "alignment_quality()")
     aligned <- get_aligned(result)
     if (is.null(reference)) {
       reference <- get_reference(get_model(result))

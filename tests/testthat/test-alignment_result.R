@@ -27,7 +27,7 @@ test_that("AlignmentResult accessors work correctly", {
   model <- AlignmentModel(transforms = transforms, reference = "consensus", method = "test")
   aligned <- list("sub-01" = matrix(1:10, 5, 2), "sub-02" = matrix(11:20, 5, 2))
   quality <- list(mean_pairwise_correlation = 0.85, sd_pairwise_correlation = 0.05)
-  cv_info <- list(method = "loso", n_folds = 2)
+  cv_info <- list(method = "loso", n_folds = 2, anchor_common = TRUE)
 
   result <- AlignmentResult(
     model = model,
@@ -165,7 +165,7 @@ test_that("AlignmentResult show method works", {
     mean_pairwise_correlation = 0.85,
     pairwise_correlations = c(0.8, 0.9)
   )
-  cv_info <- list(method = "loso", n_folds = 2)
+  cv_info <- list(method = "loso", n_folds = 2, anchor_common = TRUE)
 
   result <- AlignmentResult(
     model = model,

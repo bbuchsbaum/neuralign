@@ -48,6 +48,14 @@ as_aligned_study <- function(result,
   model <- result@model
   aligned <- result@aligned
   if (!length(aligned)) {
+    if (identical(cv$axis, "observation") ||
+        isTRUE(cv$deployment_refit)) {
+      stop(
+        "Observation-axis CV does not attach evaluation matrices to the deployment refit. ",
+        "Use as_aligned_resample_set(result, ...) for fold assessments.",
+        call. = FALSE
+      )
+    }
     stop("AlignmentResult has no aligned matrices; refit with return_aligned=TRUE",
          call. = FALSE)
   }
@@ -238,22 +246,6 @@ as_aligned_study <- function(result,
     ),
     checks = checks
   )
-}
-
-
-.cv_has_fold_specific_spaces <- function(cv) {
-  if (!is.list(cv) || !length(cv)) return(FALSE)
-  method <- cv$method %||% "none"
-  # Non-CV results (plain fit or apply_alignment)
-  if (identical(method, "none") || identical(method, "applied") || is.null(method)) {
-    return(FALSE)
-  }
-  # Subject/obs CV without a declared common anchor => distinct spaces
-  if (!is.null(cv$anchor_common)) {
-    return(!isTRUE(cv$anchor_common))
-  }
-  # CV metadata present but anchor_common missing: treat as fold-specific
-  TRUE
 }
 
 

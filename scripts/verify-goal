@@ -31,7 +31,7 @@ RELATED_FILTER = (
 
 TODO_RE = re.compile(r"\b(TODO|FIXME)\b")
 UNCHECKED_RE = re.compile(r"^\s*- \[ \]\s+")
-CHECKED_RE = re.compile(r"^\s*- \[[xX]\]\s+")
+CHECKED_RE = re.compile(r"^\s*- \[[xX]\]\s+", re.M)
 HEADING_RE = re.compile(r"^#{2,3}\s+(.*\S)\s*$")
 
 

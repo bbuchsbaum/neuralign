@@ -34,19 +34,7 @@ setClass("AlignmentResult",
 )
 
 setValidity("AlignmentResult", function(object) {
-  errors <- character()
-  if (!inherits(object@model, "AlignmentModel")) {
-    errors <- c(errors, "'model' must be an AlignmentModel object")
-  }
-  if (!is.list(object@aligned)) {
-    errors <- c(errors, "'aligned' must be a list")
-  }
-  if (!is.list(object@quality)) {
-    errors <- c(errors, "'quality' must be a list")
-  }
-  if (!is.list(object@cv_info)) {
-    errors <- c(errors, "'cv_info' must be a list")
-  }
+  errors <- .validate_alignment_result_object(object)
   if (length(errors) == 0L) TRUE else errors
 })
 
@@ -190,6 +178,7 @@ setMethod("show", "AlignmentResult", function(object) {
 #' @export
 get_aligned <- function(result, subject = NULL) {
   result <- .ensure_result(result, what = "result")
+  .abort_if_fold_specific_aligned(result, "get_aligned()")
 
   if (is.null(subject)) {
     return(result@aligned)
@@ -336,6 +325,7 @@ get_cv_info <- function(result) {
 #' @export
 as_aligned_matrix <- function(result, by = c("subject", "observation")) {
   result <- .ensure_result(result, what = "result")
+  .abort_if_fold_specific_aligned(result, "as_aligned_matrix()")
   by <- match.arg(by)
 
   if (by == "subject") {

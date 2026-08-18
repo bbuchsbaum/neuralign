@@ -199,13 +199,24 @@ as_aligned_resample_set <- function(result,
   artifacts <- cv$artifacts_by_fold %||% NULL
   if (!is.list(artifacts) || !length(artifacts)) {
     stop(
-      "AlignmentResult does not retain fold artifacts; refit subject CV with ",
+      "AlignmentResult does not retain fold artifacts; fold-specific CV always ",
+      "retains them, and subject-axis CV with a common anchor requires ",
       "return_resample_artifacts=TRUE",
       call. = FALSE
     )
   }
   if (!is.null(source_data) && !inherits(source_data, "AlignmentData")) {
     source_data <- as_alignment_data(source_data)
+  }
+
+  if (identical(cv$axis, "observation") ||
+      identical(artifacts[[1L]]$axis, "observation")) {
+    return(.resample_set_from_obs_result_artifacts(
+      result = result,
+      artifacts = artifacts,
+      representation = representation,
+      mode = mode
+    ))
   }
 
   splits <- lapply(names(artifacts), function(fold_id) {
@@ -395,6 +406,88 @@ shared_space.AlignedResampleSet <- function(x) {
       role = role
     ),
     safety = safety
+  )
+}
+
+
+.resample_set_from_obs_result_artifacts <- function(result,
+                                                   artifacts,
+                                                   representation,
+                                                   mode) {
+  cv <- result@cv_info
+  splits <- lapply(names(artifacts), function(fold_id) {
+    artifact <- artifacts[[fold_id]]
+    model <- artifact$model
+    matrices <- artifact$aligned_assessment
+    if (!inherits(model, "AlignmentModel") || !is.list(matrices) ||
+        !length(matrices)) {
+      stop(sprintf("Observation fold '%s' is invalid", fold_id), call. = FALSE)
+    }
+    k <- nrow(matrices[[1L]])
+    space <- shared_feature_space_from_model(
+      model,
+      dimension = k,
+      extras = list(fold_id = fold_id, axis = "observation")
+    )
+    obs <- NULL
+    test_idx <- artifact$test_idx
+    if (!is.null(test_idx)) {
+      per_subject <- is.list(test_idx) && !is.null(names(test_idx)) &&
+        !is.numeric(test_idx)
+      obs <- lapply(names(matrices), function(subject) {
+        idx <- if (isTRUE(per_subject)) test_idx[[subject]] else test_idx
+        data.frame(
+          observation_id = as.character(idx),
+          source_index = as.integer(idx),
+          stringsAsFactors = FALSE
+        )
+      })
+      names(obs) <- names(matrices)
+    }
+    assessment <- .aligned_study_from_matrices(
+      matrices = matrices,
+      model = model,
+      space = space,
+      role = "assessment",
+      representation = representation,
+      observation_data = obs,
+      source_data = NULL,
+      safety = analysis_safety_record(
+        mode = mode,
+        model_fit_subjects = model@train_subjects,
+        application_subjects = names(matrices),
+        cross_fitted = TRUE,
+        leakage_status = "declared_observation_crossfit"
+      ),
+      fold_id = fold_id
+    )
+    list(
+      model = model,
+      shared_space = space,
+      analysis = NULL,
+      assessment = assessment,
+      metadata = list(
+        fold_id = fold_id,
+        assessment_subjects = names(matrices),
+        test_idx = artifact$test_idx,
+        train_idx = artifact$train_idx
+      )
+    )
+  })
+  names(splits) <- names(artifacts)
+
+  AlignedResampleSet(
+    splits = splits,
+    resampling_spec = list(
+      method = cv$method,
+      axis = "observation",
+      n_folds = length(splits),
+      anchor_common = isTRUE(cv$anchor_common)
+    ),
+    metadata = list(
+      parent_method = result@model@method,
+      deployment_refit = isTRUE(cv$deployment_refit)
+    )
   )
 }
 

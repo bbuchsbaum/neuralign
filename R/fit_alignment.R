@@ -49,8 +49,9 @@
 #'   in \code{result@cv_info$transforms_by_fold}. Default FALSE.
 #' @param return_resample_artifacts Logical; if TRUE for operator-returning
 #'   subject CV, retain each fold's fitted model plus aligned analysis and
-#'   assessment matrices. These artifacts are required to construct an
-#'   [AlignedResampleSet]. Default FALSE.
+#'   assessment matrices. Fold-specific (no common anchor) subject CV retains
+#'   these artifacts automatically so an [AlignedResampleSet] can be built.
+#'   Default FALSE for common-anchor CV.
 #' @param restrict_to_identified Logical; if TRUE, canonicalize orthogonal
 #'   operators so their action on the orthogonal complement of the identified
 #'   subspace is deterministic. This is useful when correspondence signals are
@@ -174,6 +175,12 @@ fit_alignment <- function(data,
     if (!is.numeric(restrict_tol) || length(restrict_tol) != 1L || !is.finite(restrict_tol) ||
         restrict_tol <= 0 || restrict_tol >= 1) {
       stop("'restrict_tol' must be a single number in (0, 1)", call. = FALSE)
+    }
+    if (isTRUE(list(...)$scale)) {
+      stop(
+        "restrict_to_identified cannot be used with scaled maps (scale=TRUE)",
+        call. = FALSE
+      )
     }
   }
 

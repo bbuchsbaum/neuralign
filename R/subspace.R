@@ -333,6 +333,15 @@ canonicalize_orthogonal_operator <- function(Q,
   if (nrow(Q) != ncol(Q)) stop("'Q' must be square", call. = FALSE)
   if (any(!is.finite(Q))) stop("'Q' must be finite", call. = FALSE)
 
+  scale_factor <- attr(Q, "scale_factor")
+  if (is.numeric(scale_factor) && length(scale_factor) == 1L &&
+      is.finite(scale_factor) && abs(scale_factor - 1) > 1e-12) {
+    stop(
+      "restrict_to_identified / canonicalize_orthogonal_operator does not accept scaled maps",
+      call. = FALSE
+    )
+  }
+
   if (isTRUE(check_orthogonal) && !.is_orthogonal_operator(Q, tol = orthogonal_tol)) {
     stop("'Q' must be orthogonal (within 'orthogonal_tol')", call. = FALSE)
   }

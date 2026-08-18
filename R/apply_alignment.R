@@ -387,7 +387,7 @@ inverse_transform <- function(model,
 
   method <- .resolve_inverse_method(method, caps, transform, model@method)
 
-  if (method == "transpose") return(t(transform))
+  if (method == "transpose") return(.inverse_transpose_operator(transform))
 
   if (method == "pinv") return(.pseudoinverse(transform, tol = tol))
   if (method == "ridge") return(.ridge_inverse(transform, lambda = lambda))
@@ -412,6 +412,26 @@ inverse_transform <- function(model,
       ), call. = FALSE)
     }
   )
+}
+
+.transform_scale_factor <- function(transform) {
+  s <- attr(transform, "scale_factor")
+  if (is.null(s) || !is.numeric(s) || length(s) != 1L || !is.finite(s)) return(1)
+  s
+}
+
+.inverse_transpose_operator <- function(transform) {
+  inv <- t(transform)
+  s <- .transform_scale_factor(transform)
+  if (abs(s) < .Machine$double.eps) {
+    stop("Cannot invert a scaled transform with scale_factor 0", call. = FALSE)
+  }
+  if (abs(s - 1) > 1e-12) {
+    # Stored map is A = s Q. Raw transpose is s Q^T; exact inverse is (1/s) Q^T = t(A)/s^2.
+    inv <- inv / (s * s)
+    attr(inv, "scale_factor") <- 1 / s
+  }
+  inv
 }
 
 .resolve_inverse_method <- function(method, caps, transform, method_name) {

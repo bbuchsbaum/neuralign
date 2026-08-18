@@ -69,7 +69,7 @@ NULL
         reflection = reflection,
         rank = rank
       )
-      attr(Q, "scale_factor") <- NULL
+      # Keep scale_factor on the fitted map so inverse/properties inspect the operator.
       transforms[[subj]] <- Q
     }
   }
@@ -117,7 +117,7 @@ NULL
         reflection = reflection,
         rank = rank
       )
-      attr(Q, "scale_factor") <- NULL
+      # Keep scale_factor on the fitted map so inverse/properties inspect the operator.
       Q
     }
   })
@@ -533,7 +533,7 @@ procrustes_distance <- function(x,
         reflection = reflection,
         rank = rank
       )
-      attr(Q, "scale_factor") <- NULL
+      # Keep scale_factor on the fitted map so inverse/properties inspect the operator.
       transforms[[i]] <- Q
       # Apply left-multiply: Q %*% X
       aligned[[i]] <- Q %*% data_list[[i]]

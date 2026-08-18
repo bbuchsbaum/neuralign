@@ -16,17 +16,13 @@ test_that("fit_alignment resolves reference per observation fold (medoid)", {
   runs <- rep(c("r1", "r2", "r3"), each = 2)
   spec <- create_obs_folds(runs, method = "run")
 
-  res <- NULL
-  expect_warning(
-    res <- fit_alignment(
-      adat,
-      method = "procrustes",
-      reference = "medoid",
-      cv_folds = spec,
-      compute_quality = FALSE,
-      return_aligned = TRUE
-    ),
-    "fold-specific anchors"
+  res <- fit_alignment(
+    adat,
+    method = "procrustes",
+    reference = "medoid",
+    cv_folds = spec,
+    compute_quality = FALSE,
+    return_aligned = TRUE
   )
 
   expect_s4_class(res, "AlignmentResult")
@@ -148,10 +144,12 @@ test_that("obs-CV with complete folds reassembles aligned data in original obser
     return_aligned = TRUE
   )
 
-  # Aligned data should have same ncol as original
-  expect_equal(ncol(res@aligned$s1), n_obs)
-  expect_equal(ncol(res@aligned$s2), n_obs)
-  expect_equal(nrow(res@aligned$s1), n_feat)
+  # Evaluation outputs live on fold artifacts, not the deployment refit.
+  expect_equal(length(res@aligned), 0)
+  artifacts <- get_cv_info(res)$artifacts_by_fold
+  expect_true(is.list(artifacts) && length(artifacts) == 2L)
+  expect_equal(ncol(artifacts$fold1$aligned_assessment$s1), 5)
+  expect_equal(nrow(artifacts$fold1$aligned_assessment$s1), n_feat)
 })
 
 
@@ -204,15 +202,12 @@ test_that("obs-CV with consensus reference warns about fold-specific anchors", {
   runs <- rep(c("r1", "r2", "r3"), each = 2)
   spec <- create_obs_folds(runs, method = "run")
 
-  expect_warning(
-    res <- fit_alignment(
-      adat,
-      method = "procrustes",
-      reference = "consensus",
-      cv_folds = spec,
-      compute_quality = FALSE
-    ),
-    "fold-specific anchors"
+  res <- fit_alignment(
+    adat,
+    method = "procrustes",
+    reference = "consensus",
+    cv_folds = spec,
+    compute_quality = FALSE
   )
 
   info <- get_cv_info(res)
@@ -365,7 +360,8 @@ test_that("obs-CV supports embedding-returning aligners (with apply_fn)", {
     info <- get_cv_info(res)
     expect_equal(info$axis, "observation")
     expect_true(isTRUE(info$anchor_common))
-    expect_equal(dim(res@aligned$`sub-01`), c(3, 6))
+    expect_equal(length(res@aligned), 0)
+    expect_true(isTRUE(info$deployment_refit))
 
     expect_error(
       fit_alignment(

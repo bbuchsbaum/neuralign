@@ -6,6 +6,14 @@
 #'
 #' @param model1 First AlignmentModel (applied first, closer to source).
 #' @param model2 Second AlignmentModel (applied second, closer to target).
+#' @param allow_unverified_spaces Logical; if `TRUE`, compose models whose
+#'   intermediate spaces are unknown (`NULL`). The result is stamped unverified.
+#' @param allow_partial Logical; if `TRUE`, drop subjects that are not in both
+#'   models. Equivalent to passing `subjects = intersect(...)`.
+#' @param allow_space_mismatch Logical; expert override that composes models
+#'   with known unequal intermediate spaces and stamps the result unverified.
+#' @param subjects Optional character vector of subjects to compose. Must be
+#'   present in both models.
 #'
 #' @return A new AlignmentModel with composed transforms.
 #'
@@ -32,9 +40,21 @@
 #' }
 #'
 #' @export
-compose_alignment <- function(model1, model2) {
+compose_alignment <- function(model1,
+                              model2,
+                              allow_unverified_spaces = FALSE,
+                              allow_partial = FALSE,
+                              allow_space_mismatch = FALSE,
+                              subjects = NULL) {
   model1 <- .ensure_model(model1, what = "model1")
   model2 <- .ensure_model(model2, what = "model2")
+
+  if (.model_is_fold_specific(model1) || .model_is_fold_specific(model2)) {
+    stop(
+      "compose_alignment() is not available for fold-specific models: there is no common space/anchor",
+      call. = FALSE
+    )
+  }
 
   caps1 <- aligner_capabilities(model1@method)
   if (!is.null(caps1) && !identical(caps1$returns %||% "operator", "operator")) {
@@ -57,15 +77,13 @@ compose_alignment <- function(model1, model2) {
     )
   }
 
-  # Check space chain compatibility
-  if (!spaces_compatible(model1@space_to, model2@space_from)) {
-    warning(sprintf(
-      "Space chain mismatch: model1 maps to '%s' but model2 expects '%s'",
-      .format_space(model1@space_to), .format_space(model2@space_from)
-    ), call. = FALSE)
-  }
+  space_stamp <- .assert_compose_spaces(
+    model1,
+    model2,
+    allow_unverified_spaces = isTRUE(allow_unverified_spaces),
+    allow_space_mismatch = isTRUE(allow_space_mismatch)
+  )
 
-  # Get common subjects
   subjects1 <- names(model1@transforms)
   subjects2 <- names(model2@transforms)
   common_subjects <- intersect(subjects1, subjects2)
@@ -74,14 +92,35 @@ compose_alignment <- function(model1, model2) {
     stop("Models have no subjects in common", call. = FALSE)
   }
 
-  if (length(common_subjects) < length(subjects1) ||
-      length(common_subjects) < length(subjects2)) {
-    warning(sprintf(
-      "Only %d subjects in common; %d/%d from model1, %d/%d from model2",
-      length(common_subjects),
-      length(common_subjects), length(subjects1),
-      length(common_subjects), length(subjects2)
-    ), call. = FALSE)
+  if (!is.null(subjects)) {
+    if (!is.character(subjects) || !length(subjects) || any(!nzchar(subjects))) {
+      stop("'subjects' must be a non-empty character vector", call. = FALSE)
+    }
+    missing <- setdiff(subjects, common_subjects)
+    if (length(missing)) {
+      stop(
+        sprintf(
+          "Requested subjects are not in both models: %s",
+          paste(missing, collapse = ", ")
+        ),
+        call. = FALSE
+      )
+    }
+    common_subjects <- unique(subjects)
+    allow_partial <- TRUE
+  } else if (length(common_subjects) < length(subjects1) ||
+             length(common_subjects) < length(subjects2)) {
+    if (!isTRUE(allow_partial)) {
+      stop(
+        sprintf(
+          "Partial subject drop requires allow_partial=TRUE or subjects=intersect(...); %d in common, %d/%d from model1, %d/%d from model2",
+          length(common_subjects),
+          length(common_subjects), length(subjects1),
+          length(common_subjects), length(subjects2)
+        ),
+        call. = FALSE
+      )
+    }
   }
 
   # Compose transforms: T_composed = T2 %*% T1
@@ -117,7 +156,12 @@ compose_alignment <- function(model1, model2) {
       )
     ),
     composed_at = Sys.time(),
-    neuralign_version = as.character(utils::packageVersion("neuralign"))
+    neuralign_version = as.character(utils::packageVersion("neuralign")),
+    space_verification = space_stamp,
+    partial_subjects = isTRUE(allow_partial) && (
+      length(common_subjects) < length(subjects1) ||
+        length(common_subjects) < length(subjects2)
+    )
   )
 
   AlignmentModel(
@@ -190,12 +234,60 @@ setMethod("%*%", c("AlignmentModel", "matrix"),
 )
 
 
+.space_is_unknown <- function(space) {
+  is.null(space)
+}
+
+.assert_compose_spaces <- function(model1,
+                                   model2,
+                                   allow_unverified_spaces = FALSE,
+                                   allow_space_mismatch = FALSE) {
+  from <- model2@space_from
+  to <- model1@space_to
+  unknown <- .space_is_unknown(to) || .space_is_unknown(from)
+  stamp <- list(
+    unverified_spaces = FALSE,
+    space_mismatch_allowed = FALSE,
+    model1_space_to = to,
+    model2_space_from = from
+  )
+
+  if (unknown) {
+    if (!isTRUE(allow_unverified_spaces)) {
+      stop(
+        "Cannot compose models with unknown/unverified intermediate spaces; set allow_unverified_spaces=TRUE to override",
+        call. = FALSE
+      )
+    }
+    stamp$unverified_spaces <- TRUE
+    return(stamp)
+  }
+
+  if (!spaces_compatible(to, from)) {
+    if (!isTRUE(allow_space_mismatch)) {
+      stop(
+        sprintf(
+          "Space chain mismatch: model1 maps to '%s' but model2 expects '%s'",
+          .format_space(to), .format_space(from)
+        ),
+        call. = FALSE
+      )
+    }
+    stamp$unverified_spaces <- TRUE
+    stamp$space_mismatch_allowed <- TRUE
+  }
+  stamp
+}
+
+
 #' Check Composition Compatibility
 #'
 #' Check if two models can be composed.
 #'
 #' @param model1 First AlignmentModel.
 #' @param model2 Second AlignmentModel.
+#' @param allow_unverified_spaces,allow_partial,allow_space_mismatch Same
+#'   meaning as in [compose_alignment()].
 #'
 #' @return List with \code{compatible} logical and \code{message} string.
 #'
@@ -203,12 +295,39 @@ setMethod("%*%", c("AlignmentModel", "matrix"),
 #' Q <- diag(3)
 #' m1 <- AlignmentModel(list(s1 = Q), reference = "s1", method = "procrustes")
 #' m2 <- AlignmentModel(list(s1 = Q), reference = "s1", method = "procrustes")
-#' check_composition(m1, m2)$compatible
+#' check_composition(m1, m2, allow_unverified_spaces = TRUE)$compatible
 #'
 #' @export
-check_composition <- function(model1, model2) {
+check_composition <- function(model1,
+                              model2,
+                              allow_unverified_spaces = FALSE,
+                              allow_partial = FALSE,
+                              allow_space_mismatch = FALSE) {
   model1 <- .ensure_model(model1, what = "model1")
   model2 <- .ensure_model(model2, what = "model2")
+
+  if (.model_is_fold_specific(model1) || .model_is_fold_specific(model2)) {
+    return(list(
+      compatible = FALSE,
+      message = "fold-specific models have no common space/anchor"
+    ))
+  }
+
+  space_ok <- tryCatch(
+    {
+      .assert_compose_spaces(
+        model1,
+        model2,
+        allow_unverified_spaces = isTRUE(allow_unverified_spaces),
+        allow_space_mismatch = isTRUE(allow_space_mismatch)
+      )
+      TRUE
+    },
+    error = function(e) conditionMessage(e)
+  )
+  if (!isTRUE(space_ok)) {
+    return(list(compatible = FALSE, message = space_ok))
+  }
 
   # Check common subjects
   common <- intersect(names(model1@transforms), names(model2@transforms))
@@ -216,6 +335,15 @@ check_composition <- function(model1, model2) {
     return(list(
       compatible = FALSE,
       message = "No subjects in common between models"
+    ))
+  }
+
+  n1 <- length(model1@transforms)
+  n2 <- length(model2@transforms)
+  if ((length(common) < n1 || length(common) < n2) && !isTRUE(allow_partial)) {
+    return(list(
+      compatible = FALSE,
+      message = "Partial subject drop requires allow_partial=TRUE or subjects=intersect(...)"
     ))
   }
 

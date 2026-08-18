@@ -100,7 +100,8 @@ test_that("fit_alignment with cv = loso works", {
 
   expect_equal(result@cv_info$method, "loso")
   expect_equal(result@cv_info$n_folds, 3)
-  expect_equal(length(result@aligned), 3)
+  expect_false(isTRUE(result@cv_info$anchor_common))
+  expect_equal(length(result@aligned), 0)
 })
 
 test_that("fit_alignment with cv = kfold works", {
@@ -456,7 +457,7 @@ test_that("has_common_anchor for AlignmentResult without anchor_common field", {
   )
   result <- AlignmentResult(
     model = model,
-    aligned = list("sub-01" = diag(3)),
+    aligned = list(),
     cv_info = list(method = "loso")  # no anchor_common
   )
   expect_false(has_common_anchor(result))

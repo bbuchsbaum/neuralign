@@ -1,3 +1,22 @@
+# Algebra tests keep the old NULL-space fixtures; Stage 1 compose is
+# fail-closed unless the caller opts into unverified spaces.
+compose_alignment <- function(model1, model2, ...) {
+  neuralign::compose_alignment(
+    model1,
+    model2,
+    allow_unverified_spaces = TRUE,
+    ...
+  )
+}
+check_composition <- function(model1, model2, ...) {
+  neuralign::check_composition(
+    model1,
+    model2,
+    allow_unverified_spaces = TRUE,
+    ...
+  )
+}
+
 test_that("compose_alignment combines models", {
   # Create two simple models with compatible transforms
   transforms1 <- list(
@@ -105,8 +124,14 @@ test_that("compose_alignment via %*% operator works", {
     "sub-01" = diag(3) * 2
   )
 
-  model1 <- AlignmentModel(transforms1, reference = NULL, method = "m1")
-  model2 <- AlignmentModel(transforms2, reference = NULL, method = "m2")
+  model1 <- AlignmentModel(
+    transforms1, reference = NULL, method = "m1",
+    space_from = "A", space_to = "B"
+  )
+  model2 <- AlignmentModel(
+    transforms2, reference = NULL, method = "m2",
+    space_from = "B", space_to = "C"
+  )
 
   # model2 %*% model1 means model1 first, then model2
   composed <- model2 %*% model1
@@ -127,7 +152,7 @@ test_that("compose_alignment requires common subjects", {
   )
 })
 
-test_that("compose_alignment warns on partial overlap", {
+test_that("compose_alignment errors on partial overlap unless allow_partial", {
   transforms1 <- list(
     "sub-01" = diag(3),
     "sub-02" = diag(3)
@@ -140,10 +165,13 @@ test_that("compose_alignment warns on partial overlap", {
   model1 <- AlignmentModel(transforms1, reference = NULL, method = "m1")
   model2 <- AlignmentModel(transforms2, reference = NULL, method = "m2")
 
-  expect_warning(
+  expect_error(
     compose_alignment(model1, model2),
-    "in common"
+    "Partial subject drop|allow_partial"
   )
+
+  composed <- compose_alignment(model1, model2, allow_partial = TRUE)
+  expect_equal(names(composed@transforms), "sub-01")
 })
 
 test_that("compose_alignment checks dimension compatibility", {
@@ -273,28 +301,13 @@ test_that("compose_alignment errors on non-model inputs", {
 })
 
 test_that("compose_alignment errors on non-operator transforms", {
-  # Create models where transforms are functions instead of matrices
-  transforms1 <- list("sub-01" = function(x) x)
-  transforms2 <- list("sub-01" = diag(3))
-
-  model1 <- AlignmentModel(transforms1, reference = NULL, method = "m1")
-  model2 <- AlignmentModel(transforms2, reference = NULL, method = "m2")
-
   expect_error(
-    compose_alignment(model1, model2),
-    "Non-operator transforms"
+    AlignmentModel(list("sub-01" = function(x) x), reference = NULL, method = "m1"),
+    "unsupported|operator|transform"
   )
-
-  # Also test when model2 has non-matrix transform
-  transforms3 <- list("sub-01" = diag(3))
-  transforms4 <- list("sub-01" = "not_a_matrix")
-
-  model3 <- AlignmentModel(transforms3, reference = NULL, method = "m3")
-  model4 <- AlignmentModel(transforms4, reference = NULL, method = "m4")
-
   expect_error(
-    compose_alignment(model3, model4),
-    "Non-operator transforms"
+    AlignmentModel(list("sub-01" = "not_a_matrix"), reference = NULL, method = "m4"),
+    "unsupported|operator|transform"
   )
 })
 
@@ -336,15 +349,10 @@ test_that("check_composition detects no subjects in common", {
 })
 
 test_that("check_composition detects non-operator transforms", {
-  transforms1 <- list("sub-01" = function(x) x)
-  transforms2 <- list("sub-01" = diag(3))
-
-  model1 <- AlignmentModel(transforms1, reference = NULL, method = "m1")
-  model2 <- AlignmentModel(transforms2, reference = NULL, method = "m2")
-
-  result <- check_composition(model1, model2)
-  expect_false(result$compatible)
-  expect_match(result$message, "Non-operator")
+  expect_error(
+    AlignmentModel(list("sub-01" = function(x) x), reference = NULL, method = "m1"),
+    "unsupported|operator|transform"
+  )
 })
 
 test_that("check_composition detects dimension mismatch", {
@@ -408,7 +416,7 @@ test_that("compose_alignment preserves provenance from both models", {
   expect_true(!is.null(prov$neuralign_version))
 })
 
-test_that("compose_alignment warns on space chain mismatch", {
+test_that("compose_alignment errors on space chain mismatch", {
   transforms1 <- list("sub-01" = diag(3))
   transforms2 <- list("sub-01" = diag(3))
 
@@ -421,8 +429,8 @@ test_that("compose_alignment warns on space chain mismatch", {
     space_from = "talairach", space_to = "functional"
   )
 
-  expect_warning(
-    compose_alignment(model1, model2),
+  expect_error(
+    neuralign::compose_alignment(model1, model2),
     "Space chain mismatch"
   )
 })

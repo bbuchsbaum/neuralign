@@ -11,6 +11,7 @@ NULL
 }
 
 .validate_operator_transforms <- function(transforms, data_list, context) {
+  .validate_named_transforms(transforms, context = context)
   if (!is.list(transforms) || !length(transforms) || is.null(names(transforms))) {
     stop(context, ": expected 'transforms' to be a named list", call. = FALSE)
   }

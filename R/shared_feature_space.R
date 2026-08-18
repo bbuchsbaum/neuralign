@@ -302,7 +302,7 @@ shared_spaces_compatible <- function(a, b) {
 
 .transform_target_dim <- function(transform) {
   if (.is_embedding_transform(transform)) return(as.integer(nrow(transform$aligned)))
-  if (.is_low_rank_transform(transform)) return(as.integer(ncol(transform$U)))
+  if (.is_low_rank_transform(transform)) return(as.integer(nrow(transform$U)))
   if (.is_matrixish(transform)) return(as.integer(nrow(transform)))
   NA_integer_
 }

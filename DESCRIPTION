@@ -61,6 +61,7 @@ Collate:
     'provider_contract.R'
     'transforms.R'
     'validate_transforms.R'
+    'validate_alignment_objects.R'
     'uncertainty.R'
     'k_procrustes.R'
     'fit_alignment.R'
