@@ -17,3 +17,6 @@ docs/
 # Vignette build artifacts
 vignettes/*.html
 vignettes/*.R
+
+# mote actor/session (ops may be committed separately)
+.mote/local/

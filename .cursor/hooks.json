@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": {
+    "stop": [
+      {
+        "command": ".cursor/hooks/stop-verify-goal.py",
+        "timeout": 1000,
+        "failClosed": true,
+        "loop_limit": 20
+      }
+    ]
+  }
+}

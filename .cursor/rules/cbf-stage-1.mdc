@@ -1,0 +1,22 @@
+---
+description: Stage 1 correctness-before-features harness
+globs:
+  - PLAN.md
+  - GOAL.md
+  - R/alignment_*.R
+  - R/fit_alignment*.R
+  - R/apply_alignment.R
+  - R/compose.R
+  - R/quality.R
+  - R/shared_feature_space.R
+  - tests/testthat/test-correctness-contracts.R
+alwaysApply: false
+---
+
+Execute `PLAN.md` in order. `GOAL.md` is the completion contract.
+
+- Work Stage 1 only. Do not start Stage 2/3/4.
+- Do not add aligners or weaken tests to go green.
+- Do not mark a PLAN.md box complete until the relevant test passed.
+- Fold-specific spaces must hard-error in `get_aligned()`, `as_aligned_matrix()`, `alignment_quality()`, and `compose_alignment()`.
+- Before stopping, run `scripts/verify-goal`. Finished only when it exits 0.

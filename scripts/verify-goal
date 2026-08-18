@@ -1,0 +1,164 @@
+#!/usr/bin/env python3
+"""Machine-checkable Stage 1 completion predicate.
+
+Exit 0 only when PLAN.md required boxes are checked and the Stage 1
+test filters pass. This is the definition of success for the stop hook.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+PLAN = ROOT / "PLAN.md"
+GOAL = ROOT / "GOAL.md"
+CONTRACT_TEST = ROOT / "tests" / "testthat" / "test-correctness-contracts.R"
+
+REQUIRED_HEADINGS = (
+    "Completion contract",
+    "Steps",
+)
+
+RELATED_FILTER = (
+    "correctness-contracts|aligned-study|alignment_result|"
+    "apply_alignment|fit_alignment|quality|compose"
+)
+
+TODO_RE = re.compile(r"\b(TODO|FIXME)\b")
+UNCHECKED_RE = re.compile(r"^\s*- \[ \]\s+")
+CHECKED_RE = re.compile(r"^\s*- \[[xX]\]\s+")
+HEADING_RE = re.compile(r"^#{2,3}\s+(.*\S)\s*$")
+
+
+def heading_matches(title: str) -> bool:
+    return any(req.lower() in title.lower() for req in REQUIRED_HEADINGS)
+
+
+def unchecked_required_items(text: str) -> list[str]:
+    active = False
+    found: list[str] = []
+    for raw in text.splitlines():
+        heading = HEADING_RE.match(raw)
+        if heading:
+            active = heading_matches(heading.group(1))
+            continue
+        if active and UNCHECKED_RE.match(raw):
+            found.append(raw.strip())
+    return found
+
+
+def new_todo_fixme(paths: list[Path]) -> list[str]:
+    hits: list[str] = []
+    for path in paths:
+        if not path.is_file():
+            continue
+        try:
+            body = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        for i, line in enumerate(body.splitlines(), 1):
+            if TODO_RE.search(line):
+                hits.append(f"{path.relative_to(ROOT)}:{i}:{line.strip()}")
+    return hits
+
+
+def run(cmd: list[str], timeout: int) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        cmd,
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        timeout=timeout,
+        check=False,
+    )
+
+
+def run_tests() -> tuple[bool, str]:
+    if not CONTRACT_TEST.exists():
+        return False, f"missing {CONTRACT_TEST.relative_to(ROOT)}"
+
+    rscript = "Rscript"
+    expr = (
+        "if (!requireNamespace('devtools', quietly=TRUE)) "
+        "quit(save='no', status=2);"
+        f"res <- devtools::test(filter={RELATED_FILTER!r}, reporter='summary');"
+        "failed <- sum(as.data.frame(res)$failed, na.rm=TRUE);"
+        "if (failed > 0) quit(save='no', status=1)"
+    )
+    try:
+        proc = run([rscript, "-e", expr], timeout=900)
+    except FileNotFoundError:
+        return False, "Rscript not found on PATH"
+    except subprocess.TimeoutExpired:
+        return False, "devtools::test timed out"
+
+    output = (proc.stdout or "") + (proc.stderr or "")
+    if proc.returncode != 0:
+        tail = "\n".join(output.splitlines()[-40:])
+        return False, tail or f"tests exited {proc.returncode}"
+    return True, "tests passed"
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--plan-only",
+        action="store_true",
+        help="Check PLAN.md boxes only; skip R tests",
+    )
+    args = parser.parse_args()
+
+    failures: list[str] = []
+
+    if not PLAN.is_file():
+        failures.append("PLAN.md is missing")
+    if not GOAL.is_file():
+        failures.append("GOAL.md is missing")
+
+    if PLAN.is_file():
+        plan_text = PLAN.read_text(encoding="utf-8")
+        unchecked = unchecked_required_items(plan_text)
+        if unchecked:
+            shown = "\n".join(f"  {item}" for item in unchecked[:20])
+            more = "" if len(unchecked) <= 20 else f"\n  ... {len(unchecked) - 20} more"
+            failures.append(
+                f"PLAN.md has {len(unchecked)} unchecked required item(s):\n{shown}{more}"
+            )
+        if not CHECKED_RE.search(plan_text) and not unchecked:
+            failures.append("PLAN.md has no required checkboxes to verify")
+
+    if not args.plan_only:
+        ok, detail = run_tests()
+        if not ok:
+            failures.append(f"Stage 1 test filter failed:\n{detail}")
+
+        owned = [CONTRACT_TEST]
+        r_dir = ROOT / "R"
+        if r_dir.is_dir():
+            owned.extend(sorted(r_dir.glob("*.R")))
+        todos = [
+            hit for hit in new_todo_fixme(owned)
+            if "test-correctness-contracts.R" in hit
+        ]
+        if todos:
+            failures.append("TODO/FIXME in goal-owned files:\n  " + "\n  ".join(todos))
+
+    if failures:
+        print("verify-goal: INCOMPLETE", file=sys.stderr)
+        for item in failures:
+            print(item, file=sys.stderr)
+            print("", file=sys.stderr)
+        return 1
+
+    print("verify-goal: COMPLETE")
+    return 0
+
+
+if __name__ == "__main__":
+    os.chdir(ROOT)
+    sys.exit(main())
