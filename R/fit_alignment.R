@@ -36,6 +36,10 @@
 #'   splits.
 #' @param train_idx Optional integer indices specifying which subjects to use
 #'   for fitting. If NULL, all subjects are used. This enables manual CV schemes.
+#' @param fit_source_id Optional stable identifier for the observations used to
+#'   fit the alignment. When omitted, `data@metadata$source_id` is used if
+#'   present. Retaining this identifier allows [align_study()] to verify that a
+#'   frozen model is applied to a distinct analysis source.
 #' @param obs_labels Optional shared observation labels. If \code{data} is a
 #'   list, this is passed through to \code{\link{AlignmentData}} via
 #'   \code{\link{as_alignment_data}}. If \code{data} is already an
@@ -92,6 +96,7 @@ fit_alignment <- function(data,
                           cv = c("none", "loso", "kfold"),
                           cv_folds = 5,
                           train_idx = NULL,
+                          fit_source_id = NULL,
                           obs_labels = NULL,
                           compute_quality = TRUE,
                           return_aligned = TRUE,
@@ -140,6 +145,11 @@ fit_alignment <- function(data,
   } else {
     data <- as_alignment_data(data, obs_labels = obs_labels)
   }
+  fit_source_id <- .resolve_alignment_source_id(
+    fit_source_id,
+    data,
+    argument = "fit_source_id"
+  )
 
   # Validate method requirements
   .validate_aligner_requirements(method, data)
@@ -376,5 +386,35 @@ fit_alignment <- function(data,
     )
   }
 
+  if (!is.null(fit_source_id)) {
+    result@model@provenance$fit_source_id <- fit_source_id
+  }
   result
+}
+
+
+.resolve_alignment_source_id <- function(explicit, data, argument) {
+  declared <- data@metadata[["source_id"]] %||% NULL
+  validate_one <- function(x, label) {
+    if (is.null(x)) return(NULL)
+    if (!is.character(x) || length(x) != 1L || is.na(x) || !nzchar(x)) {
+      stop(sprintf("'%s' must be NULL or one non-empty string", label),
+           call. = FALSE)
+    }
+    x
+  }
+
+  explicit <- validate_one(explicit, argument)
+  declared <- validate_one(declared, "data@metadata$source_id")
+  if (!is.null(explicit) && !is.null(declared) &&
+      !identical(explicit, declared)) {
+    stop(
+      sprintf(
+        "'%s' conflicts with data@metadata$source_id",
+        argument
+      ),
+      call. = FALSE
+    )
+  }
+  explicit %||% declared
 }
