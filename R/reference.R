@@ -20,6 +20,9 @@
 #'     \item "procrustes" - Procrustes residual after optimal orthogonal alignment
 #'   }
 #' @param seed Random seed for reproducibility (used if method="random").
+#' @param distance_args Named list of arguments for the selected distance.
+#'   Currently this is used by `distance = "procrustes"` to forward options
+#'   such as `scale`, `reflection`, and `rank` to [procrustes_distance()].
 #'
 #' @return Character string with the selected subject ID.
 #'
@@ -43,9 +46,11 @@
 select_reference <- function(data,
                              method = c("medoid", "centroid", "first", "random"),
                              distance = c("correlation", "euclidean", "frobenius", "procrustes"),
-                             seed = NULL) {
+                             seed = NULL,
+                             distance_args = list()) {
   method <- match.arg(method)
   distance <- match.arg(distance)
+  distance_args <- .validate_reference_distance_args(distance, distance_args)
 
   # Coerce to AlignmentData if needed
   if (!inherits(data, "AlignmentData")) {
@@ -90,7 +95,7 @@ select_reference <- function(data,
   }
 
   # Compute distance matrix
-  dist_mat <- .compute_distance_matrix(data, distance)
+  dist_mat <- .compute_distance_matrix(data, distance, distance_args = distance_args)
 
   if (method == "medoid") {
     # Medoid: subject with minimum average distance to all others.
@@ -135,7 +140,12 @@ select_reference <- function(data,
     # Distance from each subject to mean
     dist_to_mean <- vapply(
       data_list,
-      function(x) .compute_pairwise_distance(x, mean_data, distance),
+      function(x) .compute_pairwise_distance(
+        x,
+        mean_data,
+        distance,
+        distance_args = distance_args
+      ),
       numeric(1)
     )
 
@@ -146,16 +156,47 @@ select_reference <- function(data,
   stop(sprintf("Unknown method: %s", method), call. = FALSE)
 }
 
+.validate_reference_distance_args <- function(distance, distance_args) {
+  if (!is.list(distance_args)) {
+    stop("'distance_args' must be a named list", call. = FALSE)
+  }
+  if (length(distance_args) == 0L) {
+    return(distance_args)
+  }
+  nms <- names(distance_args)
+  if (is.null(nms) || anyNA(nms) || any(!nzchar(nms)) || anyDuplicated(nms)) {
+    stop("'distance_args' must have unique, non-empty names", call. = FALSE)
+  }
+  if (!identical(distance, "procrustes")) {
+    stop(
+      sprintf("'distance_args' are not supported for distance='%s'", distance),
+      call. = FALSE
+    )
+  }
+  reserved <- intersect(nms, c("x", "y", "convention"))
+  if (length(reserved) > 0L) {
+    stop(
+      sprintf(
+        "'distance_args' cannot override: %s",
+        paste(reserved, collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
+  distance_args
+}
+
 
 #' Compute Distance Matrix Between Subjects
 #'
 #' @param data AlignmentData object.
 #' @param distance Distance metric.
+#' @param distance_args Named list forwarded to the selected distance.
 #'
 #' @return Square distance matrix.
 #'
 #' @keywords internal
-.compute_distance_matrix <- function(data, distance) {
+.compute_distance_matrix <- function(data, distance, distance_args = list()) {
   subjects <- data@subjects
   n <- length(subjects)
   data_list <- get_data_list(data)
@@ -172,7 +213,8 @@ select_reference <- function(data,
       labs_j <- if (!is.null(labels_by_subject)) labels_by_subject[[j]] else NULL
       d <- .compute_pairwise_distance(data_list[[i]], data_list[[j]], distance,
         obs_labels_x = labs_i,
-        obs_labels_y = labs_j
+        obs_labels_y = labs_j,
+        distance_args = distance_args
       )
       dist_mat[i, j] <- dist_mat[j, i] <- d
     }
@@ -361,6 +403,7 @@ select_reference <- function(data,
 #' @param obs_labels_x Optional observation labels for x.
 #' @param obs_labels_y Optional observation labels for y.
 #' @param min_overlap Minimum overlap required when labels are supplied.
+#' @param distance_args Named list forwarded to the selected distance.
 #'
 #' @return Scalar distance.
 #'
@@ -370,7 +413,8 @@ select_reference <- function(data,
                                        distance,
                                        obs_labels_x = NULL,
                                        obs_labels_y = NULL,
-                                       min_overlap = 2L) {
+                                       min_overlap = 2L,
+                                       distance_args = list()) {
   min_overlap <- as.integer(min_overlap)
   if (!is.finite(min_overlap) || min_overlap < 1L) {
     stop("'min_overlap' must be a positive integer", call. = FALSE)
@@ -406,7 +450,11 @@ select_reference <- function(data,
   }
 
   if (distance == "procrustes") {
-    return(procrustes_distance(x, y, convention = "left"))
+    args <- c(
+      list(x = x, y = y, convention = "left"),
+      distance_args
+    )
+    return(do.call(procrustes_distance, args))
   }
 
   stop(sprintf("Unknown distance: %s", distance), call. = FALSE)

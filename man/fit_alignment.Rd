@@ -11,6 +11,7 @@ fit_alignment(
   cv = c("none", "loso", "kfold"),
   cv_folds = 5,
   train_idx = NULL,
+  fit_source_id = NULL,
   obs_labels = NULL,
   compute_quality = TRUE,
   return_aligned = TRUE,
@@ -51,6 +52,11 @@ splits.}
 
 \item{train_idx}{Optional integer indices specifying which subjects to use
 for fitting. If NULL, all subjects are used. This enables manual CV schemes.}
+
+\item{fit_source_id}{Optional stable identifier for the observations used to
+fit the alignment. When omitted, \code{data@metadata$source_id} is used if
+present. Retaining this identifier allows \code{\link[=align_study]{align_study()}} to verify that a
+frozen model is applied to a distinct analysis source.}
 
 \item{obs_labels}{Optional shared observation labels. If \code{data} is a
 list, this is passed through to \code{\link{AlignmentData}} via

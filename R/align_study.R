@@ -14,6 +14,10 @@
 #' @param representation Optional client-defined representation label.
 #' @param observation_data Optional per-subject observation tables.
 #' @param subject_data Optional subject table.
+#' @param application_source_id Optional stable identifier for the observations
+#'   being transformed. When omitted, `data@metadata$source_id` is used if
+#'   present. Together with `fit_source_id` retained by [fit_alignment()], this
+#'   can verify a truly frozen application for confirmatory group inference.
 #' @param materialize Currently must be `TRUE` (lazy backends are reserved).
 #' @param fit_new Passed to [apply_alignment()] when new subjects appear.
 #' @param warn_leakage Passed to [apply_alignment()].
@@ -53,6 +57,7 @@ align_study <- function(model,
                         representation = NA_character_,
                         observation_data = NULL,
                         subject_data = NULL,
+                        application_source_id = NULL,
                         materialize = TRUE,
                         fit_new = TRUE,
                         warn_leakage = TRUE,
@@ -82,6 +87,11 @@ align_study <- function(model,
   } else if (!inherits(data, "AlignmentData")) {
     data <- as_alignment_data(data)
   }
+  application_source_id <- .resolve_alignment_source_id(
+    application_source_id,
+    data,
+    argument = "application_source_id"
+  )
 
   # Space check against model source space (soft warning via apply_alignment)
   result <- apply_alignment(
@@ -121,14 +131,22 @@ align_study <- function(model,
   study@lineage$created_by <- "align_study"
   study@lineage$mode <- mode
   study@lineage$representation <- representation
-  study@safety <- analysis_safety_record(
-    mode = mode,
-    model_fit_subjects = model@train_subjects,
-    application_subjects = data@subjects,
-    cross_fitted = identical(mode, "cross_fitted"),
-    inductive = identical(mode, "inductive_calibration"),
-    leakage_status = .leakage_status_for_mode(mode)
-  )
+  study@safety <- if (identical(mode, "frozen_application")) {
+    .frozen_application_safety_record(
+      model = model,
+      application_subjects = data@subjects,
+      application_source_id = application_source_id
+    )
+  } else {
+    analysis_safety_record(
+      mode = mode,
+      model_fit_subjects = model@train_subjects,
+      application_subjects = data@subjects,
+      cross_fitted = identical(mode, "cross_fitted"),
+      inductive = identical(mode, "inductive_calibration"),
+      leakage_status = .leakage_status_for_mode(mode)
+    )
+  }
   study
 }
 
@@ -219,7 +237,8 @@ analysis_safety_record <- function(mode,
 #'
 #' @param aligned An [AlignedStudy].
 #' @param purpose One of `"exploratory"`,
-#'   `"confirmatory_cross_subject_prediction"`, `"within_subject"`.
+#'   `"confirmatory_cross_subject_prediction"`,
+#'   `"confirmatory_group_inference"`, or `"within_subject"`.
 #' @param allow_declared Accept declared modes without source-id proof.
 #'
 #' @return Invisibly `TRUE`.
@@ -230,6 +249,7 @@ assert_analysis_safe <- function(aligned,
                                  purpose = c(
                                    "exploratory",
                                    "confirmatory_cross_subject_prediction",
+                                   "confirmatory_group_inference",
                                    "within_subject"
                                  ),
                                  allow_declared = FALSE) {
@@ -269,9 +289,15 @@ assert_analysis_safe <- function(aligned,
     )
   }
   if (identical(status, "unsafe")) {
+    purpose_label <- switch(
+      purpose,
+      confirmatory_group_inference = "confirmatory group inference",
+      confirmatory_cross_subject_prediction = "confirmatory cross-subject prediction",
+      purpose
+    )
     stop(sprintf(
-      "AlignedStudy mode '%s' is unsafe for confirmatory cross-subject prediction",
-      mode
+      "AlignedStudy mode '%s' is unsafe for %s",
+      mode, purpose_label
     ), call. = FALSE)
   }
   if (identical(status, "unknown")) {
@@ -281,6 +307,62 @@ assert_analysis_safe <- function(aligned,
     )
   }
   stop(sprintf("Unknown analysis safety status '%s'", status), call. = FALSE)
+}
+
+
+.frozen_application_safety_record <- function(model,
+                                               application_subjects,
+                                               application_source_id) {
+  fit_source_id <- model@provenance[["fit_source_id"]] %||% NULL
+  base <- analysis_safety_record(
+    mode = "frozen_application",
+    model_fit_subjects = model@train_subjects,
+    application_subjects = application_subjects,
+    leakage_status = "declared_frozen_application",
+    extras = list(
+      fit_source_id = fit_source_id,
+      application_source_id = application_source_id
+    )
+  )
+
+  if (is.null(fit_source_id) || is.null(application_source_id)) {
+    return(base)
+  }
+
+  checks <- list(
+    distinct_source_ids = !identical(fit_source_id, application_source_id),
+    pretrained_subject_transforms = all(
+      application_subjects %in% names(model@transforms)
+    )
+  )
+  evidence <- list(
+    kind = "frozen_application",
+    fit_source_id = fit_source_id,
+    application_source_id = application_source_id,
+    model_subjects = names(model@transforms),
+    application_subjects = application_subjects
+  )
+
+  if (all(vapply(checks, isTRUE, logical(1)))) {
+    return(.verified_analysis_safety_record(
+      mode = "frozen_application",
+      model_fit_subjects = model@train_subjects,
+      application_subjects = application_subjects,
+      leakage_status = "verified_frozen_application",
+      extras = base$extras,
+      evidence = evidence,
+      checks = checks
+    ))
+  }
+
+  base$status <- "unsafe"
+  base$leakage_status <- if (!isTRUE(checks$distinct_source_ids)) {
+    "verified_source_overlap"
+  } else {
+    "application_fitted_subject_transform"
+  }
+  base$verification <- list(evidence = evidence, checks = checks)
+  base
 }
 
 

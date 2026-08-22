@@ -22,7 +22,11 @@
   returns <- aligner$capabilities$returns %||% "operator"
 
   # Resolve reference
-  ref_resolved <- .resolve_reference_spec(data, reference, train_idx)
+  ref_resolved <- .resolve_reference_spec(
+    data, reference, train_idx,
+    aligner = aligner,
+    fit_args = list(...)
+  )
 
   # Call the fit function
   fit_result <- .invoke_aligner_fit(
@@ -239,7 +243,11 @@
 
 .fit_cv_anchor_common <- function(data, aligner, reference, n_subjects, ...) {
   # For a fixed/external anchor, it's safe to store the corresponding reference_data.
-  ref_resolved <- .resolve_reference_spec(data, reference, seq_len(n_subjects))
+  ref_resolved <- .resolve_reference_spec(
+    data, reference, seq_len(n_subjects),
+    aligner = aligner,
+    fit_args = list(...)
+  )
   fit_result_all <- .invoke_aligner_fit(
     aligner = aligner,
     data = data,
@@ -265,7 +273,11 @@
 }
 
 .fit_cv_anchor_common_embedding <- function(data, aligner, reference, n_subjects, ...) {
-  ref_resolved <- .resolve_reference_spec(data, reference, seq_len(n_subjects))
+  ref_resolved <- .resolve_reference_spec(
+    data, reference, seq_len(n_subjects),
+    aligner = aligner,
+    fit_args = list(...)
+  )
   fit_result_all <- .invoke_aligner_fit(
     aligner = aligner,
     data = data,
@@ -342,7 +354,11 @@
     test_subjects <- subjects[test_idx]
 
     # Resolve reference using only training subjects
-    ref_resolved <- .resolve_reference_spec(data, reference, train_idx)
+    ref_resolved <- .resolve_reference_spec(
+      data, reference, train_idx,
+      aligner = aligner,
+      fit_args = list(...)
+    )
 
     # Fit on training subjects
     fit_result <- .invoke_aligner_fit(
@@ -598,7 +614,11 @@
     test_idx <- fold$test
     test_subjects <- subjects[test_idx]
 
-    ref_resolved <- .resolve_reference_spec(data, reference, train_idx)
+    ref_resolved <- .resolve_reference_spec(
+      data, reference, train_idx,
+      aligner = aligner,
+      fit_args = list(...)
+    )
 
     fit_result <- .invoke_aligner_fit(
       aligner = aligner,
@@ -900,14 +920,18 @@
 
 #' Internal: Resolve Reference Specification
 #' @keywords internal
-.resolve_reference_spec <- function(data, reference, train_idx) {
+.resolve_reference_spec <- function(data, reference, train_idx,
+                                    aligner = NULL, fit_args = list()) {
   subjects <- data@subjects
   train_subjects <- subjects[train_idx]
 
   if (is.character(reference) && length(reference) == 1) {
     if (reference == "medoid") {
       # Select medoid from training subjects only
-      ref_subj <- select_reference(data[train_idx], method = "medoid")
+      ref_subj <- .select_reference_for_aligner(
+        data[train_idx], method = "medoid",
+        aligner = aligner, fit_args = fit_args
+      )
       return(list(
         reference = ref_subj,
         reference_spec = ref_subj
@@ -918,7 +942,10 @@
         reference_spec = "consensus"
       ))
     } else if (reference == "centroid") {
-      ref_subj <- select_reference(data[train_idx], method = "centroid")
+      ref_subj <- .select_reference_for_aligner(
+        data[train_idx], method = "centroid",
+        aligner = aligner, fit_args = fit_args
+      )
       return(list(
         reference = ref_subj,
         reference_spec = ref_subj
@@ -945,6 +972,27 @@
   } else {
     stop("Invalid reference specification", call. = FALSE)
   }
+}
+
+
+.select_reference_for_aligner <- function(data, method, aligner, fit_args) {
+  reference_fn <- aligner$reference_fn %||% NULL
+  if (is.null(reference_fn)) {
+    return(select_reference(data, method = method))
+  }
+
+  subject <- reference_fn(data = data, method = method, fit_args = fit_args)
+  if (!is.character(subject) || length(subject) != 1L || is.na(subject) ||
+      !nzchar(subject) || !subject %in% data@subjects) {
+    stop(
+      sprintf(
+        "Aligner '%s' reference_fn must return one subject ID present in the training data",
+        aligner$name %||% "<unknown>"
+      ),
+      call. = FALSE
+    )
+  }
+  subject
 }
 
 
@@ -1150,7 +1198,11 @@
 
     # Resolve reference within this fold using only training observations.
     # This makes reference="medoid"/"centroid"/"consensus" behave correctly in obs-CV.
-    ref_resolved_fold <- .resolve_reference_spec(train_data, reference, seq_len(n_subjects))
+    ref_resolved_fold <- .resolve_reference_spec(
+      train_data, reference, seq_len(n_subjects),
+      aligner = aligner,
+      fit_args = list(...)
+    )
     reference_by_fold[[fold_name]] <- as.character(ref_resolved_fold$reference_spec)
     ref_for_fold <- ref_resolved_fold$reference
 
@@ -1239,7 +1291,11 @@
   }
 
   # Do full fit on all data for the model
-  ref_resolved <- .resolve_reference_spec(data, reference, seq_len(n_subjects))
+  ref_resolved <- .resolve_reference_spec(
+    data, reference, seq_len(n_subjects),
+    aligner = aligner,
+    fit_args = list(...)
+  )
   fit_result_all <- .invoke_aligner_fit(
     aligner = aligner,
     data = data,
@@ -1406,7 +1462,11 @@
 
     train_data <- .subset_obs(data, train_obs)
 
-    ref_resolved_fold <- .resolve_reference_spec(train_data, reference, seq_len(n_subjects))
+    ref_resolved_fold <- .resolve_reference_spec(
+      train_data, reference, seq_len(n_subjects),
+      aligner = aligner,
+      fit_args = list(...)
+    )
     reference_by_fold[[fold_name]] <- as.character(ref_resolved_fold$reference_spec)
     ref_for_fold <- ref_resolved_fold$reference
 
@@ -1478,7 +1538,11 @@
     }
   }
 
-  ref_resolved <- .resolve_reference_spec(data, reference, seq_len(n_subjects))
+  ref_resolved <- .resolve_reference_spec(
+    data, reference, seq_len(n_subjects),
+    aligner = aligner,
+    fit_args = list(...)
+  )
   fit_result_all <- .invoke_aligner_fit(
     aligner = aligner,
     data = data,

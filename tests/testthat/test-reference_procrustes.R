@@ -47,3 +47,75 @@ test_that("centroid reference selection errors when obs_labels differ", {
   expect_error(select_reference(adat, method = "centroid", distance = "procrustes"))
 })
 
+test_that("Procrustes reference distance honors the fitted operator class", {
+  set.seed(2)
+  d <- 3L
+  n <- 10L
+  A <- matrix(rnorm(d * n), d, n)
+  H <- diag(c(-1, 1, 1))
+  B <- H %*% A + matrix(rnorm(d * n, sd = 0.05), d, n)
+  C <- matrix(rnorm(d * n), d, n)
+  adat <- AlignmentData(list(A = A, B = B, C = C))
+
+  reflected <- procrustes_distance(A, H %*% A, reflection = TRUE)
+  proper <- procrustes_distance(A, H %*% A, reflection = FALSE)
+  expect_lt(reflected, 1e-10)
+  expect_gt(proper, 1)
+
+  ref_o <- select_reference(
+    adat,
+    method = "medoid",
+    distance = "procrustes",
+    distance_args = list(reflection = TRUE)
+  )
+  ref_so <- select_reference(
+    adat,
+    method = "medoid",
+    distance = "procrustes",
+    distance_args = list(reflection = FALSE)
+  )
+  expect_identical(ref_o, "A")
+  expect_identical(ref_so, "B")
+
+  fit_o <- fit_alignment(
+    adat,
+    method = "procrustes",
+    reference = "medoid",
+    reflection = TRUE,
+    compute_quality = FALSE
+  )
+  fit_so <- fit_alignment(
+    adat,
+    method = "procrustes",
+    reference = "medoid",
+    reflection = FALSE,
+    compute_quality = FALSE
+  )
+  expect_identical(get_reference_spec(get_model(fit_o)), ref_o)
+  expect_identical(get_reference_spec(get_model(fit_so)), ref_so)
+})
+
+test_that("built-in GPA escapes a cancelling arithmetic centroid", {
+  set.seed(20260822)
+  X <- matrix(rnorm(24), nrow = 3L)
+
+  fit <- neuralign:::.gpa_builtin(
+    list(a = X, b = -X),
+    scale = FALSE,
+    reflection = TRUE,
+    rank = NULL,
+    tol = 1e-10,
+    max_iter = 100L
+  )
+
+  aligned <- Map(
+    function(Q, Z) Q %*% Z,
+    fit$transforms,
+    list(a = X, b = -X)
+  )
+  expect_true(all(is.finite(fit$reference_data)))
+  expect_identical(fit$diagnostics$initialization, "procrustes_medoid")
+  expect_identical(fit$diagnostics$numerical_status, "converged")
+  expect_lt(fit$diagnostics$objective, 1e-10)
+  expect_equal(aligned$a, aligned$b, tolerance = 1e-10)
+})

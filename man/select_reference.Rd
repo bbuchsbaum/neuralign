@@ -8,7 +8,8 @@ select_reference(
   data,
   method = c("medoid", "centroid", "first", "random"),
   distance = c("correlation", "euclidean", "frobenius", "procrustes"),
-  seed = NULL
+  seed = NULL,
+  distance_args = list()
 )
 }
 \arguments{
@@ -31,6 +32,10 @@ select_reference(
 }}
 
 \item{seed}{Random seed for reproducibility (used if method="random").}
+
+\item{distance_args}{Named list of arguments for the selected distance.
+Currently this is used by \code{distance = "procrustes"} to forward options
+such as \code{scale}, \code{reflection}, and \code{rank} to \code{\link[=procrustes_distance]{procrustes_distance()}}.}
 }
 \value{
 Character string with the selected subject ID.

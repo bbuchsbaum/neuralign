@@ -13,6 +13,7 @@ align_study(
   representation = NA_character_,
   observation_data = NULL,
   subject_data = NULL,
+  application_source_id = NULL,
   materialize = TRUE,
   fit_new = TRUE,
   warn_leakage = TRUE,
@@ -38,6 +39,11 @@ when \code{orientation = "analysis"}.}
 \item{observation_data}{Optional per-subject observation tables.}
 
 \item{subject_data}{Optional subject table.}
+
+\item{application_source_id}{Optional stable identifier for the observations
+being transformed. When omitted, \code{data@metadata$source_id} is used if
+present. Together with \code{fit_source_id} retained by \code{\link[=fit_alignment]{fit_alignment()}}, this
+can verify a truly frozen application for confirmatory group inference.}
 
 \item{materialize}{Currently must be \code{TRUE} (lazy backends are reserved).}
 

@@ -13,7 +13,8 @@ register_aligner(
   description = "",
   version = "0.0.0",
   api_version = NEURALIGN_ALIGNER_API_VERSION,
-  prepare_fn = NULL
+  prepare_fn = NULL,
+  reference_fn = NULL
 )
 }
 \arguments{
@@ -44,6 +45,12 @@ this method implements. The only accepted value is
 \code{resampling_plan}, and method-specific \code{...} once, before any
 fit callback. Its return value is passed to fit callbacks as
 \code{provider_plan}.}
+
+\item{reference_fn}{Optional provider function for resolving data-driven
+reference tokens. It must accept \code{data}, \code{method}, and
+\code{fit_args}, and return one subject ID from \code{data}. This lets a
+method use the same geometry and operator policy for reference selection
+and fitting without constraining other registered methods.}
 }
 \value{
 Invisibly returns TRUE.

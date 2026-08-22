@@ -183,6 +183,102 @@ test_that("align_study analysis orientation path", {
 })
 
 
+test_that("frozen application is verified for distinct retained sources", {
+  set.seed(20260822)
+  train <- AlignmentData(
+    list(
+      s1 = matrix(rnorm(30), 6, 5),
+      s2 = matrix(rnorm(30), 6, 5)
+    ),
+    metadata = list(source_id = "movie-anchor")
+  )
+  fit <- fit_alignment(
+    train,
+    method = "procrustes",
+    reference = "s1",
+    compute_quality = FALSE
+  )
+  task <- AlignmentData(
+    list(
+      s1 = matrix(rnorm(24), 6, 4),
+      s2 = matrix(rnorm(24), 6, 4)
+    ),
+    metadata = list(source_id = "task-run")
+  )
+
+  study <- align_study(
+    fit,
+    task,
+    mode = "frozen_application",
+    warn_leakage = FALSE
+  )
+  safety <- analysis_safety(study)
+  expect_identical(safety$status, "verified_safe")
+  expect_identical(
+    safety$verification$evidence$fit_source_id,
+    "movie-anchor"
+  )
+  expect_true(all(vapply(safety$verification$checks, isTRUE, logical(1))))
+  expect_invisible(assert_analysis_safe(
+    study,
+    purpose = "confirmatory_group_inference"
+  ))
+})
+
+
+test_that("frozen application fails closed for overlapping or fitted sources", {
+  set.seed(20260823)
+  train <- AlignmentData(
+    list(
+      s1 = matrix(rnorm(30), 6, 5),
+      s2 = matrix(rnorm(30), 6, 5)
+    ),
+    metadata = list(source_id = "same-source")
+  )
+  fit <- fit_alignment(
+    train,
+    method = "procrustes",
+    reference = "s1",
+    compute_quality = FALSE
+  )
+
+  overlap <- align_study(
+    fit,
+    AlignmentData(
+      list(
+        s1 = matrix(rnorm(24), 6, 4),
+        s2 = matrix(rnorm(24), 6, 4)
+      ),
+      metadata = list(source_id = "same-source")
+    ),
+    mode = "frozen_application",
+    warn_leakage = FALSE
+  )
+  expect_identical(analysis_safety(overlap)$status, "unsafe")
+  expect_error(
+    assert_analysis_safe(overlap, purpose = "confirmatory_group_inference"),
+    "unsafe for confirmatory group inference"
+  )
+
+  fitted_on_application <- align_study(
+    fit,
+    AlignmentData(
+      list(s3 = matrix(rnorm(30), 6, 5)),
+      metadata = list(source_id = "new-task-source")
+    ),
+    mode = "frozen_application",
+    fit_new = TRUE,
+    warn_leakage = FALSE
+  )
+  expect_identical(analysis_safety(fitted_on_application)$status, "unsafe")
+  expect_false(
+    analysis_safety(fitted_on_application)$verification$checks[[
+      "pretrained_subject_transforms"
+    ]]
+  )
+})
+
+
 test_that("model application preserves fitted coordinate identity", {
   set.seed(31)
   train <- AlignmentData(list(

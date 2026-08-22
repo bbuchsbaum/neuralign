@@ -6,7 +6,8 @@
 \usage{
 assert_analysis_safe(
   aligned,
-  purpose = c("exploratory", "confirmatory_cross_subject_prediction", "within_subject"),
+  purpose = c("exploratory", "confirmatory_cross_subject_prediction",
+    "confirmatory_group_inference", "within_subject"),
   allow_declared = FALSE
 )
 }
@@ -14,7 +15,8 @@ assert_analysis_safe(
 \item{aligned}{An \link{AlignedStudy}.}
 
 \item{purpose}{One of \code{"exploratory"},
-\code{"confirmatory_cross_subject_prediction"}, \code{"within_subject"}.}
+\code{"confirmatory_cross_subject_prediction"},
+\code{"confirmatory_group_inference"}, or \code{"within_subject"}.}
 
 \item{allow_declared}{Accept declared modes without source-id proof.}
 }
