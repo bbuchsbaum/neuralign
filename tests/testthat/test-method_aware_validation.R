@@ -23,11 +23,16 @@ test_that("fit_alignment checks shared features only when required", {
     if (is.null(train_idx)) train_idx <- seq_along(data@subjects)
     train_data <- data[train_idx]
     data_list <- get_data_list(train_data)
-    transforms <- lapply(data_list, function(x) diag(nrow(x)))
+    transforms <- lapply(data_list, function(x) {
+      diag(nrow = 2L, ncol = nrow(x))
+    })
     names(transforms) <- names(data_list)
     list(
       transforms = transforms,
-      reference_data = get_subject_data(train_data, train_data@subjects[[1L]]),
+      reference_data = get_subject_data(
+        train_data,
+        train_data@subjects[[1L]]
+      )[seq_len(2L), , drop = FALSE],
       space_from = train_data@space,
       space_to = train_data@space,
       method_state = list()

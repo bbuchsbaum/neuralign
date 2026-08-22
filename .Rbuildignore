@@ -4,6 +4,8 @@
 
 # Claude/AI config
 ^\.claude$
+^\.cursor$
+^\.mote$
 ^\.omc$
 ^CLAUDE\.md$
 ^AGENTS\.md$
@@ -15,6 +17,9 @@
 ^VETTED_INTEGRATION_REPORT\.md$
 ^RELEASE\.md$
 ^API_STABILITY\.md$
+^GOAL\.md$
+^PLAN\.md$
+^scripts$
 ^tools$
 
 # Git

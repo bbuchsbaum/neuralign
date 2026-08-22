@@ -364,8 +364,9 @@ data_list <- lapply(1:3, function(i) {
 names(data_list) <- paste0("s", 1:3)
 
 # Stage 1: Procrustes with medoid reference
+adat_stage1 <- AlignmentData(data_list, space = "demo-feature-space")
 result1 <- fit_alignment(
-  AlignmentData(data_list),
+  adat_stage1,
   method = "procrustes",
   reference = "medoid"
 )
@@ -373,7 +374,10 @@ result1 <- fit_alignment(
 # Stage 2: Procrustes again with consensus (on already-aligned data)
 aligned1 <- get_aligned(result1)
 result2 <- fit_alignment(
-  AlignmentData(aligned1),
+  AlignmentData(
+    aligned1,
+    space = get_model(result1)@space_to
+  ),
   method = "procrustes",
   reference = "consensus"
 )
@@ -390,6 +394,15 @@ Before composing, verify that the models are compatible:
 ```{r check-compose}
 compat <- check_composition(model1, model2)
 compat$compatible
+compat$message
+```
+
+Here the input was assigned an explicit feature-space identity, and the second
+stage inherited the first stage's output space. Composition fails closed when
+that intermediate identity is absent or disagrees between stages.
+
+```{r check-compose-contract, include=FALSE}
+stopifnot(isTRUE(compat$compatible))
 ```
 
 ### Creating the composed model

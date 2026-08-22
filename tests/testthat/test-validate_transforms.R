@@ -40,7 +40,7 @@ test_that(".validate_operator_transforms rejects invalid transforms list", {
   # Unnamed list
   expect_error(
     neuralign:::.validate_operator_transforms(list(diag(5)), data_list, "ctx"),
-    "named list"
+    "named with subject IDs"
   )
 })
 
@@ -70,7 +70,7 @@ test_that(".validate_operator_transforms catches non-matrix transforms", {
 
   expect_error(
     neuralign:::.validate_operator_transforms(transforms, data_list, "ctx"),
-    "operator transform"
+    "not a supported operator"
   )
 })
 

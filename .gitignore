@@ -18,5 +18,5 @@ docs/
 vignettes/*.html
 vignettes/*.R
 
-# mote actor/session (ops may be committed separately)
-.mote/local/
+# Legacy local Mote store (the project tracker is beads)
+.mote/

@@ -268,20 +268,44 @@ set.seed(42)
 # 1. Create data
 adat_eval <- AlignmentData(data_list)
 
-# 2. Fit with LOSO cross-validation
-result <- fit_alignment(adat_eval, method = "procrustes", cv = "loso")
+# 2. Use a fixed template that was not estimated from any held-out subject.
+# In this simulation, it is a noisy measurement of the generating template.
+template_eval <- shared + matrix(rnorm(length(shared), sd = 0.3), p, n)
 
-# 3. Check CV metadata
+# 3. Fit with LOSO cross-validation in one fixed template space
+result <- fit_alignment(
+  adat_eval,
+  method = "procrustes",
+  reference = template_eval,
+  cv = "loso"
+)
+
+# 4. Check CV metadata and the common-anchor contract
 cv_info <- get_cv_info(result)
 cat("CV method:", cv_info$method, "\n")
 cat("Folds:", cv_info$n_folds, "\n")
+cat("Common anchor:", cv_info$anchor_common, "\n")
 
-# 4. Assess quality (aligned data is already cross-validated)
+# 5. A common anchor makes global cross-validated quality meaningful
 quality <- alignment_quality(result, original = adat_eval, metrics = "correlation")
 cat("Aligned correlation:", quality$mean_pairwise_correlation, "\n")
 cat("Original correlation:", quality$original_mean_correlation, "\n")
 cat("Improvement:", quality$correlation_improvement, "\n")
 ```
+
+```{r safe-workflow-contract, include=FALSE}
+stopifnot(
+  isTRUE(cv_info$anchor_common),
+  is.finite(quality$mean_pairwise_correlation),
+  is.finite(quality$original_mean_correlation),
+  is.finite(quality$correlation_improvement)
+)
+```
+
+If the reference is data-driven, such as `"medoid"` or `"consensus"`, its
+coordinates can differ by fold. In that case, convert the result with
+`as_aligned_resample_set()` and aggregate fold-level metrics or predictions;
+do not stack raw aligned coordinates or call `alignment_quality()` globally.
 
 ## Summary of CV functions
 

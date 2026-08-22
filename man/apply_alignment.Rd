@@ -20,7 +20,10 @@ not in the model. If FALSE, only apply to subjects already in model.}
 \item{warn_leakage}{Logical; if TRUE (default), warn when applying to
 subjects that were used in training.}
 
-\item{...}{Additional arguments passed to the aligner's apply function.}
+\item{...}{Additional arguments passed to the aligner's apply function.
+
+Fold-specific CV models (\code{reference = "fold_specific"}) cannot be applied
+as a unit; use \code{\link[=as_aligned_resample_set]{as_aligned_resample_set()}} or a retained fold model.}
 }
 \value{
 An AlignmentResult object with aligned data for the new subjects.

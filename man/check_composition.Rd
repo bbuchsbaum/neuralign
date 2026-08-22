@@ -4,12 +4,21 @@
 \alias{check_composition}
 \title{Check Composition Compatibility}
 \usage{
-check_composition(model1, model2)
+check_composition(
+  model1,
+  model2,
+  allow_unverified_spaces = FALSE,
+  allow_partial = FALSE,
+  allow_space_mismatch = FALSE
+)
 }
 \arguments{
 \item{model1}{First AlignmentModel.}
 
 \item{model2}{Second AlignmentModel.}
+
+\item{allow_unverified_spaces, allow_partial, allow_space_mismatch}{Same
+meaning as in \code{\link[=compose_alignment]{compose_alignment()}}.}
 }
 \value{
 List with \code{compatible} logical and \code{message} string.
@@ -21,6 +30,6 @@ Check if two models can be composed.
 Q <- diag(3)
 m1 <- AlignmentModel(list(s1 = Q), reference = "s1", method = "procrustes")
 m2 <- AlignmentModel(list(s1 = Q), reference = "s1", method = "procrustes")
-check_composition(m1, m2)$compatible
+check_composition(m1, m2, allow_unverified_spaces = TRUE)$compatible
 
 }

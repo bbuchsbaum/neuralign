@@ -68,6 +68,6 @@ test_that("apply_alignment refuses to fit new subjects for fold-specific anchor 
   new_subject <- make_test_alignment_data(n_subjects = 1, n_features = 10, n_obs = 10, subject_ids = "sub-04")
   expect_error(
     apply_alignment(res_cv, new_subject),
-    "fold-specific anchors"
+    "not available for fold-specific models"
   )
 })

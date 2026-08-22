@@ -75,8 +75,9 @@ in \code{result@cv_info$transforms_by_fold}. Default FALSE.}
 
 \item{return_resample_artifacts}{Logical; if TRUE for operator-returning
 subject CV, retain each fold's fitted model plus aligned analysis and
-assessment matrices. These artifacts are required to construct an
-\link{AlignedResampleSet}. Default FALSE.}
+assessment matrices. Fold-specific (no common anchor) subject CV retains
+these artifacts automatically so an \link{AlignedResampleSet} can be built.
+Default FALSE for common-anchor CV.}
 
 \item{restrict_to_identified}{Logical; if TRUE, canonicalize orthogonal
 operators so their action on the orthogonal complement of the identified

@@ -126,10 +126,9 @@ test_that("assess_leakage_risk handles AlignmentResult input", {
     method = "procrustes",
     train_subjects = c("sub-01", "sub-02")
   )
-  aligned <- list("sub-01" = matrix(1, 5, 3), "sub-02" = matrix(1, 5, 3))
   cv_info <- list(method = "loso", n_folds = 2)
 
-  result <- AlignmentResult(model = model, aligned = aligned, cv_info = cv_info)
+  result <- AlignmentResult(model = model, aligned = list(), cv_info = cv_info)
 
   # With CV, risk should be low
   risk <- assess_leakage_risk(result)
@@ -157,7 +156,7 @@ test_that("assess_leakage_risk checks method CV support", {
   cv_info <- list(method = "loso", n_folds = 1)
   result <- AlignmentResult(
     model = model,
-    aligned = list("sub-01" = diag(5)),
+    aligned = list(),
     cv_info = cv_info
   )
 

@@ -4,12 +4,31 @@
 \alias{compose_alignment}
 \title{Compose Alignment Models}
 \usage{
-compose_alignment(model1, model2)
+compose_alignment(
+  model1,
+  model2,
+  allow_unverified_spaces = FALSE,
+  allow_partial = FALSE,
+  allow_space_mismatch = FALSE,
+  subjects = NULL
+)
 }
 \arguments{
 \item{model1}{First AlignmentModel (applied first, closer to source).}
 
 \item{model2}{Second AlignmentModel (applied second, closer to target).}
+
+\item{allow_unverified_spaces}{Logical; if \code{TRUE}, compose models whose
+intermediate spaces are unknown (\code{NULL}). The result is stamped unverified.}
+
+\item{allow_partial}{Logical; if \code{TRUE}, drop subjects that are not in both
+models. Equivalent to passing \code{subjects = intersect(...)}.}
+
+\item{allow_space_mismatch}{Logical; expert override that composes models
+with known unequal intermediate spaces and stamps the result unverified.}
+
+\item{subjects}{Optional character vector of subjects to compose. Must be
+present in both models.}
 }
 \value{
 A new AlignmentModel with composed transforms.
