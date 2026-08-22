@@ -83,7 +83,8 @@ NULL
       scale = scale,
       reflection = reflection,
       rank = rank,
-      consensus = result$reference_data
+      consensus = result$reference_data,
+      gpa_diagnostics = result$diagnostics %||% NULL
     )
   )
 }
@@ -482,6 +483,11 @@ procrustes_rotation <- function(source,
 #' @param obs_labels_x Optional observation labels for `x`.
 #' @param obs_labels_y Optional observation labels for `y`.
 #' @param min_overlap Minimum number of shared labels when labels are supplied.
+#' @param scale Logical; if `TRUE`, include an optimal scale factor.
+#' @param reflection Logical; if `TRUE`, allow reflections.
+#' @param allow_reflection Alias for `reflection`.
+#' @param rank Optional truncated-SVD rank forwarded to
+#'   [procrustes_rotation()].
 #' @return Numeric scalar residual.
 #' @examples
 #' set.seed(1)
@@ -494,18 +500,68 @@ procrustes_distance <- function(x,
                                 convention = c("left", "right"),
                                 obs_labels_x = NULL,
                                 obs_labels_y = NULL,
-                                min_overlap = 2L) {
+                                min_overlap = 2L,
+                                scale = FALSE,
+                                reflection = FALSE,
+                                allow_reflection = NULL,
+                                rank = NULL) {
   res <- procrustes_rotation(
     source = x,
     target = y,
     convention = convention,
-    scale = FALSE,
-    reflection = FALSE,
+    scale = scale,
+    reflection = reflection,
+    allow_reflection = allow_reflection,
     obs_labels_source = obs_labels_x,
     obs_labels_target = obs_labels_y,
-    min_overlap = min_overlap
+    min_overlap = min_overlap,
+    rank = rank
   )
   res$residual
+}
+
+
+.procrustes_gpa_initial_consensus <- function(data_list,
+                                              scale,
+                                              reflection,
+                                              rank) {
+  centroid <- compute_centroid(data_list)
+  data_norm <- max(vapply(
+    data_list,
+    function(x) norm(as.matrix(x), "F"),
+    numeric(1)
+  ))
+  centroid_norm <- norm(as.matrix(centroid), "F")
+
+  if (!is.finite(data_norm) || !is.finite(centroid_norm)) {
+    stop("Procrustes GPA requires finite input matrices", call. = FALSE)
+  }
+  if (data_norm == 0 || centroid_norm > sqrt(.Machine$double.eps) * data_norm) {
+    return(list(
+      consensus = centroid,
+      strategy = if (data_norm == 0) "zero_data" else "centroid"
+    ))
+  }
+
+  n_subjects <- length(data_list)
+  pairwise <- matrix(0, n_subjects, n_subjects)
+  for (i in seq_len(n_subjects - 1L)) {
+    for (j in seq.int(i + 1L, n_subjects)) {
+      Q_ij <- .procrustes_single(
+        data_list[[i]], data_list[[j]],
+        scale = scale, reflection = reflection, rank = rank
+      )
+      Q_ji <- .procrustes_single(
+        data_list[[j]], data_list[[i]],
+        scale = scale, reflection = reflection, rank = rank
+      )
+      d_ij <- norm(Q_ij %*% data_list[[i]] - data_list[[j]], "F")
+      d_ji <- norm(Q_ji %*% data_list[[j]] - data_list[[i]], "F")
+      pairwise[i, j] <- pairwise[j, i] <- 0.5 * (d_ij + d_ji)
+    }
+  }
+  medoid <- which.min(rowSums(pairwise))
+  list(consensus = as.matrix(data_list[[medoid]]), strategy = "procrustes_medoid")
 }
 
 
@@ -515,11 +571,28 @@ procrustes_distance <- function(x,
   n_subjects <- length(data_list)
   subjects <- names(data_list)
 
-  # Initialize with mean
-  consensus <- compute_centroid(data_list)
+  if (!is.numeric(tol) || length(tol) != 1L || !is.finite(tol) || tol <= 0) {
+    stop("'tol' must be one positive finite number", call. = FALSE)
+  }
+  max_iter <- as.integer(max_iter)
+  if (length(max_iter) != 1L || is.na(max_iter) || max_iter < 1L) {
+    stop("'max_iter' must be a positive integer", call. = FALSE)
+  }
+
+  init <- .procrustes_gpa_initial_consensus(
+    data_list,
+    scale = scale,
+    reflection = reflection,
+    rank = rank
+  )
+  consensus <- init$consensus
+  data_scale <- max(vapply(data_list, function(x) norm(as.matrix(x), "F"), numeric(1)))
 
   transforms <- vector("list", n_subjects)
   names(transforms) <- subjects
+  history <- vector("list", max_iter)
+  converged <- FALSE
+  relative_change <- Inf
 
   for (iter in seq_len(max_iter)) {
     old_consensus <- consensus
@@ -542,16 +615,44 @@ procrustes_distance <- function(x,
     # Update consensus
     consensus <- compute_centroid(aligned)
 
+    if (any(!is.finite(consensus))) {
+      stop("Procrustes GPA produced a non-finite consensus", call. = FALSE)
+    }
+
     # Check convergence
-    diff <- norm(consensus - old_consensus, "F") / norm(old_consensus, "F")
-    if (diff < tol) {
+    denom <- max(norm(old_consensus, "F"), sqrt(.Machine$double.eps) * data_scale)
+    if (denom == 0) denom <- 1
+    relative_change <- norm(consensus - old_consensus, "F") / denom
+    objective <- sum(vapply(
+      aligned,
+      function(x) norm(x - consensus, "F")^2,
+      numeric(1)
+    ))
+    history[[iter]] <- data.frame(
+      iteration = iter,
+      objective = objective,
+      relative_change = relative_change
+    )
+    if (is.finite(relative_change) && relative_change < tol) {
+      converged <- TRUE
       break
     }
   }
 
+  history <- do.call(rbind, history[seq_len(iter)])
+
   list(
     transforms = transforms,
-    reference_data = consensus
+    reference_data = consensus,
+    diagnostics = list(
+      numerical_status = if (converged) "converged" else "maximum_iterations",
+      converged = converged,
+      iterations = iter,
+      relative_change = relative_change,
+      objective = utils::tail(history$objective, 1L),
+      initialization = init$strategy,
+      history = history
+    )
   )
 }
 
@@ -592,6 +693,45 @@ procrustes_distance <- function(x,
 )
 
 
+.procrustes_reference <- function(data, method, fit_args) {
+  arg_names <- names(fit_args) %||% character(0)
+  has_reflection <- "reflection" %in% arg_names
+  has_alias <- "allow_reflection" %in% arg_names &&
+    !is.null(fit_args[["allow_reflection"]])
+
+  reflection <- if (has_reflection) {
+    isTRUE(fit_args[["reflection"]])
+  } else {
+    FALSE
+  }
+  if (has_alias) {
+    alias <- isTRUE(fit_args[["allow_reflection"]])
+    if (has_reflection && !identical(reflection, alias)) {
+      stop(
+        "Provide only one of 'reflection' and 'allow_reflection' (and they must agree).",
+        call. = FALSE
+      )
+    }
+    reflection <- alias
+  }
+
+  distance_args <- list(
+    scale = isTRUE(fit_args[["scale"]]),
+    reflection = reflection
+  )
+  if (!is.null(fit_args[["rank"]])) {
+    distance_args$rank <- fit_args[["rank"]]
+  }
+
+  select_reference(
+    data,
+    method = method,
+    distance = "procrustes",
+    distance_args = distance_args
+  )
+}
+
+
 #' Register Procrustes Aligner
 #'
 #' Called during package load to register the Procrustes aligner.
@@ -602,6 +742,7 @@ procrustes_distance <- function(x,
     name = "procrustes",
     fit_fn = .procrustes_fit,
     apply_fn = NULL,  # Uses default left-multiply
+    reference_fn = .procrustes_reference,
     capabilities = .procrustes_capabilities,
     package = "neuralign",
     description = "Orthogonal Procrustes via GPA",

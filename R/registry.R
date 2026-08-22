@@ -56,6 +56,8 @@ NEURALIGN_ALIGNER_API_VERSION <- 2L
 #' @param fit_fn The fit function to validate.
 #' @param apply_fn Optional apply function to validate.
 #' @param prepare_fn Optional provider preflight function to validate.
+#' @param reference_fn Optional provider reference-selection function to
+#'   validate.
 #' @param capabilities Capabilities list to validate.
 #' @param api_version API version the aligner declares. neuralign accepts only
 #'   \code{NEURALIGN_ALIGNER_API_VERSION}.
@@ -97,7 +99,8 @@ validate_aligner_contract <- function(name,
                                       apply_fn = NULL,
                                       capabilities = list(),
                                       api_version = NEURALIGN_ALIGNER_API_VERSION,
-                                      prepare_fn = NULL) {
+                                      prepare_fn = NULL,
+                                      reference_fn = NULL) {
   errors <- character(0)
 
   # Check API version compatibility
@@ -142,6 +145,24 @@ validate_aligner_contract <- function(name,
         errors <- c(errors, sprintf(
           "prepare_fn missing required formals: %s",
           paste(missing_prepare, collapse = ", ")
+        ))
+      }
+    }
+  }
+
+  # Validate reference_fn signature if provided. This hook is used only to
+  # resolve data-driven reference tokens such as "medoid" and "centroid".
+  if (!is.null(reference_fn)) {
+    if (!is.function(reference_fn)) {
+      errors <- c(errors, "reference_fn must be a function or NULL")
+    } else {
+      reference_args <- names(formals(reference_fn))
+      required_reference <- c("data", "method", "fit_args")
+      missing_reference <- setdiff(required_reference, reference_args)
+      if (length(missing_reference) > 0L) {
+        errors <- c(errors, sprintf(
+          "reference_fn missing required formals: %s",
+          paste(missing_reference, collapse = ", ")
         ))
       }
     }
@@ -233,6 +254,11 @@ validate_aligner_contract <- function(name,
 #'   \code{resampling_plan}, and method-specific \code{...} once, before any
 #'   fit callback. Its return value is passed to fit callbacks as
 #'   \code{provider_plan}.
+#' @param reference_fn Optional provider function for resolving data-driven
+#'   reference tokens. It must accept \code{data}, \code{method}, and
+#'   \code{fit_args}, and return one subject ID from \code{data}. This lets a
+#'   method use the same geometry and operator policy for reference selection
+#'   and fitting without constraining other registered methods.
 #' @param capabilities Named list of capability flags. See Details.
 #' @param package Character string identifying the providing package.
 #' @param description Brief description of the method.
@@ -329,7 +355,8 @@ register_aligner <- function(name,
                              description = "",
                              version = "0.0.0",
                              api_version = NEURALIGN_ALIGNER_API_VERSION,
-                             prepare_fn = NULL) {
+                             prepare_fn = NULL,
+                             reference_fn = NULL) {
   # Validate name
   if (!is.character(name) || length(name) != 1) {
     stop("'name' must be a single character string", call. = FALSE)
@@ -341,6 +368,7 @@ register_aligner <- function(name,
     fit_fn = fit_fn,
     apply_fn = apply_fn,
     prepare_fn = prepare_fn,
+    reference_fn = reference_fn,
     capabilities = capabilities,
     api_version = api_version
   )
@@ -391,6 +419,7 @@ register_aligner <- function(name,
     fit_fn = fit_fn,
     apply_fn = apply_fn,
     prepare_fn = prepare_fn,
+    reference_fn = reference_fn,
     capabilities = capabilities,
     package = package,
     description = description,

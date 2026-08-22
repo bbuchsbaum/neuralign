@@ -10,7 +10,8 @@
   distance,
   obs_labels_x = NULL,
   obs_labels_y = NULL,
-  min_overlap = 2L
+  min_overlap = 2L,
+  distance_args = list()
 )
 }
 \arguments{
@@ -25,6 +26,8 @@
 \item{obs_labels_y}{Optional observation labels for y.}
 
 \item{min_overlap}{Minimum overlap required when labels are supplied.}
+
+\item{distance_args}{Named list forwarded to the selected distance.}
 }
 \value{
 Scalar distance.

@@ -483,7 +483,29 @@ test_that("register_aligner stores the sole supported API version", {
 
   entry <- get_aligner("api_test")
   expect_identical(entry$api_version, NEURALIGN_ALIGNER_API_VERSION)
+  expect_null(entry$reference_fn)
   unregister_aligner("api_test")
+})
+
+test_that("validate_aligner_contract validates reference selection hooks", {
+  good_fit <- function(data, reference, train_idx = NULL,
+                       fit_context = NULL, provider_plan = NULL, ...) {}
+  good_reference <- function(data, method, fit_args) data@subjects[[1L]]
+  bad_reference <- function(data, method) data@subjects[[1L]]
+
+  expect_invisible(validate_aligner_contract(
+    "reference_hook",
+    good_fit,
+    reference_fn = good_reference
+  ))
+  expect_error(
+    validate_aligner_contract(
+      "bad_reference_hook",
+      good_fit,
+      reference_fn = bad_reference
+    ),
+    "reference_fn missing required formals: fit_args"
+  )
 })
 
 test_that("NEURALIGN_ALIGNER_API_VERSION is exported and integer", {

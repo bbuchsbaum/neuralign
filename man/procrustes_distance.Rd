@@ -10,7 +10,11 @@ procrustes_distance(
   convention = c("left", "right"),
   obs_labels_x = NULL,
   obs_labels_y = NULL,
-  min_overlap = 2L
+  min_overlap = 2L,
+  scale = FALSE,
+  reflection = FALSE,
+  allow_reflection = NULL,
+  rank = NULL
 )
 }
 \arguments{
@@ -25,6 +29,15 @@ procrustes_distance(
 \item{obs_labels_y}{Optional observation labels for \code{y}.}
 
 \item{min_overlap}{Minimum number of shared labels when labels are supplied.}
+
+\item{scale}{Logical; if \code{TRUE}, include an optimal scale factor.}
+
+\item{reflection}{Logical; if \code{TRUE}, allow reflections.}
+
+\item{allow_reflection}{Alias for \code{reflection}.}
+
+\item{rank}{Optional truncated-SVD rank forwarded to
+\code{\link[=procrustes_rotation]{procrustes_rotation()}}.}
 }
 \value{
 Numeric scalar residual.

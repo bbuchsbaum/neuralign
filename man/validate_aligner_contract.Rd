@@ -10,7 +10,8 @@ validate_aligner_contract(
   apply_fn = NULL,
   capabilities = list(),
   api_version = NEURALIGN_ALIGNER_API_VERSION,
-  prepare_fn = NULL
+  prepare_fn = NULL,
+  reference_fn = NULL
 )
 }
 \arguments{
@@ -26,6 +27,9 @@ validate_aligner_contract(
 \code{NEURALIGN_ALIGNER_API_VERSION}.}
 
 \item{prepare_fn}{Optional provider preflight function to validate.}
+
+\item{reference_fn}{Optional provider reference-selection function to
+validate.}
 }
 \value{
 TRUE invisibly if valid; otherwise throws an error.

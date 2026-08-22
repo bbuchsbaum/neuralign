@@ -4,7 +4,13 @@
 \alias{.resolve_reference_spec}
 \title{Internal: Resolve Reference Specification}
 \usage{
-.resolve_reference_spec(data, reference, train_idx)
+.resolve_reference_spec(
+  data,
+  reference,
+  train_idx,
+  aligner = NULL,
+  fit_args = list()
+)
 }
 \description{
 Internal: Resolve Reference Specification

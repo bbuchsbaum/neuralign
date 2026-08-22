@@ -4,12 +4,14 @@
 \alias{.compute_distance_matrix}
 \title{Compute Distance Matrix Between Subjects}
 \usage{
-.compute_distance_matrix(data, distance)
+.compute_distance_matrix(data, distance, distance_args = list())
 }
 \arguments{
 \item{data}{AlignmentData object.}
 
 \item{distance}{Distance metric.}
+
+\item{distance_args}{Named list forwarded to the selected distance.}
 }
 \value{
 Square distance matrix.
